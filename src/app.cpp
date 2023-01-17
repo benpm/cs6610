@@ -1,9 +1,10 @@
 #include <functional>
 #include <app.hpp>
 
-App::App() {
-    glutDisplayFuncUcall((void(*)(void*))(&App::display), this);
-    glutIdleFuncUcall((void(*)(void*))(&App::idle), this);
+App::App() {}
+
+void App::init() {
+
 }
 
 void App::display() {
@@ -27,4 +28,12 @@ void App::draw() {
     glClear(GL_COLOR_BUFFER_BIT);
     glutSolidTeapot(0.5f);
     glutSwapBuffers();
+}
+
+void App::keyboard(unsigned char key, int x, int y) {
+    switch (key) {
+        case 27:
+            glutLeaveMainLoop();
+            break;
+    }
 }

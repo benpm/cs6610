@@ -15,7 +15,9 @@ class App
     
     public:
         App();
+        void init();
         void display();
         void idle();
         void draw();
+        void keyboard(unsigned char key, int x, int y);
 };
