@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iostream>
-#include <GL/freeglut.h>
+#include <spdlog/spdlog.h>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
 using namespace glm;
@@ -15,7 +16,6 @@ class App
     
     public:
         App();
-        void init();
         void display();
         void idle();
         void draw();

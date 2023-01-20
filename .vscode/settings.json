@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.shader": "glsl",
+        "*.in": "cmake",
+        "fg_gl2.h": "c",
+        "fg_internal.h": "c",
+        "math.h": "c",
+        "fg_version.h": "c",
+        "fg_callback_macros.h": "c"
+    }
+}

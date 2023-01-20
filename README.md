@@ -5,9 +5,19 @@ Interactive computer graphics project assignments
 All dependencies built via CMake sorcery
 
 ### Linux
+You might need to install a couple packages:
+- `libxinerama-dev`
+- `libglu1-mesa-dev`
+- `libxi-dev`
+
 ```bash
 mkdir build && cd build && cmake .. && make -j
 ```
 
 ### Windows
-TBD
+Open project as a CMake project, click "Build All", and hope for the best
+
+## Credit
+- GLFW
+- glm
+- 

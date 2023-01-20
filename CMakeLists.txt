@@ -5,7 +5,11 @@ include_directories(src)
 include_directories(include)
 
 include(cmake/glm.cmake.in)
-include(cmake/freeglut.cmake.in)
+include(cmake/glfw.cmake.in)
+include(cmake/spdlog.cmake.in)
+
+find_package(OpenGL REQUIRED)
+include_directories(${OPENGL_INCLUDE_DIR})
 
 add_executable(
     CS6610 
@@ -32,4 +36,4 @@ else()
     target_compile_options(CS6610 PRIVATE -Wall)
 endif()
 
-target_link_libraries(CS6610 freeglut glm)
+target_link_libraries(CS6610 glfw glm ${OPENGL_LIBRARIES} spdlog)
