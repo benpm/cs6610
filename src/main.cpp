@@ -13,13 +13,8 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // Init GLFW window
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "CS6610", NULL, NULL);
-    if (!window) {
-        spdlog::error("Could not open GLFW window");
-        return -1;
-    }
-    glfwMakeContextCurrent(window);
+    App app;
+    glfwMakeContextCurrent(app.window);
 
     // Get and display version information
 	std::string renderer((char*)glGetString(GL_RENDERER));
@@ -29,26 +24,6 @@ int main(int argc, char const *argv[])
     spdlog::info("Max texture size: {}", GL_MAX_TEXTURE_SIZE);
     
     // Render loop
-	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS
-        && !glfwWindowShouldClose(window))
-    {
-        float t = glfwGetTime();
-        vec3 clearColor(std::sin(t * 0.7), std::cos(t * 0.9), std::cos(t * 0.67));
-        glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        
-
-        GLenum err = glGetError();
-        if (err) {
-            spdlog::error("OpenGL error: {}", err);
-            break;
-        }
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-
-    glfwTerminate();
+	app.run();
     return 0;
 }

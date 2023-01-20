@@ -13,11 +13,50 @@ class App
         const float framePeriod = 1.0f / this->frameRate;
         float t = 0.0f;
         float lastFrameTime = 0.0f;
+        vec2 mousePos = vec2(0.0f, 0.0f);
     
     public:
+        GLFWwindow* window;
+
         App();
-        void display();
+        ~App();
+
+        /**
+         * @brief Handle key events from GLFW
+         * 
+         * @param key Some GLFW key code
+         * @param pressed True if pressed, false if released
+         */
+        void onKey(int key, bool pressed);
+
+        /**
+         * @brief Handle mouse button events from GLFW
+         * 
+         * @param button 
+         * @param pressed True if pressed, false if released
+         */
+        void onClick(int button, bool pressed);
+
+        /**
+         * @brief Called on window resize
+         * 
+         * @param width 
+         * @param height 
+         */
+        void onResize(int width, int height);
+
+        /**
+         * @brief Called between frames if there is time to spare
+         */
         void idle();
+
+        /**
+         * @brief Main entry
+         */
+        void run();
+
+        /**
+         * @brief Draw the scene
+         */
         void draw();
-        void keyboard(unsigned char key, int x, int y);
 };
