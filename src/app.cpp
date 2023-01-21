@@ -9,6 +9,7 @@ App::App() {
         spdlog::error("Could not open GLFW window");
         exit(-1);
     }
+    gleqTrackWindow(this->window);
 }
 
 App::~App() {
@@ -17,6 +18,7 @@ App::~App() {
 
 void App::onKey(int key, bool pressed) {
     if (pressed) {
+        this->pressedKeys.emplace(key);
         switch (key) {
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(this->window, GL_TRUE);
@@ -25,6 +27,7 @@ void App::onKey(int key, bool pressed) {
                 break;
         }
     } else {
+        this->pressedKeys.erase(key);
         switch (key) {
             default:
                 break;
@@ -34,14 +37,15 @@ void App::onKey(int key, bool pressed) {
 
 void App::onResize(int width, int height) {
     glViewport(0, 0, width, height);
+    this->windowSize = {width, height};
+    spdlog::debug("Resized window to {},{}", width, height);
 }
 
 void App::onClick(int button, bool pressed) {
 }
 
 void App::run() {
-    while (!glfwWindowShouldClose(this->window))
-    {
+    while (!glfwWindowShouldClose(this->window)) {
         // Handle GLFW events (100 gleqs)
         GLEQevent event;
         while (gleqNextEvent(&event)) {

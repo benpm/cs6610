@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include <unordered_set>
 #include <spdlog/spdlog.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -14,6 +15,8 @@ class App
         float t = 0.0f;
         float lastFrameTime = 0.0f;
         vec2 mousePos = vec2(0.0f, 0.0f);
+        ivec2 windowSize = vec2(0, 0);
+        std::unordered_set<int> pressedKeys;
     
     public:
         GLFWwindow* window;
