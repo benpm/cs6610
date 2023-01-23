@@ -34,10 +34,10 @@ App::App() {
         {1.0f, -1.0f, 0.0f},
         {0.0f, 1.0f, 0.0f}
     };
-    const vec3 colors[] = {
-        {1.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f}
+    const vec4 colors[] = {
+        {1.0f, 0.0f, 0.0f, 1.0f},
+        {0.0f, 1.0f, 0.0f, 1.0f},
+        {0.0f, 0.0f, 1.0f, 1.0f}
     };
 
     // Create and bind VAO
