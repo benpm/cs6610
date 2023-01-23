@@ -21,8 +21,6 @@ int main(int argc, char const *argv[])
     gleqInit();
 
     App app;
-    glfwMakeContextCurrent(app.window);
-    glfwSwapInterval(1);
 
     // Get and display version information
 	std::string renderer((char*)glGetString(GL_RENDERER));

@@ -13,9 +13,18 @@ App::App() {
         exit(-1);
     }
     gleqTrackWindow(this->window);
+    glfwMakeContextCurrent(this->window);
 
+    // Init glad
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        spdlog::error("Failed to initialize GLAD");
+    }
+
+    glfwSwapInterval(1);
     // Build and bind shader program
-    bool built = this->prog.BuildFiles("shaders/basic.vert", "shaders/basic.frag");
+    bool built = this->prog.BuildFiles(
+        "resources/shaders/basic.vert",
+        "resources/shaders/basic.frag");
     assert(built);
     this->prog.Bind();
 
@@ -31,6 +40,7 @@ App::App() {
         {0.0f, 0.0f, 1.0f}
     };
 
+    // Create and bind VAO
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -43,13 +53,13 @@ App::App() {
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
     glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors);
 
-    // Attach VBO to vPos
+    // Attach vertex attributes
     GLuint attrib_vPos = glGetAttribLocation(this->prog.GetID(), "vPos");
     glEnableVertexAttribArray(attrib_vPos);
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)sizeof(vertices));
+    GLuint attrib_vColor = glGetAttribLocation(this->prog.GetID(), "vColor");
+    glEnableVertexAttribArray(attrib_vColor);
+    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, 0, (void*)sizeof(vertices));
 }
 
 App::~App() {
@@ -137,12 +147,5 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-
     glDrawArrays(GL_TRIANGLES, 0, 3);
-
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
-
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
 }
