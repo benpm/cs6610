@@ -1,15 +1,55 @@
+#include <cassert>
 #include <functional>
 #include <app.hpp>
 #define GLEQ_IMPLEMENTATION
 #include <gleq.h>
 
 App::App() {
+    // Initialize GLFW and Gleq
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     this->window = glfwCreateWindow(1280, 720, "CS6610", NULL, NULL);
     if (!this->window) {
         spdlog::error("Could not open GLFW window");
         exit(-1);
     }
     gleqTrackWindow(this->window);
+
+    // Build and bind shader program
+    bool built = this->prog.BuildFiles("shaders/basic.vert", "shaders/basic.frag");
+    assert(built);
+    this->prog.Bind();
+
+
+    const vec3 vertices[] = {
+        {-1.0f, -1.0f, 0.0f},
+        {1.0f, -1.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f}
+    };
+    const vec3 colors[] = {
+        {1.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f},
+        {0.0f, 0.0f, 1.0f}
+    };
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    // Create VBO for vertices
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(colors), NULL, GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors);
+
+    // Attach VBO to vPos
+    GLuint attrib_vPos = glGetAttribLocation(this->prog.GetID(), "vPos");
+    glEnableVertexAttribArray(attrib_vPos);
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)sizeof(vertices));
 }
 
 App::~App() {
@@ -62,6 +102,9 @@ void App::run() {
                 case GLEQ_FRAMEBUFFER_RESIZED:
                     this->onResize(event.size.width, event.size.height);
                     break;
+                case GLEQ_WINDOW_MOVED:
+                    this->lastFrameTime = this->t;
+                    break;
                 case GLEQ_BUTTON_PRESSED:
                     this->onClick(event.mouse.button, true);
                     break;
@@ -74,27 +117,32 @@ void App::run() {
 
             gleqFreeEvent(&event);
         }
+        glfwPollEvents();
 
         // Wait until next frame
         this->t = glfwGetTime();
-        if (this->t - this->lastFrameTime >= this->framePeriod) {
-            this->lastFrameTime = this->t;
-        } else {
-            this->idle();
-        }
+        const float dt = this->t - this->lastFrameTime;
+        this->lastFrameTime = glfwGetTime();
 
         // Draw the scene
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        this->draw();
+        this->draw(dt);
+        this->idle();
         glfwSwapBuffers(this->window);
-        glfwPollEvents();
     }
 }
 
 void App::idle() {
 }
 
-void App::draw() {
+void App::draw(float dt) {
 
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
 }

@@ -8,32 +8,37 @@ include(cmake/glm.cmake.in)
 include(cmake/glfw.cmake.in)
 include(cmake/spdlog.cmake.in)
 
+set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
 
 add_executable(
-    CS6610 
+    app 
     src/main.cpp
     src/app.cpp
+    src/glad.c
 )
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     message(STATUS "Clang detected, adding compile flags")
-    target_compile_options(CS6610 PRIVATE -Wall -Wno-c++98-compat -Wno-reserved-id-macro)
-    target_compile_features(CS6610 PRIVATE cxx_std_17)
+    target_compile_options(app PRIVATE -Wall -Wno-c++98-compat -Wno-reserved-id-macro)
+    target_compile_features(app PRIVATE cxx_std_17)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message(STATUS "GCC detected, adding compile flags")
-    target_compile_options(CS6610 PRIVATE -Wall)
-    target_compile_features(CS6610 PRIVATE cxx_std_17)
+    target_compile_options(app PRIVATE -Wall)
+    target_compile_features(app PRIVATE cxx_std_17)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     message(STATUS "msvc detected, adding compile flags")
-    target_compile_options(CS6610 PRIVATE  /std:c++latest /EHsc)
+    target_compile_options(app PRIVATE  /std:c++latest /EHsc)
 else()
     message(STATUS "Could not determine compiler: ${CMAKE_CXX_COMPILER_ID}" )
-    target_compile_features(CS6610 PRIVATE cxx_std_17)
-    target_compile_options(CS6610 PRIVATE -Wall)
+    target_compile_features(app PRIVATE cxx_std_17)
+    target_compile_options(app PRIVATE -Wall)
 endif()
 
-target_link_libraries(CS6610 glfw glm ${OPENGL_LIBRARIES} spdlog)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+target_link_libraries(app glfw glm ${OPENGL_LIBRARIES} spdlog)

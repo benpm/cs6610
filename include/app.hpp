@@ -1,8 +1,12 @@
+#pragma once
+
 #include <cmath>
 #include <iostream>
 #include <unordered_set>
 #include <spdlog/spdlog.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <cyGL.h>
 #include <glm/glm.hpp>
 
 using namespace glm;
@@ -17,6 +21,7 @@ class App
         vec2 mousePos = vec2(0.0f, 0.0f);
         ivec2 windowSize = vec2(0, 0);
         std::unordered_set<int> pressedKeys;
+        cyGLSLProgram prog;
     
     public:
         GLFWwindow* window;
@@ -61,5 +66,5 @@ class App
         /**
          * @brief Draw the scene
          */
-        void draw();
+        void draw(float dt);
 };

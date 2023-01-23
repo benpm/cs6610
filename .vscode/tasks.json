@@ -18,6 +18,14 @@
 				"kind": "build",
 				"isDefault": true
 			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": true
+			},
 			"detail": "compiler: /usr/bin/g++"
 		}
 	]

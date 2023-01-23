@@ -1,8 +1,7 @@
 # CS 6610
-Interactive computer graphics project assignments
+Interactive Computer Graphics project assignments!
 
 ## Building
-All dependencies built via CMake sorcery
 
 ### Linux
 You might need to install a couple packages:
@@ -10,6 +9,7 @@ You might need to install a couple packages:
 - `libglu1-mesa-dev`
 - `libxi-dev`
 
+Then let CMake handle the rest:
 ```bash
 mkdir build && cd build && cmake .. && make -j
 ```
@@ -17,8 +17,15 @@ mkdir build && cd build && cmake .. && make -j
 ### Windows
 Open project as a CMake project, click "Build All", and hope for the best
 
-## Credits
-- GLFW
-- glm
+## Running
+`./build/app` or `.\build\app.exe`
+
+## Dependencies
+These dependencies are either included or managed by CMake and built locally:
+
+- [GLFW](https://github.com/glfw/glfw)
+- [glm](https://github.com/g-truc/glm)
 - [gleq](https://github.com/glfw/gleq)
 - [cyCodeBase](http://www.cemyuksel.com/cyCodeBase/code.html)
+- [spdlog](https://github.com/gabime/spdlog)
+- glad

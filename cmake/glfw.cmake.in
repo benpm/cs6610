@@ -8,5 +8,8 @@ FetchContent_Populate(
   SOURCE_DIR      glfw
 )
 
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Build the GLFW example programs" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "Build the GLFW test programs" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "Build the GLFW documentation" FORCE)
 add_subdirectory(${glfw_proj_SOURCE_DIR} ${glfw_proj_SOURCE_DIR}/build)
 include_directories(${glfw_proj_SOURCE_DIR}/include/)

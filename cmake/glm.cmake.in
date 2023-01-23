@@ -8,5 +8,6 @@ FetchContent_Populate(
   SOURCE_DIR      glm
 )
 
+set(GLM_TEST_ENABLE OFF CACHE BOOL "Disable glm tests" FORCE)
 add_subdirectory(${glm_proj_SOURCE_DIR} ${glm_proj_SOURCE_DIR}/build)
 include_directories(${glm_proj_SOURCE_DIR}/include/)
