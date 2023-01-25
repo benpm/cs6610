@@ -27,6 +27,7 @@ App::App() {
         "resources/shaders/basic.frag");
     assert(built);
     this->prog.Bind();
+    this->prog.SetUniformMatrix4("uMVP");
 
 
     const vec3 vertices[] = {
@@ -54,10 +55,10 @@ App::App() {
     glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors);
 
     // Attach vertex attributes
-    GLuint attrib_vPos = glGetAttribLocation(this->prog.GetID(), "vPos");
+    GLuint attrib_vPos = this->prog.AttribLocation("vPos");
     glEnableVertexAttribArray(attrib_vPos);
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    GLuint attrib_vColor = glGetAttribLocation(this->prog.GetID(), "vColor");
+    GLuint attrib_vColor = this->prog.AttribLocation("vColor");
     glEnableVertexAttribArray(attrib_vColor);
     glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, 0, (void*)sizeof(vertices));
 }

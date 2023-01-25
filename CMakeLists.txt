@@ -16,6 +16,7 @@ add_executable(
     app 
     src/main.cpp
     src/app.cpp
+    src/camera.cpp
     src/glad.c
 )
 
