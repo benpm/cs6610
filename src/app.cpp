@@ -7,7 +7,9 @@
 App::App() {
     // Initialize GLFW and Gleq
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    this->window = glfwCreateWindow(1280, 720, "CS6610", NULL, NULL);
+    this->window = glfwCreateWindow(
+        this->windowSize.x(),
+        this->windowSize.y(), "CS6610", NULL, NULL);
     if (!this->window) {
         spdlog::error("Could not open GLFW window");
         exit(-1);
@@ -28,22 +30,17 @@ App::App() {
     assert(built);
     this->prog.Bind();
 
-    // Set up MVP matrix
-    mat4 proj = projection(1280.0f / 720.0f, 45.0f, 0.1f, 100.0f);
-    // this->prog.SetUniform("proj", , proj.length());
-
-
-    const vec3 vertices[] = {
-        {-1.0f, -1.0f, 0.0f},
-        {1.0f, -1.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f}
+    const Vector3f vertices[] = {
+        {-1.0f, -1.0f, -5.0f},
+        {1.0f, -1.0f, -5.0f},
+        {0.0f, 1.0f, -5.0f}
     };
-    const vec4 colors[] = {
+    const Vector4f colors[] = {
         {1.0f, 0.0f, 0.0f, 1.0f},
         {0.0f, 1.0f, 0.0f, 1.0f},
         {0.0f, 0.0f, 1.0f, 1.0f}
     };
-
+    
     // Create and bind VAO
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -151,5 +148,10 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
+
+    // Set up MVP matrix
+    const Matrix4f proj = this->camera.projection(this->windowSize.cast<float>());
+    this->prog.SetUniformMatrix4("uMVP", proj.data());
+    
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }

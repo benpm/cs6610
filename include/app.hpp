@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cmath>
-#include <Eigen/Dense>
 #include <iostream>
 #include <unordered_set>
+#include <camera.hpp>
 #include <spdlog/spdlog.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -16,8 +16,9 @@ class App
         const float framePeriod = 1.0f / this->frameRate;
         float t = 0.0f;
         float lastFrameTime = 0.0f;
-        vec2 mousePos = vec2(0.0f, 0.0f);
-        ivec2 windowSize = vec2(0, 0);
+        Vector2f mousePos = {0.0f, 0.0f};
+        Vector2i windowSize = {1280, 720};
+        Camera camera = {Vector3f::Zero(), Vector3f::Zero(), 0.1f, 100.0f, 45.0f};
         std::unordered_set<int> pressedKeys;
         cyGLSLProgram prog;
     

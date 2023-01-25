@@ -17,6 +17,7 @@ add_executable(
     src/main.cpp
     src/app.cpp
     src/camera.cpp
+    src/extmath.cpp
     src/glad.c
 )
 
@@ -42,4 +43,4 @@ endif()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-target_link_libraries(app glfw glm ${OPENGL_LIBRARIES} spdlog)
+target_link_libraries(app glfw ${OPENGL_LIBRARIES} spdlog)
