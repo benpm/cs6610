@@ -1,15 +1,13 @@
 #pragma once
 
 #include <cmath>
+#include <Eigen/Dense>
 #include <iostream>
 #include <unordered_set>
 #include <spdlog/spdlog.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <cyGL.h>
-#include <glm/glm.hpp>
-
-using namespace glm;
 
 class App
 {

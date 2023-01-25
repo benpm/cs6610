@@ -1,8 +1,8 @@
 #include <camera.hpp>
 
-Camera::Camera(fvec3 pos, fvec3 dir, float near, float far) :
-    pos(pos), dir(dir), near(near), far(far) {}
+Camera::Camera(Vector3f pos, Vector3f rot, float near, float far, float fov) :
+    pos(pos), rot(rot), near(near), far(far), fov(fov) {}
 
-const mat4x4 Camera::matrix() {
-    return 
+const Matrix4f Camera::matrix() {
+    return Matrix4f::Identity();
 }

@@ -2,8 +2,6 @@
 #include <gleq.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#define _glfwErr if (auto err = glGetError(); err != GL_NO_ERROR) { spdlog::error("GLFW error: {}", err); }
-
 int main(int argc, char const *argv[])
 {
     // Setup logging

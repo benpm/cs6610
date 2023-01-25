@@ -1,18 +1,19 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <Eigen/Dense>
 
-using namespace glm;
+using namespace Eigen;
 
 class Camera
 {
 private:
-    fvec3 pos;
-    fvec3 dir;
+    Vector3f pos;
+    Vector3f rot;
     float near;
     float far;
+    float fov;
 public:
-    Camera(fvec3 pos, fvec3 dir, float near, float far);
+    Camera(Vector3f pos, Vector3f rot, float near, float far, float fov);
 
-    const mat4x4 matrix();
+    const Matrix4f matrix();
 };

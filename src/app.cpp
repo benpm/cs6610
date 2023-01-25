@@ -27,7 +27,10 @@ App::App() {
         "resources/shaders/basic.frag");
     assert(built);
     this->prog.Bind();
-    this->prog.SetUniformMatrix4("uMVP");
+
+    // Set up MVP matrix
+    mat4 proj = projection(1280.0f / 720.0f, 45.0f, 0.1f, 100.0f);
+    // this->prog.SetUniform("proj", , proj.length());
 
 
     const vec3 vertices[] = {

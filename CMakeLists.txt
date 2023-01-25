@@ -4,7 +4,7 @@ project (CS6610)
 include_directories(src)
 include_directories(include)
 
-include(cmake/glm.cmake.in)
+include(cmake/eigen.cmake.in)
 include(cmake/glfw.cmake.in)
 include(cmake/spdlog.cmake.in)
 
