@@ -6,6 +6,7 @@
         "fg_internal.h": "c",
         "math.h": "c",
         "fg_version.h": "c",
-        "fg_callback_macros.h": "c"
+        "fg_callback_macros.h": "c",
+        "dense": "cpp"
     }
 }

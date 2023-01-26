@@ -29,38 +29,13 @@ App::App() {
         "resources/shaders/basic.frag");
     assert(built);
     this->prog.Bind();
-
-    const Vector3f vertices[] = {
-        {-1.0f, -1.0f, -5.0f},
-        {1.0f, -1.0f, -5.0f},
-        {0.0f, 1.0f, -5.0f}
-    };
-    const Vector4f colors[] = {
-        {1.0f, 0.0f, 0.0f, 1.0f},
-        {0.0f, 1.0f, 0.0f, 1.0f},
-        {0.0f, 0.0f, 1.0f, 1.0f}
-    };
     
     // Create and bind VAO
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    // Create VBO for vertices
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(colors), NULL, GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-    glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors);
-
-    // Attach vertex attributes
-    GLuint attrib_vPos = this->prog.AttribLocation("vPos");
-    glEnableVertexAttribArray(attrib_vPos);
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    GLuint attrib_vColor = this->prog.AttribLocation("vColor");
-    glEnableVertexAttribArray(attrib_vColor);
-    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, 0, (void*)sizeof(vertices));
+    models.emplace_back("resources/models/teapot.obj", this->prog);
 }
 
 App::~App() {
@@ -153,5 +128,7 @@ void App::draw(float dt) {
     const Matrix4f proj = this->camera.projection(this->windowSize.cast<float>());
     this->prog.SetUniformMatrix4("uMVP", proj.data());
     
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    for (const Model& model : this->models) {
+        model.draw();
+    }
 }

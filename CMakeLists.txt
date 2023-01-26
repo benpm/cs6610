@@ -12,14 +12,9 @@ set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
 
-add_executable(
-    app 
-    src/main.cpp
-    src/app.cpp
-    src/camera.cpp
-    src/extmath.cpp
-    src/glad.c
-)
+file(GLOB_RECURSE SOURCES src/*.cpp src/*.c)
+
+add_executable(app ${SOURCES})
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 

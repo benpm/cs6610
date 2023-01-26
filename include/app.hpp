@@ -3,11 +3,13 @@
 #include <cmath>
 #include <iostream>
 #include <unordered_set>
+#include <vector>
 #include <camera.hpp>
 #include <spdlog/spdlog.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <cyGL.h>
+#include <model.hpp>
 
 class App
 {
@@ -21,7 +23,7 @@ class App
         Camera camera = {Vector3f::Zero(), Vector3f::Zero(), 0.1f, 100.0f, 45.0f};
         std::unordered_set<int> pressedKeys;
         cyGLSLProgram prog;
-    
+        std::vector<Model> models;
     public:
         GLFWwindow* window;
 
