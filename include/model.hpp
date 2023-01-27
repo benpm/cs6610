@@ -17,5 +17,8 @@ public:
 
     Model(const char* filename, const cyGLSLProgram& prog);
 
+    // Returns transformation matrix for this model's current transform
+    Matrix4f transform() const;
+    // Binds my VBO and draws
     void draw() const;
 };

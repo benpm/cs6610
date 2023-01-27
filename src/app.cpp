@@ -35,6 +35,8 @@ App::App() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
+    this->camera.pos.z() = 50.0f;
+
     models.emplace_back("resources/models/teapot.obj", this->prog);
 }
 
@@ -125,8 +127,8 @@ void App::idle() {
 void App::draw(float dt) {
 
     // Set up MVP matrix
-    const Matrix4f proj = this->camera.projection(this->windowSize.cast<float>());
-    this->prog.SetUniformMatrix4("uMVP", proj.data());
+    const Matrix4f mvp = this->camera.matrix(this->windowSize.cast<float>());
+    this->prog.SetUniformMatrix4("uMVP", mvp.data());
     
     for (const Model& model : this->models) {
         model.draw();

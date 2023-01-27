@@ -1,13 +1,13 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <spdlog/fmt/bundled/format.h>
 
 using namespace Eigen;
 
-
-template<>
-struct fmt::formatter<Matrix4f> {
+// fmt overload for Matrix4f
+template<> struct fmt::formatter<Matrix4f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
@@ -24,5 +24,14 @@ struct fmt::formatter<Matrix4f> {
     }
 };
 
+/**
+ * @brief Creates a view matrix from the given eye, center, and up vectors
+ * 
+ * @param eye A vector representing the camera's position
+ * @param center A vector representing the point the camera is looking at
+ * @param up A vector representing the camera's up direction
+ * @return Transformation matrix
+ */
+Matrix4f lookAt(Vector3f eye, Vector3f center, Vector3f up);
 Matrix4f perspective(float fov, float aspect, float near, float far);
 Matrix4f orthographic(Vector2f size, float near, float far);
