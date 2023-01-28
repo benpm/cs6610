@@ -43,7 +43,8 @@ App::App() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    models.emplace_back("resources/models/teapot.obj", this->prog);
+    Model& teapot = models.emplace_back("resources/models/teapot.obj", this->prog);
+    teapot.scale *= 0.01f;
 }
 
 App::~App() {
@@ -136,10 +137,10 @@ void App::draw(float dt) {
     this->camera.pos.y() = std::sin(this->t * 0.25f) * 0.25f;
 
     // Set up MVP matrix
-    const Matrix4f mvp = this->camera.matrix(this->windowSize.cast<float>());
-    this->prog.SetUniformMatrix4("uMVP", mvp.data());
+    const Matrix4f tProjView = this->camera.transform(this->windowSize.cast<float>());
+    this->prog.SetUniformMatrix4("uTProjView", tProjView.data());
     
     for (const Model& model : this->models) {
-        model.draw();
+        model.draw(this->prog);
     }
 }

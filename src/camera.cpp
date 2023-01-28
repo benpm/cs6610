@@ -8,6 +8,6 @@ const Matrix4f Camera::view() const {
 
 }
 
-const Matrix4f Camera::matrix(Vector2f viewsize) const {
+const Matrix4f Camera::transform(Vector2f viewsize) const {
     return perspective(fov, viewsize.x() / viewsize.y(), near, far) * this->view();
 }

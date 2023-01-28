@@ -10,6 +10,16 @@
         "dense": "cpp",
         "fft": "cpp",
         "openglsupport": "cpp",
-        "numeric": "cpp"
+        "numeric": "cpp",
+        "core": "cpp",
+        "iterativelinearsolvers": "cpp",
+        "lu": "cpp",
+        "orderingmethods": "cpp",
+        "sparsecore": "cpp",
+        "sparseqr": "cpp",
+        "mprealsupport": "cpp",
+        "matrixfunctions": "cpp",
+        "polynomials": "cpp",
+        "random": "cpp"
     }
 }
