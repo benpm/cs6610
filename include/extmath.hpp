@@ -24,6 +24,8 @@ template<> struct fmt::formatter<Matrix4f> {
     }
 };
 
+Matrix4f eulerRot(const Vector3f& euler);
+
 /**
  * @brief Creates a view matrix from the given eye, center, and up vectors
  * 
@@ -32,6 +34,6 @@ template<> struct fmt::formatter<Matrix4f> {
  * @param up A vector representing the camera's up direction
  * @return Transformation matrix
  */
-Matrix4f lookAt(Vector3f eye, Vector3f center, Vector3f up);
+Matrix4f lookAt(const Vector3f& eye, const Vector3f& center, const Vector3f& up);
 Matrix4f perspective(float fov, float aspect, float near, float far);
-Matrix4f orthographic(Vector2f size, float near, float far);
+Matrix4f orthographic(const Vector2f& size, float near, float far);

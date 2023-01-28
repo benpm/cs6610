@@ -23,6 +23,14 @@ App::App() {
     }
 
     glfwSwapInterval(1);
+
+    // OpenGL config
+    glPointSize(3.0f);
+    glEnable(GL_POINT_SMOOTH);
+    // glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // Build and bind shader program
     bool built = this->prog.BuildFiles(
         "resources/shaders/basic.vert",
@@ -34,8 +42,6 @@ App::App() {
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-
-    this->camera.pos.z() = 50.0f;
 
     models.emplace_back("resources/models/teapot.obj", this->prog);
 }
@@ -125,6 +131,8 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
+    this->camera.pos.x() = std::cos(this->t);
+    this->camera.pos.y() = std::sin(this->t);
 
     // Set up MVP matrix
     const Matrix4f mvp = this->camera.matrix(this->windowSize.cast<float>());

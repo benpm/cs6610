@@ -1,6 +1,14 @@
 #include <extmath.hpp>
 
-Matrix4f lookAt(Vector3f eye, Vector3f center, Vector3f up) {
+Matrix4f eulerRot(const Vector3f& euler) {
+    return Transform(Affine3f(
+        AngleAxisf(euler.x(), Vector3f::UnitX()) *
+        AngleAxisf(euler.y(), Vector3f::UnitY()) *
+        AngleAxisf(euler.z(), Vector3f::UnitZ())
+    )).matrix();
+}
+
+Matrix4f lookAt(const Vector3f& eye, const Vector3f& center, const Vector3f& up) {
     const Vector3f f = (center - eye).normalized();
     const Vector3f s = f.cross(up).normalized();
     const Vector3f u = s.cross(f);
@@ -31,7 +39,7 @@ Matrix4f perspective(float fov, float aspect, float near, float far) {
     return m;
 }
 
-Matrix4f orthographic(Vector2f size, float near, float far) {
+Matrix4f orthographic(const Vector2f& size, float near, float far) {
     Matrix4f m = Matrix4f::Identity();
     m(0, 0) = 2.0f / size.x();
     m(1, 1) = 2.0f / size.y();

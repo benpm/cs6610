@@ -7,7 +7,7 @@ Model::Model(const char* filename, const cyGLSLProgram& prog) {
     const uint n = mesh.NV() * sizeof(cy::Vec3f);
 
     for (uint i = 0; i < mesh.NV(); i++) {
-        mesh.V(i) = mesh.V(i) * 0.1f;
+        mesh.V(i) = mesh.V(i) * 0.01f - cy::Vec3f(0.0f, 0.0f, 0.5f);
     }
     
     // Create VBO for vertices
