@@ -131,8 +131,9 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-    this->camera.pos.x() = std::cos(this->t);
-    this->camera.pos.y() = std::sin(this->t);
+    this->camera.pos.z() = 1.0f;
+    this->camera.pos.x() = std::cos(this->t * 0.25f) * 0.25f;
+    this->camera.pos.y() = std::sin(this->t * 0.25f) * 0.25f;
 
     // Set up MVP matrix
     const Matrix4f mvp = this->camera.matrix(this->windowSize.cast<float>());
