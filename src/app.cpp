@@ -48,7 +48,7 @@ App::App() {
     this->models.push_back(this->teapot);
     this->teapot->scale *= 0.075f;
     this->teapot->pivot.x() = 0.0f;
-    this->teapot->rot.x() = tau * (3.0f / 4.0f);
+    this->teapot->rot.x() = tau4 * 3.0f;
 
     this->camera.orbitSetDistance(4.0f);
     this->camera.orbitSetTarget({0.0f, 0.0f, 0.0f});
@@ -90,6 +90,7 @@ void App::onClick(int button, bool pressed) {
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
+            this->camera.orbitPanStart();
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
@@ -160,14 +161,11 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-    const float z = this->t / 6.0f;
-    if (z < 1.0f) {
-        this->camera.orbitSetTheta((z / 1.0f) * tau4);
-    } else {
-        this->camera.rot.y() = ((z / 1.0f) - 1.0f) * tau4 + tau4;
+    if (this->mouseLeft) {
+        const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
+        const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
+        this->camera.orbitPan({panDelta.x(), -panDelta.y()});
     }
-    this->camera.orbitSetTheta(tau4 / 2.0f);
-    this->camera.orbitSetPhi(this->t * 0.25f);
 
     // Set up MVP matrix
     const Matrix4f tProjView = this->camera.getTransform(this->windowSize.cast<float>());

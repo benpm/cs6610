@@ -5,7 +5,19 @@ void Camera::orbit() {
     this->rot = {this->theta, -this->phi, 0.0f};
 }
 
-void Camera::orbitSetTarget(Vector3f target) {
+void Camera::orbitPanStart() {
+    this->panStartTheta = this->theta;
+    this->panStartPhi = this->phi;
+}
+
+void Camera::orbitPan(Vector2f delta) {
+    this->theta = this->panStartTheta + delta.y();
+    this->phi = this->panStartPhi + delta.x();
+    this->orbit();
+}
+
+void Camera::orbitSetTarget(Vector3f target)
+{
     this->mode = Mode::orbit;
     this->target = target;
     this->orbit();
