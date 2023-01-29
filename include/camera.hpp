@@ -32,10 +32,14 @@ public:
 
     void orbitPanStart();
     void orbitPan(Vector2f delta);
-    void orbitSetTarget(Vector3f target);
-    void orbitSetDistance(float distance);
-    void orbitSetTheta(float theta);
-    void orbitSetPhi(float phi);
+    void orbitTarget(Vector3f target);
+    const Vector3f& orbitTarget() const;
+    void orbitDist(float distance);
+    float orbitDist() const;
+    void orbitTheta(float theta);
+    float orbitTheta() const;
+    void orbitPhi(float phi);
+    float orbitPhi() const;
     const Matrix4f view() const;
     const Matrix4f getTransform(Vector2f viewSize) const;
 };

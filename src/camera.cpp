@@ -16,30 +16,46 @@ void Camera::orbitPan(Vector2f delta) {
     this->orbit();
 }
 
-void Camera::orbitSetTarget(Vector3f target)
+void Camera::orbitTarget(Vector3f target)
 {
     this->mode = Mode::orbit;
     this->target = target;
     this->orbit();
 }
 
-void Camera::orbitSetDistance(float distance) {
+const Vector3f& Camera::orbitTarget() const {
+    return this->target;
+};
+
+void Camera::orbitDist(float distance) {
     this->mode = Mode::orbit;
     this->distance = distance;
     this->orbit();
 }
 
-void Camera::orbitSetTheta(float theta) {
+float Camera::orbitDist() const {
+    return this->distance;
+};
+
+void Camera::orbitTheta(float theta) {
     this->mode = Mode::orbit;
     this->theta = theta;
     this->orbit();
 }
 
-void Camera::orbitSetPhi(float phi) {
+float Camera::orbitTheta() const {
+    return this->theta;
+};
+
+void Camera::orbitPhi(float phi) {
     this->mode = Mode::orbit;
     this->phi = phi;
     this->orbit();
 }
+
+float Camera::orbitPhi() const {
+    return this->phi;
+};
 
 const Matrix4f Camera::view() const {
     return identityTransform()

@@ -36,8 +36,11 @@ App::App() {
     bool built = this->prog.BuildFiles(
         "resources/shaders/basic.vert",
         "resources/shaders/basic.frag");
-    assert(built);
-    this->prog.Bind();
+    if (!built) {
+        spdlog::error("Failed to build shader program");
+    } else {
+        this->prog.Bind();
+    }
     
     // Create and bind VAO
     GLuint vao;
@@ -50,11 +53,8 @@ App::App() {
     this->teapot->pivot.x() = 0.0f;
     this->teapot->rot.x() = tau4 * 3.0f;
 
-    this->camera.orbitSetDistance(4.0f);
-    this->camera.orbitSetTarget({0.0f, 0.0f, 0.0f});
-
-    spdlog::debug("camera pos: {}", this->camera.pos);
-    spdlog::debug("camera rot: {}", this->camera.rot);
+    this->camera.orbitDist(4.0f);
+    this->camera.orbitTarget({0.0f, 0.0f, 0.0f});
 }
 
 App::~App() {
@@ -68,6 +68,26 @@ void App::onKey(int key, bool pressed) {
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(this->window, GL_TRUE);
                 break;
+            case GLFW_KEY_F6: {
+                bool built = this->prog.BuildFiles(
+                    "resources/shaders/basic.vert",
+                    "resources/shaders/basic.frag");
+                if (!built) {
+                    spdlog::error("Failed to build shader program");
+                } else {
+                    this->prog.Bind();
+                    spdlog::info("Rebuilt shader program");
+                }
+            } break;
+            case GLFW_KEY_P: {
+                if (this->camera.projection == Camera::Projection::perspective) {
+                    this->camera.projection = Camera::Projection::orthographic;
+                    this->camera.zoom = 2000.0f;
+                    this->camera.orbitDist(10.0f);
+                } else {
+                    this->camera.projection = Camera::Projection::perspective;
+                }
+            } break;
             default:
                 break;
         }
@@ -135,6 +155,16 @@ void App::run() {
                 case GLEQ_BUTTON_RELEASED:
                     this->onClick(event.mouse.button, false);
                     break;
+                case GLEQ_SCROLLED: {
+                    const float amnt = -event.scroll.y * 0.1f;
+                    spdlog::debug("Scroll: {} {}", amnt, event.scroll.y);
+                    if (this->camera.projection == Camera::Projection::perspective) {
+                        this->camera.orbitDist(this->camera.orbitDist() * (1.0f + amnt));
+                    } else {
+                        this->camera.zoom *= -amnt * 35.0f;
+                        spdlog::debug("Zoom: {}", this->camera.zoom);
+                    }
+                    } break;
                 default:
                     break;
             }
