@@ -48,6 +48,7 @@ App::App() {
     this->models.push_back(this->teapot);
     this->teapot->scale *= 0.05f;
     this->teapot->pos.z() = 25.0f;
+    this->teapot->pivot.x() = 0.0f;
     this->camera.rot.y() = tau / 2.0f;
 }
 

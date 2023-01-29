@@ -29,6 +29,18 @@ template<> struct fmt::formatter<Matrix4f> {
     }
 };
 
+// fmt overload for Vector3f
+template<> struct fmt::formatter<Vector3f> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const Vector3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
+        return format_to(ctx.out(), "[{}, {}, {}]", input.x(), input.y(), input.z());
+    }
+};
+
 // Return a new identity transform
 Transform3f identityTransform();
 // Convert cy::Vec3f to Vector3f

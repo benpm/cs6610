@@ -4,7 +4,8 @@
 Model::Model(const char* filename, const cyGLSLProgram& prog) {
     mesh.LoadFromFileObj(filename);
     mesh.ComputeBoundingBox();
-    this->pivot = toEigen(mesh.GetBoundMax() - mesh.GetBoundMin()) / 2.0f;
+    this->pivot = toEigen(mesh.GetBoundMax() + mesh.GetBoundMin()) / 2.0f;
+    spdlog::debug("pivot: {}", this->pivot);
 
     const uint vertDataLen = mesh.NV() * sizeof(cy::Vec3f);
     
@@ -25,10 +26,9 @@ Model::Model(const char* filename, const cyGLSLProgram& prog) {
 const Matrix4f Model::transform() const {
     return identityTransform()
         .scale(this->scale)
-        .translate(-this->pivot)
         .translate(this->pos)
         .rotate(euler(this->rot))
-        // .translate(-this->pivot)
+        .translate(-this->pivot)
         .matrix();
 }
 
