@@ -2,7 +2,7 @@
 
 void Camera::orbit() {
     this->pos = direction({this->theta, this->phi, 0.0f}) * distance;
-    this->rot = {-this->theta, this->phi + tau4, 0.0f};
+    this->rot = {this->theta, -this->phi, 0.0f};
 }
 
 void Camera::orbitSetTarget(Vector3f target) {
@@ -32,7 +32,7 @@ void Camera::orbitSetPhi(float phi) {
 const Matrix4f Camera::view() const {
     return identityTransform()
         .rotate(euler(rot))
-        .translate(pos)
+        .translate(-pos)
         .matrix();
 }
 

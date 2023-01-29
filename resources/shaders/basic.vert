@@ -13,6 +13,6 @@ void main()
     vec4 p = uTProjView * uTModel * vec4(vPos, 1.0);
     gl_Position = p;
     float f = clamp((1.0 / p.z), 0.0, 1.0);
-    gl_PointSize = f * 5.0;
+    gl_PointSize = 5.0;
     color = vec4(mix(vColor, vec3(0.0), 1.0 - f), 1.0);
 }

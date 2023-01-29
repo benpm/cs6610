@@ -16,10 +16,13 @@ Quaternionf euler(const Vector3f& axisAngles) {
 }
 
 Vector3f direction(const Vector3f &axisAngles) {
+    // x: theta, y: phi, z: psi
+    const float theta = tau4 - axisAngles.x();
+    const float phi = axisAngles.y();
     return {
-        std::cos(axisAngles.y()) * std::cos(axisAngles.x()),
-        std::cos(axisAngles.y()) * std::sin(axisAngles.x()),
-        std::sin(axisAngles.y())
+        std::sin(theta) * std::sin(phi),
+        std::cos(theta),
+        std::sin(theta) * std::cos(phi),
     };
 }
 

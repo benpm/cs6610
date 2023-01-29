@@ -164,8 +164,10 @@ void App::draw(float dt) {
     if (z < 1.0f) {
         this->camera.orbitSetTheta((z / 1.0f) * tau4);
     } else {
-        this->camera.orbitSetPhi(((z / 1.0f) - 1.0f) * tau4);
+        this->camera.rot.y() = ((z / 1.0f) - 1.0f) * tau4 + tau4;
     }
+    this->camera.orbitSetTheta(tau4 / 2.0f);
+    this->camera.orbitSetPhi(this->t * 0.25f);
 
     // Set up MVP matrix
     const Matrix4f tProjView = this->camera.getTransform(this->windowSize.cast<float>());
