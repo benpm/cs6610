@@ -1,8 +1,8 @@
 cmake_minimum_required (VERSION 3.9)
 project (CS6610)
 
-include_directories(src)
 include_directories(include)
+include_directories(lib/include)
 
 include(cmake/eigen.cmake.in)
 include(cmake/glfw.cmake.in)
@@ -12,7 +12,7 @@ set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
 
-file(GLOB_RECURSE SOURCES src/*.cpp src/*.c)
+file(GLOB_RECURSE SOURCES src/*.cpp src/*.c lib/src/*.cpp lib/src/*.c)
 
 add_executable(app ${SOURCES})
 
