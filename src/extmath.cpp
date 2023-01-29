@@ -15,6 +15,23 @@ Quaternionf euler(const Vector3f& axisAngles) {
         AngleAxisf(axisAngles.z(), Vector3f::UnitZ());
 }
 
+Vector3f direction(const Vector3f &axisAngles) {
+    return {
+        std::cos(axisAngles.y()) * std::cos(axisAngles.x()),
+        std::sin(axisAngles.y()),
+        std::cos(axisAngles.y()) * std::sin(axisAngles.x())
+    };
+}
+
+Vector3f towards(const Vector3f &a, const Vector3f &b) {
+    // Euler angles of the rotation from a to b
+    return {
+        std::atan2(b.z() - a.z(), b.x() - a.x()),
+        std::atan2(b.y() - a.y(), std::sqrt(std::pow(b.x() - a.x(), 2) + std::pow(b.z() - a.z(), 2))),
+        0.0f
+    };
+}
+
 Matrix4f lookAt(const Vector3f& eye, const Vector3f& center, const Vector3f& up) {
     const Vector3f f = (center - eye).normalized();
     const Vector3f s = f.cross(up).normalized();

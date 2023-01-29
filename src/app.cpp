@@ -46,10 +46,18 @@ App::App() {
 
     this->teapot = std::make_shared<Model>("resources/models/teapot.obj", this->prog);
     this->models.push_back(this->teapot);
-    this->teapot->scale *= 0.05f;
-    this->teapot->pos.z() = 25.0f;
+    this->teapot->scale *= 0.075f;
     this->teapot->pivot.x() = 0.0f;
-    this->camera.rot.y() = tau / 2.0f;
+    this->teapot->rot.x() = tau * (3.0f / 4.0f);
+    this->teapot->pos.z() = -1.0f;
+
+    this->camera.pos.z() = 1.0f;
+
+    // this->camera.orbitSetDistance(50.0f);
+    // this->camera.orbitSetTarget({0.0f, 0.0f, 0.0f});
+    // this->camera.orbitSetPhi(0.0f);
+    spdlog::debug("camera pos: {}", this->camera.pos);
+    spdlog::debug("camera rot: {}", this->camera.rot);
 }
 
 App::~App() {
@@ -82,6 +90,24 @@ void App::onResize(int width, int height) {
 }
 
 void App::onClick(int button, bool pressed) {
+    switch (button) {
+        case GLFW_MOUSE_BUTTON_LEFT:
+            this->mouseLeft = pressed;
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            this->mouseRight = pressed;
+            break;
+        case GLFW_MOUSE_BUTTON_MIDDLE:
+            this->mouseMiddle = pressed;
+            break;
+        default:
+            break;
+    }
+    if (pressed) {
+        this->mouseClickStart = this->mousePos;
+    } else {
+        
+    }
 }
 
 void App::run() {
@@ -137,11 +163,10 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-    this->teapot->rot.x() = tau * (3.0f / 4.0f);
     this->teapot->rot.z() += dt;
 
     // Set up MVP matrix
-    const Matrix4f tProjView = this->camera.transform(this->windowSize.cast<float>());
+    const Matrix4f tProjView = this->camera.getTransform(this->windowSize.cast<float>());
     this->prog.SetUniformMatrix4("uTProjView", tProjView.data());
     
     for (const std::shared_ptr<Model>& model : this->models) {

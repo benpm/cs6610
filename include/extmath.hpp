@@ -47,6 +47,10 @@ Transform3f identityTransform();
 Vector3f toEigen(const cy::Vec3f& vec);
 // Euler angles to quaternion
 Quaternionf euler(const Vector3f& axisAngles);
+// Normalized direction vector from euler angles
+Vector3f direction(const Vector3f& axisAngles);
+// Angle from a to b
+Vector3f towards(const Vector3f& a, const Vector3f& b);
 
 /**
  * @brief Creates a view matrix from the given eye, center, and up vectors

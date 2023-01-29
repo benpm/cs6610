@@ -19,10 +19,18 @@ class App
         const float framePeriod = 1.0f / this->frameRate;
         float t = 0.0f;
         float lastFrameTime = 0.0f;
+
+        // Input
         Vector2f mousePos = {0.0f, 0.0f};
-        Vector2i windowSize = {1280, 720};
-        Camera camera = {Vector3f::Zero(), Vector3f::Zero(), 0.1f, 100.0f, 45.0f};
+        Vector2f mouseClickStart = {0.0f, 0.0f};
+        bool mouseLeft = false;
+        bool mouseRight = false;
+        bool mouseMiddle = false;
         std::unordered_set<int> pressedKeys;
+
+
+        Vector2i windowSize = {1280, 720};
+        Camera camera;
         cyGLSLProgram prog;
         std::vector<std::shared_ptr<Model>> models;
         std::shared_ptr<Model> teapot;
