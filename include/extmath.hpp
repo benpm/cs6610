@@ -2,9 +2,14 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+#include <cyVector.h>
 #include <spdlog/fmt/bundled/format.h>
 
 using namespace Eigen;
+
+using Transform3f = Transform<float, 3, Affine>;
+
+constexpr float tau = 6.283185307179586476925286766559f;
 
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {
@@ -24,7 +29,12 @@ template<> struct fmt::formatter<Matrix4f> {
     }
 };
 
-Matrix4f eulerRot(const Vector3f& euler);
+// Return a new identity transform
+Transform3f identityTransform();
+// Convert cy::Vec3f to Vector3f
+Vector3f toEigen(const cy::Vec3f& vec);
+// Euler angles to quaternion
+Quaternionf euler(const Vector3f& axisAngles);
 
 /**
  * @brief Creates a view matrix from the given eye, center, and up vectors

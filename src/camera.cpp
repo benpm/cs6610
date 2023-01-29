@@ -4,8 +4,11 @@ Camera::Camera(Vector3f pos, Vector3f rot, float near, float far, float fov) :
     pos(pos), rot(rot), near(near), far(far), fov(fov) {}
 
 const Matrix4f Camera::view() const {
-    return Transform(Affine3f(Translation3f(this->pos))).inverse().matrix() * eulerRot(this->rot);
-
+    return identityTransform()
+        .rotate(euler(rot))
+        .translate(pos)
+        .inverse()
+        .matrix();
 }
 
 const Matrix4f Camera::transform(Vector2f viewsize) const {

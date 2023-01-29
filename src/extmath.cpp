@@ -1,11 +1,18 @@
 #include <extmath.hpp>
 
-Matrix4f eulerRot(const Vector3f& euler) {
-    return Transform(Affine3f(
-        AngleAxisf(euler.x(), Vector3f::UnitX()) *
-        AngleAxisf(euler.y(), Vector3f::UnitY()) *
-        AngleAxisf(euler.z(), Vector3f::UnitZ())
-    )).matrix();
+Transform3f identityTransform() {
+    return Transform3f::Identity();
+}
+
+Vector3f toEigen(const cy::Vec3f& vec) {
+    return Vector3f(vec.x, vec.y, vec.z);
+}
+
+Quaternionf euler(const Vector3f& axisAngles) {
+    return 
+        AngleAxisf(axisAngles.x(), Vector3f::UnitX()) *
+        AngleAxisf(axisAngles.y(), Vector3f::UnitY()) *
+        AngleAxisf(axisAngles.z(), Vector3f::UnitZ());
 }
 
 Matrix4f lookAt(const Vector3f& eye, const Vector3f& center, const Vector3f& up) {

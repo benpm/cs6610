@@ -15,6 +15,7 @@ public:
     Vector3f pos = {0.0f, 0.0f, 0.0f};
     Vector3f rot = {0.0f, 0.0f, 0.0f};
     Vector3f scale = {1.0f, 1.0f, 1.0f};
+    Vector3f pivot = {0.0f, 0.0f, 0.0f};
 
     Model(const char* filename, const cyGLSLProgram& prog);
 

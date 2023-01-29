@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <unordered_set>
+#include <memory>
 #include <vector>
 #include <camera.hpp>
 #include <spdlog/spdlog.h>
@@ -23,7 +24,8 @@ class App
         Camera camera = {Vector3f::Zero(), Vector3f::Zero(), 0.1f, 100.0f, 45.0f};
         std::unordered_set<int> pressedKeys;
         cyGLSLProgram prog;
-        std::vector<Model> models;
+        std::vector<std::shared_ptr<Model>> models;
+        std::shared_ptr<Model> teapot;
     public:
         GLFWwindow* window;
 

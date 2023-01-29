@@ -3,15 +3,15 @@
 
 Model::Model(const char* filename, const cyGLSLProgram& prog) {
     mesh.LoadFromFileObj(filename);
+    mesh.ComputeBoundingBox();
+    this->pivot = toEigen(mesh.GetBoundMax() - mesh.GetBoundMin()) / 2.0f;
 
     const uint vertDataLen = mesh.NV() * sizeof(cy::Vec3f);
     
     // Create VBO for vertices
     glGenBuffers(1, &this->vertVBO);
     glBindBuffer(GL_ARRAY_BUFFER, this->vertVBO);
-    glBufferData(GL_ARRAY_BUFFER, vertDataLen * 2, NULL, GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vertDataLen, &mesh.V(0));
-    glBufferSubData(GL_ARRAY_BUFFER, vertDataLen, vertDataLen, &mesh.V(0));   
+    glBufferData(GL_ARRAY_BUFFER, vertDataLen, &mesh.V(0), GL_STATIC_DRAW);  
 
     // Specify vertex attributes
     GLuint attrib_vPos = prog.AttribLocation("vPos");
@@ -23,10 +23,13 @@ Model::Model(const char* filename, const cyGLSLProgram& prog) {
 }
 
 const Matrix4f Model::transform() const {
-    return Transform(Affine3f(
-        Translation3f(this->pos) *
-        AlignedScaling3f(this->scale)
-    )).matrix();
+    return identityTransform()
+        .scale(this->scale)
+        .translate(-this->pivot)
+        .translate(this->pos)
+        .rotate(euler(this->rot))
+        // .translate(-this->pivot)
+        .matrix();
 }
 
 void Model::draw(cyGLSLProgram& prog) const {

@@ -7,6 +7,7 @@
 App::App() {
     // Initialize GLFW and Gleq
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     this->window = glfwCreateWindow(
         this->windowSize.x(),
         this->windowSize.y(), "CS6610", NULL, NULL);
@@ -25,10 +26,10 @@ App::App() {
     glfwSwapInterval(1);
 
     // OpenGL config
-    glPointSize(3.0f);
     glEnable(GL_POINT_SMOOTH);
-    // glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Build and bind shader program
@@ -43,8 +44,11 @@ App::App() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    Model& teapot = models.emplace_back("resources/models/teapot.obj", this->prog);
-    teapot.scale *= 0.01f;
+    this->teapot = std::make_shared<Model>("resources/models/teapot.obj", this->prog);
+    this->models.push_back(this->teapot);
+    this->teapot->scale *= 0.05f;
+    this->teapot->pos.z() = 25.0f;
+    this->camera.rot.y() = tau / 2.0f;
 }
 
 App::~App() {
@@ -132,15 +136,14 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-    this->camera.pos.z() = 1.0f;
-    this->camera.pos.x() = std::cos(this->t * 0.25f) * 0.25f;
-    this->camera.pos.y() = std::sin(this->t * 0.25f) * 0.25f;
+    this->teapot->rot.x() = tau * (3.0f / 4.0f);
+    this->teapot->rot.z() += dt;
 
     // Set up MVP matrix
     const Matrix4f tProjView = this->camera.transform(this->windowSize.cast<float>());
     this->prog.SetUniformMatrix4("uTProjView", tProjView.data());
     
-    for (const Model& model : this->models) {
-        model.draw(this->prog);
+    for (const std::shared_ptr<Model>& model : this->models) {
+        model->draw(this->prog);
     }
 }
