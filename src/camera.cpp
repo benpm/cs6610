@@ -1,8 +1,8 @@
 #include <camera.hpp>
 
 void Camera::orbit() {
-    this->pos = -direction({this->theta, this->phi, 0.0f}) * distance;
-    this->rot = towards(this->pos, this->target);
+    this->pos = direction({this->theta, this->phi, 0.0f}) * distance;
+    this->rot = {-this->theta, this->phi + tau4, 0.0f};
 }
 
 void Camera::orbitSetTarget(Vector3f target) {
@@ -29,21 +29,10 @@ void Camera::orbitSetPhi(float phi) {
     this->orbit();
 }
 
-void Camera::lookAt(Vector3f target) {
-    this->mode = Mode::free;
-    this->target = target;
-    this->rot = Vector3f(
-        std::atan2(this->pos.z() - this->target.z(), this->pos.x() - this->target.x()),
-        std::atan2(this->pos.y() - this->target.y(), std::sqrt(std::pow(this->pos.x() - this->target.x(), 2) + std::pow(this->pos.z() - this->target.z(), 2))),
-        0.0f
-    );
-}
-
 const Matrix4f Camera::view() const {
     return identityTransform()
         .rotate(euler(rot))
         .translate(pos)
-        .inverse()
         .matrix();
 }
 

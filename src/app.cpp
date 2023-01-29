@@ -49,13 +49,10 @@ App::App() {
     this->teapot->scale *= 0.075f;
     this->teapot->pivot.x() = 0.0f;
     this->teapot->rot.x() = tau * (3.0f / 4.0f);
-    this->teapot->pos.z() = -1.0f;
 
-    this->camera.pos.z() = 1.0f;
+    this->camera.orbitSetDistance(4.0f);
+    this->camera.orbitSetTarget({0.0f, 0.0f, 0.0f});
 
-    // this->camera.orbitSetDistance(50.0f);
-    // this->camera.orbitSetTarget({0.0f, 0.0f, 0.0f});
-    // this->camera.orbitSetPhi(0.0f);
     spdlog::debug("camera pos: {}", this->camera.pos);
     spdlog::debug("camera rot: {}", this->camera.rot);
 }
@@ -163,7 +160,12 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-    this->teapot->rot.z() += dt;
+    const float z = this->t / 6.0f;
+    if (z < 1.0f) {
+        this->camera.orbitSetTheta((z / 1.0f) * tau4);
+    } else {
+        this->camera.orbitSetPhi(((z / 1.0f) - 1.0f) * tau4);
+    }
 
     // Set up MVP matrix
     const Matrix4f tProjView = this->camera.getTransform(this->windowSize.cast<float>());

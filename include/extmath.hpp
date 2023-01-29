@@ -10,6 +10,8 @@ using namespace Eigen;
 using Transform3f = Transform<float, 3, Affine>;
 
 constexpr float tau = 6.283185307179586476925286766559f;
+constexpr float tau2 = tau / 2.0f;
+constexpr float tau4 = tau / 4.0f;
 
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {

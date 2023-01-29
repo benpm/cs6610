@@ -32,7 +32,6 @@ public:
     void orbitSetDistance(float distance);
     void orbitSetTheta(float theta);
     void orbitSetPhi(float phi);
-    void lookAt(Vector3f target);
     const Matrix4f view() const;
     const Matrix4f getTransform(Vector2f viewSize) const;
 };
