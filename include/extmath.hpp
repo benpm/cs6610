@@ -2,6 +2,9 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+#ifdef PLATFORM_WINDOWS
+    #include <cstdint>
+#endif
 #include <cyVector.h>
 #include <spdlog/fmt/bundled/format.h>
 

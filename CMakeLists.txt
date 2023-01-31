@@ -18,6 +18,10 @@ add_executable(app ${SOURCES})
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 
+if(WIN32)
+    target_compile_definitions(app PRIVATE PLATFORM_WINDOWS)
+endif()
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     message(STATUS "Clang detected, adding compile flags")
     target_compile_options(app PRIVATE -Wall -Wno-c++98-compat -Wno-reserved-id-macro)

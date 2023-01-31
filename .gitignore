@@ -11,3 +11,8 @@ CTestTestfile.cmake
 _deps
 /build
 /reports/*.pdf
+/out
+.vs
+*.exe
+*.pdb
+*.ilk

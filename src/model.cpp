@@ -6,10 +6,10 @@ Model::Model(const char* filename, const cyGLSLProgram& prog) {
     mesh.ComputeBoundingBox();
     this->pivot = toEigen(mesh.GetBoundMax() + mesh.GetBoundMin()) / 2.0f;
 
-    const uint vertDataLen = mesh.NV() * sizeof(cy::Vec3f);
+    const uint32_t vertDataLen = mesh.NV() * sizeof(cy::Vec3f);
 
     std::vector<Vector3f> colors(mesh.NV());
-    for (uint i = 0; i < mesh.NV(); i++) {
+    for (uint32_t i = 0; i < mesh.NV(); i++) {
         const Vector3f& vert = toEigen(mesh.V(i));
         colors[i] = hsvToRgb({degrees(angle2D({vert.x(), vert.y()})), 1.0f, 1.0f});
     }

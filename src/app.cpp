@@ -1,5 +1,11 @@
+
+#ifdef PLATFORM_WINDOWS
+    #define NOMINMAX
+#endif
+
 #include <cassert>
 #include <functional>
+#include <algorithm>
 #include <app.hpp>
 #define GLEQ_IMPLEMENTATION
 #include <gleq.h>

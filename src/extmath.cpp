@@ -62,7 +62,7 @@ Vector3f towards(const Vector3f &a, const Vector3f &b) {
     // Euler angles of the rotation from a to b
     return {
         std::atan2(b.z() - a.z(), b.x() - a.x()),
-        tau4 * 3.0f + std::atan2(b.y() - a.y(), std::sqrt(std::pow(b.x() - a.x(), 2) + std::pow(b.z() - a.z(), 2))),
+        tau4 * 3.0f + (float)std::atan2(b.y() - a.y(), std::sqrt(std::pow(b.x() - a.x(), 2) + std::pow(b.z() - a.z(), 2))),
         0.0f
     };
 }

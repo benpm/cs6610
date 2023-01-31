@@ -3,6 +3,8 @@
 
 ![](2023-01-30_17-22.png)
 
+"Here is my handle, here is my spout..."
+
 > What you implemented
 
 Multiple teapots are rendered in points mode. Orbiting camera can be moved with left click for orbit movement, right click or mouse wheel for zoom. Teapot mesh bounds are used to compute a "pivot" point which is used to center the model. Pressing P will switch camera projection mode, and pressing F6 will recompile shader program.
@@ -21,7 +23,14 @@ All requirements are implemented, although I did have a couple more things plann
 
 > How to use your implementation
 
-Just build and run from the top level directory. On Windows, it can be built by opening the directory as a CMake project in Visual Studio and hitting "Build All". You will need to move the executable to top directory so it can access the resources directory.
+- Windows:
+  - requires CMake, Ninja, MSVC redistributable / Visual Studio
+  - `.\build_windows.bat`
+  - `.\app.exe`
+- Linux:
+  - `cmake -Bbuild`
+  - `cmake --build build`
+  - `./build/app`
 
 > What operating system and compiler you used
 
