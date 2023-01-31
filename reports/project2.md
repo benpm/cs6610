@@ -24,9 +24,8 @@ All requirements are implemented, although I did have a couple more things plann
 > How to use your implementation
 
 - Windows:
-  - requires CMake, Ninja, MSVC redistributable / Visual Studio
-  - `.\build_windows.bat`
-  - `.\app.exe`
+  - Open in Visual Studio, Build All
+  - app.exe output to top directory
 - Linux:
   - `cmake -Bbuild`
   - `cmake --build build`
