@@ -1,4 +1,7 @@
 # CS 6610
+
+![](thumb.png)
+
 Interactive Computer Graphics project assignments!
 
 ## Building

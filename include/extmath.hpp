@@ -43,25 +43,36 @@ template<> struct fmt::formatter<Vector3f> {
     }
 };
 
+// Linear interpolate
+template <typename T> T lerp(const T& a, const T& b, float t) {
+    return a + (b - a) * t;
+}
+// Normalized atan2
+float angle2D(const Vector2f& v);
+// Convert radians to degrees
+float degrees(float radians);
+// Convert HSV to RGB
+Vector3f hsvToRgb(const Vector3f& hsv);
 // Return a new identity transform
 Transform3f identityTransform();
 // Convert cy::Vec3f to Vector3f
 Vector3f toEigen(const cy::Vec3f& vec);
 // Euler angles to quaternion
 Quaternionf euler(const Vector3f& axisAngles);
-// Normalized direction vector from euler angles
-Vector3f direction(const Vector3f& axisAngles);
+/**
+ * @brief Convert spherical to cartesian coordinates (+Y up) ...
+ *        (theta=0, phi=0) -> (x=0, y=0, z=1)
+ * 
+ *        distance from origin is always 1
+ * 
+ * @param phi Horizontal angle
+ * @param theta Vertical angle
+ * @return Cartesian coordinate
+ */
+Vector3f spherePoint(float phi, float theta);
 // Angle from a to b
 Vector3f towards(const Vector3f& a, const Vector3f& b);
-
-/**
- * @brief Creates a view matrix from the given eye, center, and up vectors
- * 
- * @param eye A vector representing the camera's position
- * @param center A vector representing the point the camera is looking at
- * @param up A vector representing the camera's up direction
- * @return Transformation matrix
- */
-Matrix4f lookAt(const Vector3f& eye, const Vector3f& center, const Vector3f& up);
+// Perspective projection matrix
 Matrix4f perspective(float fov, float aspect, float near, float far);
+// Orthographic projection matrix
 Matrix4f orthographic(const Vector2f& size, float near, float far);

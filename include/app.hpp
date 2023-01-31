@@ -23,6 +23,7 @@ class App
         // Input
         Vector2f mousePos = {0.0f, 0.0f};
         Vector2f mouseClickStart = {0.0f, 0.0f};
+        Vector2f mouseDeltaPos = {0.0f, 0.0f};
         bool mouseLeft = false;
         bool mouseRight = false;
         bool mouseMiddle = false;

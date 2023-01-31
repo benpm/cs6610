@@ -1,7 +1,8 @@
 #include <camera.hpp>
 
 void Camera::orbit() {
-    this->pos = direction({this->theta, this->phi, 0.0f}) * distance;
+    this->mode = Mode::orbit;
+    this->pos = this->target + spherePoint(this->phi, this->theta) * distance;
     this->rot = {this->theta, -this->phi, 0.0f};
 }
 
@@ -11,53 +12,57 @@ void Camera::orbitPanStart() {
 }
 
 void Camera::orbitPan(Vector2f delta) {
-    this->theta = this->panStartTheta + delta.y();
+    this->theta = std::clamp(this->panStartTheta + delta.y(), -tau4, tau4);
     this->phi = this->panStartPhi + delta.x();
     this->orbit();
 }
 
-void Camera::orbitTarget(Vector3f target)
-{
-    this->mode = Mode::orbit;
+void Camera::orbitTarget(Vector3f target) {
     this->target = target;
     this->orbit();
 }
-
 const Vector3f& Camera::orbitTarget() const {
     return this->target;
-};
+}
 
 void Camera::orbitDist(float distance) {
-    this->mode = Mode::orbit;
     this->distance = distance;
     this->orbit();
 }
-
 float Camera::orbitDist() const {
     return this->distance;
-};
+}
 
 void Camera::orbitTheta(float theta) {
-    this->mode = Mode::orbit;
     this->theta = theta;
     this->orbit();
 }
-
 float Camera::orbitTheta() const {
     return this->theta;
-};
+}
 
 void Camera::orbitPhi(float phi) {
-    this->mode = Mode::orbit;
     this->phi = phi;
     this->orbit();
 }
-
 float Camera::orbitPhi() const {
     return this->phi;
-};
+}
 
-const Matrix4f Camera::view() const {
+void Camera::universalZoom(float delta) {
+    switch (this->projection) {
+        case Projection::perspective:
+            this->orbitDist(this->orbitDist() * (1.0f + delta));
+            break;
+        case Projection::orthographic:
+            this->zoom *= (1.0f - delta);
+            break;
+        default:
+            break;
+    }
+}
+
+const Matrix4f Camera::getView() const {
     return identityTransform()
         .rotate(euler(rot))
         .translate(-pos)
@@ -67,9 +72,9 @@ const Matrix4f Camera::view() const {
 const Matrix4f Camera::getTransform(Vector2f viewsize) const {
     switch (this->projection) {
         case Projection::perspective:
-            return perspective(fov, viewsize.x() / viewsize.y(), this->near, this->far) * this->view();
+            return perspective(fov, viewsize.x() / viewsize.y(), this->near, this->far) * this->getView();
         case Projection::orthographic:
-            return orthographic(viewsize / this->zoom, this->near, this->far) * this->view();
+            return orthographic(viewsize / this->zoom, this->near, this->far) * this->getView();
         default:
             return Matrix4f::Identity();
     }

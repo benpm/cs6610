@@ -1,5 +1,40 @@
 #include <extmath.hpp>
 
+float angle2D(const Vector2f& v) {
+    return std::atan2(v.y(), v.x()) + tau2;
+}
+
+float degrees(float radians) {
+    return radians * 180.0f / tau2;
+}
+
+Vector3f hsvToRgb(const Vector3f& hsv) {
+    const float h = hsv.x();
+    const float s = hsv.y();
+    const float v = hsv.z();
+
+    const float c = v * s;
+    const float x = c * (1.0f - std::abs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
+    const float m = v - c;
+
+    Vector3f rgb;
+    if (h < 60.0f) {
+        rgb = {c, x, 0.0f};
+    } else if (h < 120.0f) {
+        rgb = {x, c, 0.0f};
+    } else if (h < 180.0f) {
+        rgb = {0.0f, c, x};
+    } else if (h < 240.0f) {
+        rgb = {0.0f, x, c};
+    } else if (h < 300.0f) {
+        rgb = {x, 0.0f, c};
+    } else {
+        rgb = {c, 0.0f, x};
+    }
+
+    return rgb + Vector3f(m, m, m);
+}
+
 Transform3f identityTransform() {
     return Transform3f::Identity();
 }
@@ -15,14 +50,11 @@ Quaternionf euler(const Vector3f& axisAngles) {
         AngleAxisf(axisAngles.z(), Vector3f::UnitZ());
 }
 
-Vector3f direction(const Vector3f &axisAngles) {
-    // x: theta, y: phi, z: psi
-    const float theta = tau4 - axisAngles.x();
-    const float phi = axisAngles.y();
+Vector3f spherePoint(float phi, float theta) {
     return {
-        std::sin(theta) * std::sin(phi),
-        std::cos(theta),
-        std::sin(theta) * std::cos(phi),
+        std::cos(theta) * std::sin(phi),
+        std::sin(theta),
+        std::cos(theta) * std::cos(phi),
     };
 }
 
@@ -33,27 +65,6 @@ Vector3f towards(const Vector3f &a, const Vector3f &b) {
         tau4 * 3.0f + std::atan2(b.y() - a.y(), std::sqrt(std::pow(b.x() - a.x(), 2) + std::pow(b.z() - a.z(), 2))),
         0.0f
     };
-}
-
-Matrix4f lookAt(const Vector3f& eye, const Vector3f& center, const Vector3f& up) {
-    const Vector3f zAxis = (center - eye).normalized();
-    const Vector3f xAxis = zAxis.cross(up).normalized();
-    const Vector3f yAxis = xAxis.cross(zAxis);
-
-    Matrix4f m = Matrix4f::Identity();
-    m(0, 0) = xAxis.x();
-    m(1, 0) = yAxis.x();
-    m(2, 0) = zAxis.x();
-    m(0, 1) = yAxis.y();
-    m(1, 1) = yAxis.y();
-    m(2, 1) = zAxis.y();
-    m(0, 2) = zAxis.z();
-    m(1, 2) = yAxis.z();
-    m(2, 2) = zAxis.z();
-    m(0, 3) = -xAxis.dot(eye);
-    m(1, 3) = -yAxis.dot(eye);
-    m(2, 3) = -zAxis.dot(eye);
-    return m;
 }
 
 Matrix4f perspective(float fov, float aspect, float near, float far) {

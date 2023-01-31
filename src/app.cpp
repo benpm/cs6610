@@ -26,8 +26,8 @@ App::App() {
     glfwSwapInterval(1);
 
     // OpenGL config
-    glEnable(GL_POINT_SMOOTH);
     glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_POINT_SPRITE);
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -49,12 +49,28 @@ App::App() {
 
     this->teapot = std::make_shared<Model>("resources/models/teapot.obj", this->prog);
     this->models.push_back(this->teapot);
-    this->teapot->scale *= 0.075f;
+    this->teapot->scale = Vector3f::Ones() * 0.075f;
     this->teapot->pivot.x() = 0.0f;
     this->teapot->rot.x() = tau4 * 3.0f;
 
-    this->camera.orbitDist(4.0f);
-    this->camera.orbitTarget({0.0f, 0.0f, 0.0f});
+    {
+        std::shared_ptr<Model> model = std::make_shared<Model>(*this->teapot.get());
+        this->models.push_back(model);
+        model->pos.x() = -2.5f;
+        model->scale = Vector3f::Ones() * 0.1f;
+        model->rot.y() = -tau4 * 0.5f;
+    }
+
+    {
+        std::shared_ptr<Model> model = std::make_shared<Model>(*this->teapot.get());
+        this->models.push_back(model);
+        model->pos.x() = 2.5f;
+        model->scale = Vector3f::Ones() * 0.05f;
+        model->rot.y() = tau4 * 0.5f;
+    }
+
+    this->camera.orbitDist(2.0f);
+    this->camera.orbitTarget(this->teapot->pos);
 }
 
 App::~App() {
@@ -83,9 +99,9 @@ void App::onKey(int key, bool pressed) {
                 if (this->camera.projection == Camera::Projection::perspective) {
                     this->camera.projection = Camera::Projection::orthographic;
                     this->camera.zoom = 2000.0f;
-                    this->camera.orbitDist(10.0f);
                 } else {
                     this->camera.projection = Camera::Projection::perspective;
+                    this->camera.orbitDist(2.0f);
                 }
             } break;
             default:
@@ -141,6 +157,7 @@ void App::run() {
                     this->onKey(event.keyboard.key, false);
                     break;
                 case GLEQ_CURSOR_MOVED:
+                    this->mouseDeltaPos = Vector2f(event.pos.x, event.pos.y) - this->mousePos;
                     this->mousePos = {event.pos.x, event.pos.y};
                     break;
                 case GLEQ_FRAMEBUFFER_RESIZED:
@@ -155,16 +172,9 @@ void App::run() {
                 case GLEQ_BUTTON_RELEASED:
                     this->onClick(event.mouse.button, false);
                     break;
-                case GLEQ_SCROLLED: {
-                    const float amnt = -event.scroll.y * 0.1f;
-                    spdlog::debug("Scroll: {} {}", amnt, event.scroll.y);
-                    if (this->camera.projection == Camera::Projection::perspective) {
-                        this->camera.orbitDist(this->camera.orbitDist() * (1.0f + amnt));
-                    } else {
-                        this->camera.zoom *= -amnt * 35.0f;
-                        spdlog::debug("Zoom: {}", this->camera.zoom);
-                    }
-                    } break;
+                case GLEQ_SCROLLED: 
+                    this->camera.universalZoom(-event.scroll.y * 0.1f);
+                    break;
                 default:
                     break;
             }
@@ -191,16 +201,20 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
+    // Camera controls
     if (this->mouseLeft) {
         const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
         const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
         this->camera.orbitPan({panDelta.x(), -panDelta.y()});
+    } else if (this->mouseRight) {
+        this->camera.universalZoom(-(this->mouseDeltaPos.y() / this->windowSize.y()) * 10.0f);
     }
 
     // Set up MVP matrix
     const Matrix4f tProjView = this->camera.getTransform(this->windowSize.cast<float>());
     this->prog.SetUniformMatrix4("uTProjView", tProjView.data());
     
+    // Draw models in scene
     for (const std::shared_ptr<Model>& model : this->models) {
         model->draw(this->prog);
     }
