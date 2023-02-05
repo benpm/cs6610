@@ -15,19 +15,21 @@ out vec4 fColor;
 // Blinn-phong: light direction in view-space
 uniform vec3 uLightDir;
 
-// https://www.desmos.com/calculator/89ahzn84ek
-float edgeRamp(float x, float f, float d) {
-    return clamp(1.0 - f * (x - 1.0 + d + 1.0 / f), 0.0, 1.0);
-}
 
 void main() {
+    // Fragment normal
     vec3 n = normalize(normal);
+    // Light reflection vector
     vec3 r = normalize(reflect(-uLightDir, n));
+    // View vector
     vec3 v = vec3(0.0, 0.0, 1.0);
+    // Half-angle vector between light and view
+    vec3 h = normalize(uLightDir + v);
 
+    // Blinn shading
     vec3 diffuse = vec3(max(0.0, dot(n, uLightDir))) * vec3(1.0, 0.31, 0.95);
-    vec3 specular = vec3(pow(max(0.0, dot(v, r)), 35.0)) * vec3(1.0, 0.31, 0.95) * 3.0;
+    vec3 specular = vec3(pow(max(0.0, dot(h, n)), 35.0)) * vec3(1.0, 0.31, 0.95) * 3.0;
     vec3 ambient = vec3(0.15, 0.05, 0.02);
     
-    fColor = vec4(diffuse + specular + ambient, 1.0);
+    fColor = vec4(diffuse + specular, 1.0);
 }
