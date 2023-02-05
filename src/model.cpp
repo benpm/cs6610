@@ -56,9 +56,8 @@ void Model::draw(cyGLSLProgram& prog, const Camera& camera) const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triEBO);
     const Matrix4f tModel = this->transform();
     prog.SetUniformMatrix4("uTModel", tModel.data());
-    // const Vector3f lightDir =
-    //     (camera.getView() * tModel * Vector4f(0.0f, 1.0f, 0.0f, 1.0f)).head<3>().normalized();
-    const Vector3f lightDir(0.0f, 1.0f, 0.0f);
+    const Vector3f lightDir =
+        (camera.getView() * Vector4f(0.0f, 100.0f, 0.0f, 1.0f)).head<3>().normalized();
     prog.SetUniform3("uLightDir", lightDir.data());
     glDrawElements(GL_TRIANGLES, mesh.NF() * 3, GL_UNSIGNED_INT, 0);
 }
