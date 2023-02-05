@@ -4,12 +4,12 @@
 		{
 			"type": "cppbuild",
 			"label": "C/C++: Build Main",
-			"command": "/usr/bin/make",
+			"command": "cmake",
 			"args": [
-				"-j"
+				"--build", "build"
 			],
 			"options": {
-				"cwd": "${workspaceFolder}/build"
+				"cwd": "${workspaceFolder}"
 			},
 			"problemMatcher": [
 				"$gcc"

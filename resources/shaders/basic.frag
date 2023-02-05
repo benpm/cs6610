@@ -1,8 +1,17 @@
 #version 460
 
+// Vertex color
 layout(location = 0) in vec4 color;
+// View space normal
+layout(location = 1) in vec3 normal;
+// View space position
+layout(location = 2) in vec3 position;
 
+// Fragment color
 out vec4 fColor;
+
+// Blinn-phong: light direction in view-space
+uniform vec3 uLightDir;
 
 // https://www.desmos.com/calculator/89ahzn84ek
 float edgeRamp(float x, float f, float d) {
@@ -10,11 +19,7 @@ float edgeRamp(float x, float f, float d) {
 }
 
 void main() {
-    float v = length(gl_PointCoord - 0.5);
-    float a = edgeRamp(v * 2.0, 10.0, 0.05);
-    if (a < 1e-9) {
-        discard;
-    } else {
-        fColor = vec4(color.rgb * edgeRamp(v * 2.0, 10.0, 0.2), a);
-    }
+    // fColor = vec4(normalize(normal), 1.0);
+    vec3 C = vec3(dot(normalize(normal), uLightDir));
+    fColor = vec4(C, 1.0);
 }

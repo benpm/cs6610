@@ -69,12 +69,12 @@ const Matrix4f Camera::getView() const {
         .matrix();
 }
 
-const Matrix4f Camera::getTransform(Vector2f viewsize) const {
+const Matrix4f Camera::getProj(Vector2f viewsize) const {
     switch (this->projection) {
         case Projection::perspective:
-            return perspective(fov, viewsize.x() / viewsize.y(), this->near, this->far) * this->getView();
+            return perspective(fov, viewsize.x() / viewsize.y(), this->near, this->far);
         case Projection::orthographic:
-            return orthographic(viewsize / this->zoom, this->near, this->far) * this->getView();
+            return orthographic(viewsize / this->zoom, this->near, this->far);
         default:
             return Matrix4f::Identity();
     }

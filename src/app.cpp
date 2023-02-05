@@ -216,12 +216,15 @@ void App::draw(float dt) {
         this->camera.universalZoom(-(this->mouseDeltaPos.y() / this->windowSize.y()) * 10.0f);
     }
 
-    // Set up MVP matrix
-    const Matrix4f tProjView = this->camera.getTransform(this->windowSize.cast<float>());
-    this->prog.SetUniformMatrix4("uTProjView", tProjView.data());
+    // Set up transformation matrices
+    const Matrix4f tProj = this->camera.getProj(this->windowSize.cast<float>());
+    this->prog.SetUniformMatrix4("uTProj", tProj.data());
+    const Matrix4f tView = this->camera.getView();
+    this->prog.SetUniformMatrix4("uTView", tView.data());
     
     // Draw models in scene
     for (const std::shared_ptr<Model>& model : this->models) {
-        model->draw(this->prog);
+
+        model->draw(this->prog, this->camera);
     }
 }

@@ -55,6 +55,6 @@ public:
     void universalZoom(float delta);
     // Returns view transformation matrix
     const Matrix4f getView() const;
-    // Returns transformation matrix
-    const Matrix4f getTransform(Vector2f viewSize) const;
+    // Returns projection transformation matrix
+    const Matrix4f getProj(Vector2f viewSize) const;
 };
