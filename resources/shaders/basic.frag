@@ -29,5 +29,5 @@ void main() {
     vec3 specular = vec3(pow(max(0.0, dot(h, n)), 35.0)) * vec3(1.0, 0.31, 0.95) * 3.0;
     vec3 ambient = vec3(0.15, 0.05, 0.02);
     
-    fColor = vec4(diffuse + specular, 1.0);
+    fColor = vec4(diffuse + specular + ambient, 1.0);
 }

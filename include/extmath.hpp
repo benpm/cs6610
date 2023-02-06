@@ -1,5 +1,6 @@
 #pragma once
 
+#include <random>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #ifdef PLATFORM_WINDOWS
@@ -15,6 +16,8 @@ using Transform3f = Transform<float, 3, Affine>;
 constexpr float tau = 6.283185307179586476925286766559f;
 constexpr float tau2 = tau / 2.0f;
 constexpr float tau4 = tau / 4.0f;
+
+constexpr size_t nVertAttribs = 3u;
 
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {
@@ -42,8 +45,57 @@ template<> struct fmt::formatter<Vector3f> {
 
     template <typename FormatContext>
     auto format(const Vector3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "[{}, {}, {}]", input.x(), input.y(), input.z());
+        return format_to(ctx.out(), "[{:.1f}, {:.1f}, {:.1f}]", input.x(), input.y(), input.z());
     }
+};
+
+// fmt overload for std::vector
+template <typename T> struct fmt::formatter<std::vector<T>> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const std::vector<T>& input, FormatContext& ctx) -> decltype(ctx.out()) {
+        std::string out = "[";
+        for (const auto& item : input) {
+            out += fmt::format("{}", item);
+            out += ", ";
+        }
+        out += "]";
+        return format_to(ctx.out(), "{}", out);
+    }
+};
+
+//Random number generation helper class
+class RNG
+{
+public:
+    const uint seed;
+
+private:
+    std::minstd_rand gen;
+    std::uniform_real_distribution<float> rdist;
+    std::uniform_int_distribution<int> idist;
+    std::uniform_int_distribution<ulong> uldist;
+public:
+    //Default constructor, uses specified seed for number generation
+    RNG(uint seed);
+    //Generate a random number between 0 and 1, returns if this number is less than given probability value
+    bool test(float probability);
+    //Random range from a to b, inclusive
+    int range(int a, int b);
+    //Random range from a to b, inclusive
+    float range(float a, float b);
+    //Random position
+    Vector3f position(const Vector3f& min, const Vector3f& max);
+    //Random euler angles
+    Vector3f rotation();
+    //Random vector between two vectors
+    template <class T> Vector2<T> vecRange(T a, T b) {
+        return {this->range(a, b),
+                this->range(a, b)};
+    };
 };
 
 // Linear interpolate

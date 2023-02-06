@@ -17,14 +17,14 @@ public:
     Vector3f scale = {1.0f, 1.0f, 1.0f};
     Vector3f pivot = {0.0f, 0.0f, 0.0f};
 
-    Model(const char* filename, const cyGLSLProgram& prog);
+    Model(const char* filename);
 
     // Returns transformation matrix for this model's current transform
     const Matrix4f transform() const;
     // Adds my data to global buffer (static)
     void addToWorld(
         std::vector<Vector3f>& arrVerts,
-        std::vector<uint32_t>& arrTris,
+        std::vector<uint32_t>& arrElems,
         std::vector<GLsizei>& vCounts,
         std::vector<size_t>& vOffsets,
         std::vector<Matrix4f>& mTransforms) const;

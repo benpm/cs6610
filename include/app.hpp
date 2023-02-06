@@ -46,7 +46,7 @@ class App
         // Flat, strided vertex array data (pos, color, normal)
         std::vector<Vector3f> arrVerts;
         // Flat element array data (vertex indices for triangles: v0,v1,v2)
-        std::vector<uint32_t> arrTris;
+        std::vector<uint32_t> arrElems;
         // Element counts
         std::vector<GLsizei> vCounts;
         // Element offsets

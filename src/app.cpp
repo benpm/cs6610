@@ -38,8 +38,8 @@ App::App() {
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    // glEnable(GL_CULL_FACE);
+    // glCullFace(GL_BACK);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Build and bind shader program
@@ -51,37 +51,35 @@ App::App() {
     } else {
         this->prog.Bind();
     }
+
+    RNG rng(0u);
     
-    this->teapot = std::make_shared<Model>("resources/models/teapot.obj", this->prog);
-    this->models.push_back(this->teapot);
-    this->teapot->scale = Vector3f::Ones() * 0.075f;
-    this->teapot->pivot.x() = 0.0f;
-    this->teapot->rot.x() = tau4 * 3.0f;
-
-    {
-        std::shared_ptr<Model> model = std::make_shared<Model>(*this->teapot.get());
+    // Create models
+    Model modelTeapot("resources/models/teapot.obj");
+    for (size_t i = 0; i < 5000; i++) {
+        std::shared_ptr<Model> model = std::make_shared<Model>(modelTeapot);
+        model->scale = Vector3f::Ones() * rng.range(0.01f, 0.1f);
+        model->pos = rng.position({-50.0f, -50.0f, -50.0f}, {50.0f, 50.0f, 50.0f});
+        model->rot = rng.rotation();
         this->models.push_back(model);
-        model->pos.x() = -2.5f;
-        model->scale = Vector3f::Ones() * 0.1f;
-        model->rot.y() = -tau4 * 0.5f;
     }
 
-    {
-        std::shared_ptr<Model> model = std::make_shared<Model>(*this->teapot.get());
+    Model modelCube("resources/models/cube.obj");
+    for (size_t i = 0; i < 8; i++) {
+        std::shared_ptr<Model> model = std::make_shared<Model>(modelCube);
+        model->scale = Vector3f::Ones() * (0.1f + (i * 0.1f));
+        model->pos.x() = (i - 4.0f) * 1.5f;
+        model->pos.z() = -10.0f;
         this->models.push_back(model);
-        model->pos.x() = 2.5f;
-        model->scale = Vector3f::Ones() * 0.05f;
-        model->rot.y() = tau4 * 0.5f;
     }
 
-    this->camera.orbitDist(2.0f);
-    this->camera.orbitTarget(this->teapot->pos);
+    this->camera.orbitDist(50.0f);
 
     // Add models to world
     for (const std::shared_ptr<Model>& model : this->models) {
         model->addToWorld(
             this->arrVerts,
-            this->arrTris,
+            this->arrElems,
             this->vCounts,
             this->vOffsets,
             this->mTransforms);
@@ -99,18 +97,23 @@ App::App() {
 
     GLuint attrib_vPos = prog.AttribLocation("vPos");
     glEnableVertexAttribArray(attrib_vPos);
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9u, (void*)(sizeof(float) * 3u * 0u));
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE,
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 0u));
     GLuint attrib_vColor = prog.AttribLocation("vColor");
     glEnableVertexAttribArray(attrib_vColor);
-    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9u, (void*)(sizeof(float) * 3u * 1u));
+    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE,
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 1u));
     GLuint attrib_vNormal = prog.AttribLocation("vNormal");
     glEnableVertexAttribArray(attrib_vNormal);
-    glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9u, (void*)(sizeof(float) * 3u * 2u));
+    glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE,
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u));
+    
+    spdlog::debug("{} vertices", this->arrVerts.size());
 
     // Create and populate triangles EBO
     glGenBuffers(1, &this->triEBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->arrTris.size() * sizeof(uint32_t), this->arrTris.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->arrElems.size() * sizeof(uint32_t), this->arrElems.data(), GL_STATIC_DRAW);
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
