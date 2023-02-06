@@ -13,12 +13,18 @@ layout(location = 2) out vec3 position;
 
 uniform mat4 uTProj;
 uniform mat4 uTView;
-uniform mat4 uTModel;
+
+// SSBO for transform matrices
+layout(std430, binding = 0) buffer ModelTransforms
+{
+    mat4 tModel[];
+};
 
 void main()
 {
-    gl_Position = uTProj * uTView * uTModel * vec4(vPos, 1.0);
+    const mat4 tViewModel = uTView * tModel[gl_DrawID];
+    gl_Position = uTProj * tViewModel * vec4(vPos, 1.0);
     color = vec4(vColor, 1.0);
-    normal = (uTView * uTModel * vec4(vNormal, 0.0)).xyz;
-    position = (uTView * uTModel * vec4(vPos, 1.0)).xyz;
+    normal = (tViewModel * vec4(vNormal, 0.0)).xyz;
+    position = (tViewModel * vec4(vPos, 1.0)).xyz;
 }

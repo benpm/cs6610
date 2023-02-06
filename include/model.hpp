@@ -11,10 +11,6 @@ class Model
 {
 private:
     cyTriMesh mesh;
-    // Index of VBO for storing vertex data
-    GLuint vertVBO;
-    // Index of EBO for storing triangle element indices
-    GLuint triEBO;
 public:
     Vector3f pos = {0.0f, 0.0f, 0.0f};
     Vector3f rot = {0.0f, 0.0f, 0.0f};
@@ -25,6 +21,11 @@ public:
 
     // Returns transformation matrix for this model's current transform
     const Matrix4f transform() const;
-    // Binds my VBO and draws
-    void draw(cyGLSLProgram& prog, const Camera& camera) const;
+    // Adds my data to global buffer (static)
+    void addToWorld(
+        std::vector<Vector3f>& arrVerts,
+        std::vector<uint32_t>& arrTris,
+        std::vector<GLsizei>& vCounts,
+        std::vector<size_t>& vOffsets,
+        std::vector<Matrix4f>& mTransforms) const;
 };

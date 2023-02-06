@@ -35,6 +35,24 @@ class App
         cyGLSLProgram prog;
         std::vector<std::shared_ptr<Model>> models;
         std::shared_ptr<Model> teapot;
+
+        // ID of model transform matrices SSBO
+        GLuint ssboModels;
+        // Index of VBO for storing vertex data
+        GLuint vertVBO;
+        // Index of EBO for storing triangle element indices
+        GLuint triEBO;
+
+        // Flat, strided vertex array data (pos, color, normal)
+        std::vector<Vector3f> arrVerts;
+        // Flat element array data (vertex indices for triangles: v0,v1,v2)
+        std::vector<uint32_t> arrTris;
+        // Element counts
+        std::vector<GLsizei> vCounts;
+        // Element offsets
+        std::vector<size_t> vOffsets;
+        // Model transform matrices
+        std::vector<Matrix4f> mTransforms;
     public:
         GLFWwindow* window;
 

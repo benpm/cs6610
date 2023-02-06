@@ -52,11 +52,6 @@ App::App() {
         this->prog.Bind();
     }
     
-    // Create and bind VAO
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
     this->teapot = std::make_shared<Model>("resources/models/teapot.obj", this->prog);
     this->models.push_back(this->teapot);
     this->teapot->scale = Vector3f::Ones() * 0.075f;
@@ -81,6 +76,47 @@ App::App() {
 
     this->camera.orbitDist(2.0f);
     this->camera.orbitTarget(this->teapot->pos);
+
+    // Add models to world
+    for (const std::shared_ptr<Model>& model : this->models) {
+        model->addToWorld(
+            this->arrVerts,
+            this->arrTris,
+            this->vCounts,
+            this->vOffsets,
+            this->mTransforms);
+    }
+
+    // Create and bind VAO
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    // Create and populate VBO
+    glGenBuffers(1, &this->vertVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, this->vertVBO);
+    glBufferData(GL_ARRAY_BUFFER, this->arrVerts.size() * sizeof(Vector3f), this->arrVerts.data(), GL_STATIC_DRAW);
+
+    GLuint attrib_vPos = prog.AttribLocation("vPos");
+    glEnableVertexAttribArray(attrib_vPos);
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9u, (void*)(sizeof(float) * 3u * 0u));
+    GLuint attrib_vColor = prog.AttribLocation("vColor");
+    glEnableVertexAttribArray(attrib_vColor);
+    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9u, (void*)(sizeof(float) * 3u * 1u));
+    GLuint attrib_vNormal = prog.AttribLocation("vNormal");
+    glEnableVertexAttribArray(attrib_vNormal);
+    glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 9u, (void*)(sizeof(float) * 3u * 2u));
+
+    // Create and populate triangles EBO
+    glGenBuffers(1, &this->triEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->arrTris.size() * sizeof(uint32_t), this->arrTris.data(), GL_STATIC_DRAW);
+
+    // Create and bind model transforms SSBO
+    glGenBuffers(1, &this->ssboModels);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
 }
 
 App::~App() {
@@ -225,10 +261,15 @@ void App::draw(float dt) {
     this->prog.SetUniformMatrix4("uTProj", tProj.data());
     const Matrix4f tView = this->camera.getView();
     this->prog.SetUniformMatrix4("uTView", tView.data());
+    const Vector3f lightDir =
+        (camera.getView() * Vector4f(0.0f, 100.0f, -150.0f, 1.0f)).head<3>().normalized();
+    prog.SetUniform3("uLightDir", lightDir.data());
     
     // Draw models in scene
-    for (const std::shared_ptr<Model>& model : this->models) {
-
-        model->draw(this->prog, this->camera);
-    }
+    glMultiDrawElements(
+        GL_TRIANGLES,
+        this->vCounts.data(),
+        GL_UNSIGNED_INT,
+        (const void**)this->vOffsets.data(),
+        this->vCounts.size());
 }

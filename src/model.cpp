@@ -8,38 +8,11 @@ Model::Model(const char* filename, const cyGLSLProgram& prog) {
     mesh.ComputeNormals();
     this->pivot = toEigen(mesh.GetBoundMax() + mesh.GetBoundMin()) / 2.0f;
 
-    const size_t vertDataLen = mesh.NV() * sizeof(cy::Vec3f);
-
     std::vector<Vector3f> colors(mesh.NV());
     for (size_t i = 0; i < mesh.NV(); i++) {
         const Vector3f& vert = toEigen(mesh.V(i));
         colors[i] = hsvToRgb({degrees(angle2D({vert.x(), vert.y()})), 1.0f, 1.0f});
     }
-    
-    // Create VBO for vertices
-    glGenBuffers(1, &this->vertVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, this->vertVBO);
-    glBufferData(GL_ARRAY_BUFFER, vertDataLen * 3, NULL, GL_STATIC_DRAW);  
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vertDataLen, &mesh.V(0));
-    glBufferSubData(GL_ARRAY_BUFFER, vertDataLen, vertDataLen, colors.data());
-    glBufferSubData(GL_ARRAY_BUFFER, vertDataLen * 2, vertDataLen, &mesh.VN(0));
-
-    // Specify vertex attributes
-
-    GLuint attrib_vPos = prog.AttribLocation("vPos");
-    glEnableVertexAttribArray(attrib_vPos);
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    GLuint attrib_vColor = prog.AttribLocation("vColor");
-    glEnableVertexAttribArray(attrib_vColor);
-    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, 0, (void*)vertDataLen);
-    GLuint attrib_vNormal = prog.AttribLocation("vNormal");
-    glEnableVertexAttribArray(attrib_vNormal);
-    glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE, 0, (void*)(vertDataLen * 2));
-
-    // Create EBO for triangles
-    glGenBuffers(1, &this->triEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.NF() * sizeof(cy::TriMesh::TriFace) * 3, &mesh.F(0), GL_STATIC_DRAW);
 }
 
 const Matrix4f Model::transform() const {
@@ -51,13 +24,34 @@ const Matrix4f Model::transform() const {
         .matrix();
 }
 
-void Model::draw(cyGLSLProgram& prog, const Camera& camera) const {
-    glBindBuffer(GL_ARRAY_BUFFER, this->vertVBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triEBO);
-    const Matrix4f tModel = this->transform();
-    prog.SetUniformMatrix4("uTModel", tModel.data());
-    const Vector3f lightDir =
-        (camera.getView() * Vector4f(0.0f, 100.0f, -150.0f, 1.0f)).head<3>().normalized();
-    prog.SetUniform3("uLightDir", lightDir.data());
-    glDrawElements(GL_TRIANGLES, mesh.NF() * 3, GL_UNSIGNED_INT, 0);
+void Model::addToWorld(
+    std::vector<Vector3f>& arrVerts,
+    std::vector<uint32_t>& arrTris,
+    std::vector<GLsizei>& vCounts,
+    std::vector<size_t>& vOffsets,
+    std::vector<Matrix4f>& mTransforms) const
+{
+    const size_t vertOffset = arrVerts.size();
+    const size_t triOffset = arrTris.size();
+    const size_t elems = mesh.NF() * 3;
+
+    // Add vertex data
+    arrVerts.resize(vertOffset + mesh.NV() * 3);
+    for (size_t i = 0; i < mesh.NV(); i++) {
+        arrVerts[vertOffset + i*3 + 0] = toEigen(mesh.V(i));
+        arrVerts[vertOffset + i*3 + 1] = toEigen(mesh.VN(i));
+        arrVerts[vertOffset + i*3 + 2] = toEigen(mesh.VN(i));
+    }
+
+    // Add triangles
+    arrTris.resize(triOffset + elems);
+    for (size_t i = 0; i < mesh.NF(); i++) {
+        arrTris[triOffset + i*3 + 0] = mesh.F(i).v[0] + vertOffset;
+        arrTris[triOffset + i*3 + 1] = mesh.F(i).v[1] + vertOffset;
+        arrTris[triOffset + i*3 + 2] = mesh.F(i).v[2] + vertOffset;
+    }
+
+    vCounts.push_back(elems);
+    vOffsets.push_back(triOffset * sizeof(uint32_t));
+    mTransforms.push_back(this->transform());
 }

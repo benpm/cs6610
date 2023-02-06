@@ -19,8 +19,6 @@ uniform vec3 uLightDir;
 void main() {
     // Fragment normal
     vec3 n = normalize(normal);
-    // Light reflection vector
-    vec3 r = normalize(reflect(-uLightDir, n));
     // View vector
     vec3 v = vec3(0.0, 0.0, 1.0);
     // Half-angle vector between light and view
