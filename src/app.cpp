@@ -55,7 +55,7 @@ App::App() {
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 2000;
+    constexpr int bigness = 150;
 
     Model modelTeapot("resources/models/teapot.obj");
     modelTeapot.normalize();
@@ -64,7 +64,7 @@ App::App() {
     for (size_t i = 0; i < bigness; i++) {
         std::shared_ptr<Model> model = std::make_shared<Model>(rng.choose({modelTeapot, modelSuzanne}));
         model->scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.025f;
+        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * (float)bigness * 0.001f;
         model->rot = rng.rotation();
         float hue = rng.range(0.0f, 360.0f);
         model->mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
@@ -84,13 +84,16 @@ App::App() {
             this->mTransforms,
             this->mMaterials);
     }
-    spdlog::debug("{} models, {} vertices", this->models.size(), this->arrVerts.size());
 
     // Add lights
-    this->lights.push_back({
-        .position={0.0f, 25.0f, 35.0f},
-        .color={1.0f, 1.0f, 1.0f},
-        .intensity=10.0f});
+    for (size_t i = 0; i < 10; i++) {
+        this->lights.push_back({
+            .position=rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * (float)bigness * 0.001f,
+            .color={1.0f, 1.0f, 1.0f},
+            .intensity=rng.range(5.0f, 20.0f)});
+    }
+
+    spdlog::info("{} models, {} vertices, {} lights", this->models.size(), this->arrVerts.size(), this->lights.size());
 
     // Create and bind VAO
     GLuint vao;
@@ -135,14 +138,12 @@ App::App() {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // Create and bind lights SSBO
-    const uint nLights = this->lights.size();
     glGenBuffers(1, &this->ssboLights);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->lights.size() * sizeof(uLight) + sizeof(uint32_t), NULL, GL_STATIC_DRAW);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(uint32_t), &nLights);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(uint32_t), nLights * sizeof(uLight), this->lights.data());
+    glBufferData(GL_SHADER_STORAGE_BUFFER, this->lights.size() * sizeof(uLight), this->lights.data(), GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    this->prog.SetUniform("nLights", (uint)this->lights.size());
 }
 
 App::~App() {
@@ -288,15 +289,23 @@ void App::draw(float dt) {
     const Matrix4f tView = this->camera.getView();
     this->prog.SetUniformMatrix4("uTView", tView.data());
 
-    // // Update lights
-    // std::vector<uLight> l(this->lights);
-    // for (uLight& light : l) {
-    //     // light.position = this->camera.toView(light.position);
-    //     light.position.y() = 0.05f * t;
-    // }
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
-    // glBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(uint32_t), l.size() * sizeof(uLight), l.data());
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    // Update lights
+    std::vector<uLight> l(this->lights);
+    for (uLight& light : l) {
+        light.position = this->camera.toView(light.position);
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, l.size() * sizeof(uLight), l.data());
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    // Update model transforms
+    for (size_t i = 0; i < this->models.size(); i++) {
+        this->models[i]->rot.x() += dt * 0.5f;
+        this->mTransforms[i] = this->models[i]->transform();
+    }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data());
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     
     // Draw models in scene
     glMultiDrawElements(

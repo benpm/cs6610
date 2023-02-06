@@ -14,7 +14,7 @@ layout(location = 3) flat in uint drawID;
 // Fragment color
 out vec4 fColor;
 
-uniform mat4 uTView;
+uniform uint nLights;
 
 struct Material {
     vec3 diffuseColor;
@@ -40,7 +40,6 @@ layout(std430, binding = 1) buffer Materials
 // SSBO for lights
 layout(std430, binding = 2) buffer Lights
 {
-    uint uLightCount;
     Light uLight[];
 };
 
@@ -52,9 +51,9 @@ void main() {
 
     // Accumulate lights
     vec3 C = mat.ambientColor * mat.ambientFactor;
-    for (uint i = 0; i < uLightCount; i++) {
+    for (uint i = 0; i < nLights; i++) {
         // Vector to light
-        vec3 lightVec = (uTView * vec4(uLight[i].position, 1.0)).xyz - position;
+        vec3 lightVec = uLight[i].position - position;
         // Direction to light
         vec3 lightDir = normalize(lightVec);
         // Half-angle vector between light and view
@@ -64,7 +63,7 @@ void main() {
         vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * mat.diffuseColor;
         vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * mat.specularColor;
         
-        C += pow((1.0/length(lightVec)) * 10.0, 2.0) * (diffuse + specular * mat.specularFactor);
+        C += pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0) * (diffuse + specular * mat.specularFactor);
     }
 
     fColor = vec4(C, 1.0);
