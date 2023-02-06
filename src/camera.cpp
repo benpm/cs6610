@@ -79,3 +79,7 @@ const Matrix4f Camera::getProj(Vector2f viewsize) const {
             return Matrix4f::Identity();
     }
 }
+
+Vector3f Camera::toView(const Vector3f &point) const {
+    return (this->getView() * Vector4f(point.x(), point.y(), point.z(), 1.0f)).head<3>();
+}

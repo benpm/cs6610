@@ -40,6 +40,8 @@ class App
         GLuint ssboModels;
         // ID of model materials SSBO
         GLuint ssboMaterials;
+        // ID of lights SSBO
+        GLuint ssboLights;
         // Index of VBO for storing vertex data
         GLuint vertVBO;
         // Index of EBO for storing triangle element indices
@@ -57,6 +59,8 @@ class App
         std::vector<Matrix4f> mTransforms;
         // Model materials
         std::vector<uMaterial> mMaterials;
+        // Lights
+        std::vector<uLight> lights;
     public:
         GLFWwindow* window;
 

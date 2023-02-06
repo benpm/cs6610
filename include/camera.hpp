@@ -57,4 +57,6 @@ public:
     const Matrix4f getView() const;
     // Returns projection transformation matrix
     const Matrix4f getProj(Vector2f viewSize) const;
+    // Transforms given point to view space
+    Vector3f toView(const Vector3f& point) const;
 };

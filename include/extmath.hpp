@@ -28,6 +28,12 @@ struct uMaterial {
     float ambientFactor = 0.05f;
 };
 
+struct uLight {
+    alignas(16) Vector3f position = {0.0f, 0.0f, 0.0f};
+    alignas(16) Vector3f color = {1.0f, 1.0f, 1.0f};
+    float intensity = 1.0f;
+};
+
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
