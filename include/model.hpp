@@ -21,6 +21,8 @@ public:
 
     // Returns transformation matrix for this model's current transform
     const Matrix4f transform() const;
+    // Normalizes vertex positions
+    void normalize();
     // Adds my data to global buffer (static)
     void addToWorld(
         std::vector<Vector3f>& arrVerts,

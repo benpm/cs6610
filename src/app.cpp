@@ -56,10 +56,13 @@ App::App() {
     
     // Create models
     Model modelTeapot("resources/models/teapot.obj");
-    for (size_t i = 0; i < 5000; i++) {
-        std::shared_ptr<Model> model = std::make_shared<Model>(modelTeapot);
-        model->scale = Vector3f::Ones() * rng.range(0.01f, 0.1f);
-        model->pos = rng.position({-50.0f, -50.0f, -50.0f}, {50.0f, 50.0f, 50.0f});
+    modelTeapot.normalize();
+    Model modelSuzanne("resources/models/suzanne.obj");
+    modelSuzanne.normalize();
+    for (size_t i = 0; i < 500; i++) {
+        std::shared_ptr<Model> model = std::make_shared<Model>(rng.choose({modelTeapot, modelSuzanne}));
+        model->scale = Vector3f::Ones() * rng.range(0.25f, 2.0f);
+        model->pos = rng.position({-8.0f, -8.0f, -8.0f}, {8.0f, 8.0f, 8.0f});
         model->rot = rng.rotation();
         this->models.push_back(model);
     }

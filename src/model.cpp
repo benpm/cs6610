@@ -7,12 +7,6 @@ Model::Model(const char* filename) {
     mesh.ComputeBoundingBox();
     mesh.ComputeNormals();
     this->pivot = toEigen(mesh.GetBoundMax() + mesh.GetBoundMin()) / 2.0f;
-
-    // std::vector<Vector3f> colors(mesh.NV());
-    // for (size_t i = 0; i < mesh.NV(); i++) {
-    //     const Vector3f& vert = toEigen(mesh.V(i));
-    //     colors[i] = hsvToRgb({degrees(angle2D({vert.x(), vert.y()})), 1.0f, 1.0f});
-    // }
 }
 
 const Matrix4f Model::transform() const {
@@ -22,6 +16,18 @@ const Matrix4f Model::transform() const {
         .scale(this->scale)
         .translate(-this->pivot)
         .matrix();
+}
+
+void Model::normalize() {
+    const Vector3f boundMin = toEigen(mesh.GetBoundMin());
+    const Vector3f boundMax = toEigen(mesh.GetBoundMax());
+    const Vector3f boundSize = boundMax - boundMin;
+    const float maxBoundSize = std::max(std::max(boundSize.x(), boundSize.y()), boundSize.z());
+    const float scale = 1.0f / maxBoundSize;
+    for (size_t i = 0; i < mesh.NV(); i++) {
+        mesh.V(i) *= scale;
+    }
+    this->pivot *= scale;
 }
 
 void Model::addToWorld(

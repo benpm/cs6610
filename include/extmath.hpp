@@ -96,6 +96,12 @@ public:
         return {this->range(a, b),
                 this->range(a, b)};
     };
+    //Choose random from list of items
+    template <class T> T choose(const std::initializer_list<T> items) {
+        auto it = items.begin();
+        std::advance(it, range(0, items.size() - 1));
+        return *it;
+    };
 };
 
 // Linear interpolate
