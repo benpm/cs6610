@@ -11,8 +11,11 @@ float RNG::range(float a, float b) {
     const std::uniform_real_distribution<float>::param_type params(a, b);
     return this->rdist(gen, params);
 }
-Vector3f RNG::position(const Vector3f& min, const Vector3f& max) {
+Vector3f RNG::vec(const Vector3f& min, const Vector3f& max) {
     return {this->range(min.x(), max.x()), this->range(min.y(), max.y()), this->range(min.z(), max.z())};
+}
+Vector3f RNG::vec(const Vector3f& max) {
+    return this->vec(Vector3f::Zero(), max);
 }
 Vector3f RNG::rotation()
 {

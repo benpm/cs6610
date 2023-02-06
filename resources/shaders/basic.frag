@@ -8,6 +8,8 @@ layout(location = 0) in vec4 color;
 layout(location = 1) in vec3 normal;
 // View space position
 layout(location = 2) in vec3 position;
+// Draw ID
+layout(location = 3) flat in uint drawID;
 
 // Fragment color
 out vec4 fColor;
@@ -15,8 +17,25 @@ out vec4 fColor;
 // Blinn-phong: light direction in view-space
 uniform vec3 uLightDir;
 
+struct Material {
+    vec3 diffuseColor;
+    vec3 specularColor;
+    vec3 ambientColor;
+    float shininess;
+    float specularFactor;
+    float ambientFactor;
+};
+
+// SSBO for materials
+layout(std430, binding = 1) buffer Materials
+{
+    Material uMaterial[];
+};
+
 
 void main() {
+    Material mat = uMaterial[drawID];
+
     // Fragment normal
     vec3 n = normalize(normal);
     // View vector
@@ -25,9 +44,8 @@ void main() {
     vec3 h = normalize(uLightDir + v);
 
     // Blinn shading
-    vec3 diffuse = vec3(max(0.0, dot(n, uLightDir))) * vec3(1.0, 0.31, 0.95);
-    vec3 specular = vec3(pow(max(0.0, dot(h, n)), 35.0)) * vec3(1.0, 0.31, 0.95) * 3.0;
-    vec3 ambient = vec3(0.15, 0.05, 0.02);
+    vec3 diffuse = vec3(max(0.0, dot(n, uLightDir))) * mat.diffuseColor;
+    vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * mat.specularColor;
     
-    fColor = vec4(diffuse + specular + ambient, 1.0);
+    fColor = vec4(diffuse + specular * mat.specularFactor + mat.ambientColor * mat.ambientFactor, 1.0);
 }

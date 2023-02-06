@@ -59,11 +59,14 @@ App::App() {
     modelTeapot.normalize();
     Model modelSuzanne("resources/models/suzanne.obj");
     modelSuzanne.normalize();
-    for (size_t i = 0; i < 500; i++) {
+    for (size_t i = 0; i < 50; i++) {
         std::shared_ptr<Model> model = std::make_shared<Model>(rng.choose({modelTeapot, modelSuzanne}));
-        model->scale = Vector3f::Ones() * rng.range(0.25f, 2.0f);
-        model->pos = rng.position({-8.0f, -8.0f, -8.0f}, {8.0f, 8.0f, 8.0f});
+        model->scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
+        model->pos = rng.vec({-8.0f, -8.0f, -8.0f}, {8.0f, 8.0f, 8.0f});
         model->rot = rng.rotation();
+        float hue = rng.range(0.0f, 360.0f);
+        model->mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
+        model->mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
         this->models.push_back(model);
     }
 
@@ -85,7 +88,8 @@ App::App() {
             this->arrElems,
             this->vCounts,
             this->vOffsets,
-            this->mTransforms);
+            this->mTransforms,
+            this->mMaterials);
     }
 
     // Create and bind VAO
@@ -111,7 +115,7 @@ App::App() {
     glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE,
         sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u));
     
-    spdlog::debug("{} vertices", this->arrVerts.size());
+    spdlog::debug("{} models, {} vertices", this->models.size(), this->arrVerts.size());
 
     // Create and populate triangles EBO
     glGenBuffers(1, &this->triEBO);
@@ -123,6 +127,12 @@ App::App() {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
     glBufferData(GL_SHADER_STORAGE_BUFFER, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data(), GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
+
+    // Create and bind materials SSBO
+    glGenBuffers(1, &this->ssboMaterials);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, this->mMaterials.size() * sizeof(uMaterial), this->mMaterials.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials);
 }
 
 App::~App() {

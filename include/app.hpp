@@ -38,6 +38,8 @@ class App
 
         // ID of model transform matrices SSBO
         GLuint ssboModels;
+        // ID of model materials SSBO
+        GLuint ssboMaterials;
         // Index of VBO for storing vertex data
         GLuint vertVBO;
         // Index of EBO for storing triangle element indices
@@ -53,6 +55,8 @@ class App
         std::vector<size_t> vOffsets;
         // Model transform matrices
         std::vector<Matrix4f> mTransforms;
+        // Model materials
+        std::vector<uMaterial> mMaterials;
     public:
         GLFWwindow* window;
 

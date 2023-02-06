@@ -19,6 +19,15 @@ constexpr float tau4 = tau / 4.0f;
 
 constexpr size_t nVertAttribs = 3u;
 
+struct uMaterial {
+    alignas(16) Vector3f diffuseColor = {1.0f, 1.0f, 1.0f};
+    alignas(16) Vector3f specularColor = {1.0f, 1.0f, 1.0f};
+    alignas(16) Vector3f ambientColor = {1.0f, 1.0f, 1.0f};
+    float shininess = 35.0f;
+    float specularFactor = 2.0f;
+    float ambientFactor = 0.05f;
+};
+
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
@@ -87,8 +96,10 @@ public:
     int range(int a, int b);
     //Random range from a to b, inclusive
     float range(float a, float b);
-    //Random position
-    Vector3f position(const Vector3f& min, const Vector3f& max);
+    //Random vector3
+    Vector3f vec(const Vector3f& min, const Vector3f& max);
+    //Random vector3 with min 0,0,0
+    Vector3f vec(const Vector3f& max);
     //Random euler angles
     Vector3f rotation();
     //Random vector between two vectors
@@ -112,7 +123,12 @@ template <typename T> T lerp(const T& a, const T& b, float t) {
 float angle2D(const Vector2f& v);
 // Convert radians to degrees
 float degrees(float radians);
-// Convert HSV to RGB
+/**
+ * @brief Convert HSV to RGB
+ * 
+ * @param hsv hue(0-360deg), saturation(0-1), value(0-1)
+ * @return RGB
+ */
 Vector3f hsvToRgb(const Vector3f& hsv);
 // Return a new identity transform
 Transform3f identityTransform();

@@ -2,11 +2,12 @@
 #include <model.hpp>
 #include <camera.hpp>
 
-Model::Model(const char* filename) {
+Model::Model(const char* filename, const uMaterial& mat) {
     mesh.LoadFromFileObj(filename);
     mesh.ComputeBoundingBox();
     mesh.ComputeNormals();
     this->pivot = toEigen(mesh.GetBoundMax() + mesh.GetBoundMin()) / 2.0f;
+    this->mat = mat;
 }
 
 const Matrix4f Model::transform() const {
@@ -35,7 +36,8 @@ void Model::addToWorld(
     std::vector<uint32_t>& arrElems,
     std::vector<GLsizei>& vCounts,
     std::vector<size_t>& vOffsets,
-    std::vector<Matrix4f>& mTransforms) const
+    std::vector<Matrix4f>& mTransforms,
+    std::vector<uMaterial>& mMaterials) const
 {
     const size_t vertOffset = arrVerts.size();
     const size_t triOffset = arrElems.size();
@@ -60,4 +62,5 @@ void Model::addToWorld(
     vCounts.push_back(nElems);
     vOffsets.push_back(triOffset * sizeof(uint32_t));
     mTransforms.push_back(this->transform());
+    mMaterials.push_back(this->mat);
 }
