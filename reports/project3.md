@@ -4,9 +4,12 @@
 > What you implemented
 
 - Models with blinn shading
+- Lights
+- Movable directional light while holding control and left click dragging
 
 > What you could not implement
 
+N/A
 
 > Additional functionalities beyond project requirements
 

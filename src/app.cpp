@@ -290,8 +290,9 @@ void App::draw(float dt) {
     // Camera controls
     if (this->mouseLeft) {
         if (this->pressedKeys.count(GLFW_KEY_LEFT_CONTROL)) {
+            const Vector2f panDelta = this->mouseDeltaPos * 0.01f;
             this->sunlight->pos = identityTransform()
-                .rotate(AngleAxisf(this->mouseDeltaPos.x() * 0.01f, Vector3f::UnitY())) * this->sunlight->pos;
+                .rotate(euler({panDelta.x(), panDelta.y(), 0.0f})) * this->sunlight->pos;
         } else {
             const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
             const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
