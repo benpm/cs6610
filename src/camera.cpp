@@ -49,6 +49,29 @@ float Camera::orbitPhi() const {
     return this->phi;
 }
 
+void Camera::flyDir(const Vector3f& dir) {
+    this->pos += this->getView().block<3, 3>(0, 0).transpose() * dir;
+}
+
+void Camera::control(const Vector2f& mouseDelta, const Vector2f& keyboardDelta, float scrollDelta) {
+    switch (this->mode) {
+        case Mode::fly:
+            this->flyDir(Vector3f(keyboardDelta.x(), 0.0f, keyboardDelta.y()));
+            this->flyDir(Vector3f(0.0f, keyboardDelta.y(), 0.0f));
+            this->rot += Vector3f(mouseDelta.x() * 0.01f, mouseDelta.y() * 0.01f, 0.0f);
+            break;
+        case Mode::orbit:
+            this->orbitPan(mouseDelta);
+            this->orbitDist(this->orbitDist() * (1.0f + keyboardDelta.y()));
+            break;
+        case Mode::trackball:
+            break;
+        default:
+            break;
+    }
+    this->universalZoom(scrollDelta);
+}
+
 void Camera::universalZoom(float delta) {
     switch (this->projection) {
         case Projection::perspective:

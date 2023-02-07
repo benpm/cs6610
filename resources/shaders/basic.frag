@@ -25,10 +25,14 @@ struct Material {
     float ambientFactor;
 };
 
+const uint lightPoint = 0;
+const uint lightDirectional = 1;
+
 struct Light {
-    vec3 position;      // Light position in view space
+    vec3 position;      // Light position in view space (direction if directional)
     vec3 color;         // Light color
     float intensity;    // Light intensity
+    uint type;          // Light type (point or directional)
 };
 
 // SSBO for materials
@@ -54,6 +58,9 @@ void main() {
     for (uint i = 0; i < nLights; i++) {
         // Vector to light
         vec3 lightVec = uLight[i].position - position;
+        if (uLight[i].type == lightDirectional) {
+            lightVec = -uLight[i].position;
+        }
         // Direction to light
         vec3 lightDir = normalize(lightVec);
         // Half-angle vector between light and view
@@ -62,8 +69,13 @@ void main() {
         // Blinn shading
         vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * mat.diffuseColor;
         vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * mat.specularColor;
+
+        float attenuation = uLight[i].intensity;
+        if (uLight[i].type == lightPoint) {
+            attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
+        }
         
-        C += pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0) * (diffuse + specular * mat.specularFactor);
+        C += attenuation * (diffuse + specular * mat.specularFactor);
     }
 
     fColor = vec4(C, 1.0);

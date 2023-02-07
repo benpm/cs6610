@@ -11,6 +11,7 @@
 #include <GLFW/glfw3.h>
 #include <cyGL.h>
 #include <model.hpp>
+#include <light.hpp>
 
 class App
 {
@@ -60,7 +61,7 @@ class App
         // Model materials
         std::vector<uMaterial> mMaterials;
         // Lights
-        std::vector<uLight> lights;
+        std::vector<Light> lights;
     public:
         GLFWwindow* window;
 

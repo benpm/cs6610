@@ -93,6 +93,14 @@
         "valarray": "cpp",
         "variant": "cpp",
         "bvh": "cpp",
-        "eulerangles": "cpp"
+        "eulerangles": "cpp",
+        "adolcforward": "cpp",
+        "alignedvector3": "cpp",
+        "autodiff": "cpp",
+        "iterativesolvers": "cpp",
+        "nonlinearoptimization": "cpp",
+        "numericaldiff": "cpp",
+        "sparseextra": "cpp",
+        "specialfunctions": "cpp"
     }
 }

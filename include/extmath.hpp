@@ -28,10 +28,16 @@ struct uMaterial {
     float ambientFactor = 0.05f;
 };
 
+enum class LightType: uint32_t {
+    point,
+    directional
+};
+
 struct uLight {
-    alignas(16) Vector3f position = {0.0f, 0.0f, 0.0f};
-    alignas(16) Vector3f color = {1.0f, 1.0f, 1.0f};
-    float intensity = 1.0f;
+    alignas(16) Vector3f position;
+    alignas(16) Vector3f color;
+    float intensity;
+    LightType type;
 };
 
 // fmt overload for Matrix4f

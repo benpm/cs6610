@@ -55,7 +55,7 @@ App::App() {
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 150;
+    constexpr int bigness = 1000;
 
     Model modelTeapot("resources/models/teapot.obj");
     modelTeapot.normalize();
@@ -64,7 +64,7 @@ App::App() {
     for (size_t i = 0; i < bigness; i++) {
         std::shared_ptr<Model> model = std::make_shared<Model>(rng.choose({modelTeapot, modelSuzanne}));
         model->scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * (float)bigness * 0.001f;
+        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.025f;
         model->rot = rng.rotation();
         float hue = rng.range(0.0f, 360.0f);
         model->mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
@@ -86,14 +86,26 @@ App::App() {
     }
 
     // Add lights
-    for (size_t i = 0; i < 10; i++) {
-        this->lights.push_back({
-            .position=rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * (float)bigness * 0.001f,
-            .color={1.0f, 1.0f, 1.0f},
-            .intensity=rng.range(5.0f, 20.0f)});
+    this->lights.emplace_back(
+        Vector3f(0.25f, 0.5f, 0.25f),
+        Vector3f(1.0f, 1.0f, 0.9f),
+        1.0f,
+        LightType::directional);
+    this->lights.emplace_back(
+        Vector3f(0.15f, -0.5f, -0.45f),
+        Vector3f(1.0f, 1.0f, 0.9f),
+        0.10f,
+        LightType::directional);
+    for (size_t i = 0; i < 50; i++) {
+        this->lights.emplace_back(
+            rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.025f,
+            Vector3f(1.0f, 1.0f, 1.0f),
+            rng.range(1.0f, 5.0f),
+            LightType::point);
     }
 
-    spdlog::info("{} models, {} vertices, {} lights", this->models.size(), this->arrVerts.size(), this->lights.size());
+    spdlog::info("{} models, {} vertices, {} triangles, {} lights",
+        this->models.size(), this->arrVerts.size(), this->arrElems.size() / 3, this->lights.size());
 
     // Create and bind VAO
     GLuint vao;
@@ -290,22 +302,22 @@ void App::draw(float dt) {
     this->prog.SetUniformMatrix4("uTView", tView.data());
 
     // Update lights
-    std::vector<uLight> l(this->lights);
-    for (uLight& light : l) {
-        light.position = this->camera.toView(light.position);
+    std::vector<uLight> lightStructs(this->lights.size());
+    for (size_t i = 0; i < this->lights.size(); i++) {
+        lightStructs[i] = this->lights[i].toStruct(this->camera);
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, l.size() * sizeof(uLight), l.data());
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, lightStructs.size() * sizeof(uLight), lightStructs.data());
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    // Update model transforms
-    for (size_t i = 0; i < this->models.size(); i++) {
-        this->models[i]->rot.x() += dt * 0.5f;
-        this->mTransforms[i] = this->models[i]->transform();
-    }
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data());
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    // // Update model transforms
+    // for (size_t i = 0; i < this->models.size(); i++) {
+    //     this->models[i]->rot.x() += dt * 0.5f;
+    //     this->mTransforms[i] = this->models[i]->transform();
+    // }
+    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
+    // glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data());
+    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     
     // Draw models in scene
     glMultiDrawElements(

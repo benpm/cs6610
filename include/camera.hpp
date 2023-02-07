@@ -26,10 +26,10 @@ public:
         orthographic
     } projection = Projection::perspective;
     enum class Mode {
-        free,
+        fly,
         orbit,
         trackball
-    } mode = Mode::free;
+    } mode = Mode::fly;
 
     // Orbit camera: start orbit panning (should be called on click)
     void orbitPanStart();
@@ -51,6 +51,10 @@ public:
     void orbitPhi(float phi);
     // Orbit camera: get camera phi (horizontal angle)
     float orbitPhi() const;
+    // Fly camera: move camera in specified direction relative to camera
+    void flyDir(const Vector3f& dir);
+    // General camera control function
+    void control(const Vector2f& mouseDelta, const Vector2f& keyboardDelta, float scrollDelta);
     // Modifies "zoom", which does something slightly different depending on the projection
     void universalZoom(float delta);
     // Returns view transformation matrix
