@@ -159,6 +159,11 @@ Quaternionf euler(const Vector3f& axisAngles);
  * @return Cartesian coordinate
  */
 Vector3f spherePoint(float phi, float theta);
+Vector3f spherePoint(const Vector2f& point);
+// Convert cartesian to spherical coordinates (+Y up)
+Vector2f pointSphere(const Vector3f& point);
+// Rotates a vector by given euler angles
+Vector3f rotate(const Vector3f& v, const Vector3f& axisAngles);
 // Angle from a to b
 Vector3f towards(const Vector3f& a, const Vector3f& b);
 // Perspective projection matrix

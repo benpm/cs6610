@@ -36,6 +36,7 @@ class App
         cyGLSLProgram prog;
         std::vector<std::shared_ptr<Model>> models;
         std::shared_ptr<Model> teapot;
+        std::shared_ptr<Light> sunlight;
 
         // ID of model transform matrices SSBO
         GLuint ssboModels;
@@ -61,7 +62,7 @@ class App
         // Model materials
         std::vector<uMaterial> mMaterials;
         // Lights
-        std::vector<Light> lights;
+        std::vector<std::shared_ptr<Light>> lights;
     public:
         GLFWwindow* window;
 

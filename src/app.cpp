@@ -14,7 +14,6 @@ App::App() {
     // Initialize GLFW and Gleq
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_SAMPLES, 4);
     this->window = glfwCreateWindow(
         this->windowSize.x(),
         this->windowSize.y(), "CS6610", NULL, NULL);
@@ -33,11 +32,11 @@ App::App() {
     glfwSwapInterval(1);
 
     // OpenGL config
-    glEnable(GL_PROGRAM_POINT_SIZE);
-    glEnable(GL_POINT_SPRITE);
+    // glEnable(GL_PROGRAM_POINT_SIZE);
+    // glEnable(GL_POINT_SPRITE);
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_MULTISAMPLE);
+    // glEnable(GL_MULTISAMPLE);
     // glEnable(GL_CULL_FACE);
     // glCullFace(GL_BACK);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -55,7 +54,7 @@ App::App() {
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 1000;
+    constexpr int bigness = 2000;
 
     Model modelTeapot("resources/models/teapot.obj");
     modelTeapot.normalize();
@@ -64,7 +63,7 @@ App::App() {
     for (size_t i = 0; i < bigness; i++) {
         std::shared_ptr<Model> model = std::make_shared<Model>(rng.choose({modelTeapot, modelSuzanne}));
         model->scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.025f;
+        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.01f;
         model->rot = rng.rotation();
         float hue = rng.range(0.0f, 360.0f);
         model->mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
@@ -86,22 +85,22 @@ App::App() {
     }
 
     // Add lights
-    this->lights.emplace_back(
+    this->sunlight = this->lights.emplace_back(std::make_shared<Light>(
         Vector3f(0.25f, 0.5f, 0.25f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        1.0f,
-        LightType::directional);
-    this->lights.emplace_back(
+        0.35f,
+        LightType::directional));
+    this->lights.emplace_back(std::make_shared<Light>(
         Vector3f(0.15f, -0.5f, -0.45f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        0.10f,
-        LightType::directional);
-    for (size_t i = 0; i < 50; i++) {
-        this->lights.emplace_back(
-            rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.025f,
+        0.01f,
+        LightType::directional));
+    for (size_t i = 0; i < 5; i++) {
+        this->lights.emplace_back(std::make_shared<Light>(
+            rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.01f,
             Vector3f(1.0f, 1.0f, 1.0f),
             rng.range(1.0f, 5.0f),
-            LightType::point);
+            LightType::point));
     }
 
     spdlog::info("{} models, {} vertices, {} triangles, {} lights",
@@ -152,7 +151,7 @@ App::App() {
     // Create and bind lights SSBO
     glGenBuffers(1, &this->ssboLights);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->lights.size() * sizeof(uLight), this->lights.data(), GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, this->lights.size() * sizeof(uLight), NULL, GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     this->prog.SetUniform("nLights", (uint)this->lights.size());
@@ -231,6 +230,8 @@ void App::onClick(int button, bool pressed) {
 
 void App::run() {
     while (!glfwWindowShouldClose(this->window)) {
+        this->mouseDeltaPos = {0.0f, 0.0f};
+
         // Handle GLFW events (100 gleqs)
         GLEQevent event;
         while (gleqNextEvent(&event)) {
@@ -288,9 +289,14 @@ void App::idle() {
 void App::draw(float dt) {
     // Camera controls
     if (this->mouseLeft) {
-        const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
-        const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
-        this->camera.orbitPan({panDelta.x(), -panDelta.y()});
+        if (this->pressedKeys.count(GLFW_KEY_LEFT_CONTROL)) {
+            this->sunlight->pos = identityTransform()
+                .rotate(AngleAxisf(this->mouseDeltaPos.x() * 0.01f, Vector3f::UnitY())) * this->sunlight->pos;
+        } else {
+            const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
+            const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
+            this->camera.orbitPan({panDelta.x(), -panDelta.y()});
+        }
     } else if (this->mouseRight) {
         this->camera.universalZoom(-(this->mouseDeltaPos.y() / this->windowSize.y()) * 10.0f);
     }
@@ -304,7 +310,7 @@ void App::draw(float dt) {
     // Update lights
     std::vector<uLight> lightStructs(this->lights.size());
     for (size_t i = 0; i < this->lights.size(); i++) {
-        lightStructs[i] = this->lights[i].toStruct(this->camera);
+        lightStructs[i] = this->lights[i]->toStruct(this->camera);
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, lightStructs.size() * sizeof(uLight), lightStructs.data());

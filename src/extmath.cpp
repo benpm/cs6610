@@ -84,6 +84,21 @@ Vector3f spherePoint(float phi, float theta) {
     };
 }
 
+Vector3f spherePoint(const Vector2f& point) {
+    return spherePoint(point.x(), point.y());
+}
+
+Vector2f pointSphere(const Vector3f& point) {
+    return {
+        std::atan2(point.z(), point.x()) + tau2,
+        std::asin(point.y())
+    };
+}
+
+Vector3f rotate(const Vector3f &v, const Vector3f &axisAngles) {
+    return euler(axisAngles) * v;
+}
+
 Vector3f towards(const Vector3f &a, const Vector3f &b) {
     // Euler angles of the rotation from a to b
     return {
