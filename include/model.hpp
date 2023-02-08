@@ -12,7 +12,6 @@ class Model
 private:
     cyTriMesh mesh;
 public:
-    uMaterial mat;
     Vector3f pos = {0.0f, 0.0f, 0.0f};
     Vector3f rot = {0.0f, 0.0f, 0.0f};
     Vector3f scale = {1.0f, 1.0f, 1.0f};

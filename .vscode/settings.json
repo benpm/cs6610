@@ -101,6 +101,9 @@
         "nonlinearoptimization": "cpp",
         "numericaldiff": "cpp",
         "sparseextra": "cpp",
-        "specialfunctions": "cpp"
+        "specialfunctions": "cpp",
+        "csignal": "cpp",
+        "any": "cpp",
+        "codecvt": "cpp"
     }
 }

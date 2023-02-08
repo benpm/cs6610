@@ -12,6 +12,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <spdlog/formatter.h>
 
 App::App() {
     // Initialize GLFW and Gleq
@@ -62,7 +63,7 @@ App::App() {
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 500;
+    constexpr int bigness = 5000;
 
     Model modelTeapot("resources/models/teapot.obj");
     modelTeapot.normalize();
@@ -73,13 +74,15 @@ App::App() {
         entt::entity e = this->reg.create();
         DynamicTransform& transform = this->reg.emplace<DynamicTransform>(e);
         Model& model = this->reg.emplace<Model>(e, rng.choose({modelTeapot, modelSuzanne}));
+        uMaterial& mat = this->reg.emplace<uMaterial>(e);
         model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
         model.pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.01f;
         model.rot = rng.rotation();
         float hue = rng.range(0.0f, 360.0f);
-        model.mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
-        model.mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-        model.mat.shininess = 2000.0f;
+        mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
+        mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
+        mat.shininess = 2000.0f;
+        transform.transform = model.transform();
         model.addToWorld(
             this->arrVerts,
             this->arrElems,
@@ -109,9 +112,6 @@ App::App() {
             rng.range(1.0f, 5.0f),
             LightType::point));
     }
-
-    spdlog::info("{} models, {} vertices, {} triangles, {} lights",
-        this->models.size(), this->arrVerts.size(), this->arrElems.size() / 3, this->lights.size());
 
     // Create and bind VAO
     GLuint vao;
@@ -144,7 +144,10 @@ App::App() {
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data(), GL_STATIC_DRAW);
+    auto& transformsStorage = this->reg.view<DynamicTransform>().storage<DynamicTransform>();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        transformsStorage.size() * sizeof(Matrix4f),
+        *transformsStorage.raw(), GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -341,14 +344,21 @@ void App::draw(float dt) {
     glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, lightStructs.size() * sizeof(uLight), lightStructs.data());
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-    // // Update model transforms
-    // for (size_t i = 0; i < this->models.size(); i++) {
-    //     this->models[i]->rot.x() += dt * 0.5f;
-    //     this->mTransforms[i] = this->models[i]->transform();
-    // }
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
-    // glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, this->mTransforms.size() * sizeof(Matrix4f), this->mTransforms.data());
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    // Update model transforms
+    for (auto e : this->reg.view<Model, DynamicTransform>()) {
+        auto [model, transform] = this->reg.get<Model, DynamicTransform>(e);
+        model.pos += Vector3f(sinf(model.pos.x() * 0.01f), 0.05f, 0.1f) * dt;
+        model.rot += Vector3f(sinf(model.pos.x() * 0.05f), 0.1f, sinf(model.pos.x() * 0.01f)) * dt;
+        transform.transform = model.transform();
+    }
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
+    auto& transformsStorage = this->reg.view<DynamicTransform>().storage<DynamicTransform>();
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER,
+        0, transformsStorage.size() * sizeof(Matrix4f),
+        *transformsStorage.raw());
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     
     // Draw models in scene
     glMultiDrawElements(

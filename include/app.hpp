@@ -35,8 +35,6 @@ class App
         Vector2i windowSize = {1280, 720};
         Camera camera;
         cyGLSLProgram prog;
-        std::vector<std::shared_ptr<Model>> models;
-        std::shared_ptr<Model> teapot;
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
