@@ -53,8 +53,14 @@ public:
     float orbitPhi() const;
     // Fly camera: move camera in specified direction relative to camera
     void flyDir(const Vector3f& dir);
-    // General camera control function
-    void control(const Vector2f& mouseDelta, const Vector2f& keyboardDelta, float scrollDelta);
+    /**
+     * @brief Universal control for camera, uses current mode
+     * 
+     * @param rotateDelta delta for rotation (mouse move delta)
+     * @param dragDelta delta for dragging (click and drag delta)
+     * @param moveDelta keyboard input, moves camera position
+     */
+    void control(const Vector2f& rotateDelta, const Vector2f& dragDelta, const Vector2f& moveDelta);
     // Modifies "zoom", which does something slightly different depending on the projection
     void universalZoom(float delta);
     // Returns view transformation matrix

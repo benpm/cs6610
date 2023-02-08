@@ -188,6 +188,14 @@ void App::onKey(int key, bool pressed) {
                     this->camera.orbitDist(2.0f);
                 }
             } break;
+            case GLFW_KEY_1: {
+                this->camera.mode = Camera::Mode::orbit;
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            } break;
+            case GLFW_KEY_2: {
+                this->camera.mode = Camera::Mode::fly;
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            } break;
             default:
                 break;
         }
@@ -287,19 +295,26 @@ void App::idle() {
 }
 
 void App::draw(float dt) {
-    // Camera controls
-    if (this->mouseLeft) {
-        if (this->pressedKeys.count(GLFW_KEY_LEFT_CONTROL)) {
-            const Vector2f panDelta = this->mouseDeltaPos * 0.01f;
-            this->sunlight->pos = identityTransform()
-                .rotate(euler({panDelta.x(), panDelta.y(), 0.0f})) * this->sunlight->pos;
-        } else {
-            const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
-            const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
-            this->camera.orbitPan({panDelta.x(), -panDelta.y()});
-        }
+    if (this->mouseLeft && this->pressedKeys.count(GLFW_KEY_LEFT_CONTROL)) {
+        // Move light
+        const Vector2f panDelta = this->mouseDeltaPos * 0.01f;
+        this->sunlight->pos = identityTransform()
+            .rotate(euler({panDelta.x(), panDelta.y(), 0.0f})) * this->sunlight->pos;
     } else if (this->mouseRight) {
+        // Camera zoom
         this->camera.universalZoom(-(this->mouseDeltaPos.y() / this->windowSize.y()) * 10.0f);
+    } else {
+        // Camera controls
+        const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
+        const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
+        const Vector2f keyboardDelta = {
+            (float)this->pressedKeys.count(GLFW_KEY_D) - (float)this->pressedKeys.count(GLFW_KEY_A),
+            (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
+        };
+        this->camera.control(
+            this->mouseDeltaPos * dt,
+            this->mouseLeft ? Vector2f(panDelta * dt * 10.0f) : Vector2f(Vector2f::Zero()),
+            keyboardDelta * dt * 10.0f);
     }
 
     // Set up transformation matrices
