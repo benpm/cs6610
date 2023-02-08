@@ -1,6 +1,9 @@
 # CS 6610 Project 3
 *Benjamin Mastripolito u1419419*
 
+![](project3_2.png)
+![](2023-02-07-17-47-38.png)
+
 > What you implemented
 
 - Models with blinn shading
