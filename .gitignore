@@ -16,3 +16,4 @@ _deps
 *.exe
 *.pdb
 *.ilk
+imgui.ini

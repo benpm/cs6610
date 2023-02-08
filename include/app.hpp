@@ -107,4 +107,6 @@ class App
          * @brief Draw the scene
          */
         void draw(float dt);
+
+        void composeUI();
 };

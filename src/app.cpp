@@ -9,6 +9,9 @@
 #include <app.hpp>
 #define GLEQ_IMPLEMENTATION
 #include <gleq.h>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 App::App() {
     // Initialize GLFW and Gleq
@@ -30,6 +33,11 @@ App::App() {
     }
 
     glfwSwapInterval(1);
+
+    // Initialize imgui
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForOpenGL(this->window, true);
+    ImGui_ImplOpenGL3_Init("#version 460");
 
     // OpenGL config
     // glEnable(GL_PROGRAM_POINT_SIZE);
@@ -54,7 +62,7 @@ App::App() {
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 2000;
+    constexpr int bigness = 500;
 
     Model modelTeapot("resources/models/teapot.obj");
     modelTeapot.normalize();
@@ -68,6 +76,7 @@ App::App() {
         float hue = rng.range(0.0f, 360.0f);
         model->mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
         model->mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
+        model->mat.shininess = 2000.0f;
         this->models.push_back(model);
     }
 
@@ -158,6 +167,8 @@ App::App() {
 }
 
 App::~App() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
     glfwTerminate();
 }
 
@@ -348,4 +359,20 @@ void App::draw(float dt) {
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size());
+
+    this->composeUI();
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void App::composeUI() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+
+    ImGui::NewFrame();
+
+    ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+
+    ImGui::End();
 }

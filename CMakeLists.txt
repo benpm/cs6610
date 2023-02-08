@@ -7,6 +7,7 @@ include_directories(lib/include)
 include(cmake/eigen.cmake.in)
 include(cmake/glfw.cmake.in)
 include(cmake/spdlog.cmake.in)
+include(cmake/imgui.cmake.in)
 
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
@@ -42,4 +43,4 @@ endif()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-target_link_libraries(app glfw ${OPENGL_LIBRARIES} spdlog)
+target_link_libraries(app glfw ${OPENGL_LIBRARIES} spdlog imgui)
