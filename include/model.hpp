@@ -33,3 +33,9 @@ public:
         std::vector<Matrix4f>& mTransforms,
         std::vector<uMaterial>& mMaterials) const;
 };
+
+// Component for storing dynamic model transforms
+struct DynamicTransform
+{
+    Matrix4f transform;
+};

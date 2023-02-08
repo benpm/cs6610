@@ -68,23 +68,19 @@ App::App() {
     modelTeapot.normalize();
     Model modelSuzanne("resources/models/suzanne.obj");
     modelSuzanne.normalize();
+
     for (size_t i = 0; i < bigness; i++) {
-        std::shared_ptr<Model> model = std::make_shared<Model>(rng.choose({modelTeapot, modelSuzanne}));
-        model->scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model->pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.01f;
-        model->rot = rng.rotation();
+        entt::entity e = this->reg.create();
+        DynamicTransform& transform = this->reg.emplace<DynamicTransform>(e);
+        Model& model = this->reg.emplace<Model>(e, rng.choose({modelTeapot, modelSuzanne}));
+        model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
+        model.pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.01f;
+        model.rot = rng.rotation();
         float hue = rng.range(0.0f, 360.0f);
-        model->mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
-        model->mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-        model->mat.shininess = 2000.0f;
-        this->models.push_back(model);
-    }
-
-    this->camera.orbitDist(50.0f);
-
-    // Add models to world
-    for (const std::shared_ptr<Model>& model : this->models) {
-        model->addToWorld(
+        model.mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
+        model.mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
+        model.mat.shininess = 2000.0f;
+        model.addToWorld(
             this->arrVerts,
             this->arrElems,
             this->vCounts,
@@ -92,6 +88,8 @@ App::App() {
             this->mTransforms,
             this->mMaterials);
     }
+
+    this->camera.orbitDist(50.0f);
 
     // Add lights
     this->sunlight = this->lights.emplace_back(std::make_shared<Light>(

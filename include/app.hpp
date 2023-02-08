@@ -12,6 +12,7 @@
 #include <cyGL.h>
 #include <model.hpp>
 #include <light.hpp>
+#include <entt/entt.hpp>
 
 class App
 {
@@ -37,6 +38,8 @@ class App
         std::vector<std::shared_ptr<Model>> models;
         std::shared_ptr<Model> teapot;
         std::shared_ptr<Light> sunlight;
+
+        entt::registry reg;
 
         // ID of model transform matrices SSBO
         GLuint ssboModels;

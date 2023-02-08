@@ -1,0 +1,12 @@
+include(FetchContent)
+
+FetchContent_Populate(
+  entt_proj
+  QUIET
+  GIT_REPOSITORY  https://github.com/skypjack/entt
+  GIT_TAG         v3.11.1
+  SOURCE_DIR      entt
+)
+
+add_subdirectory(${entt_proj_SOURCE_DIR} ${entt_proj_SOURCE_DIR}/build)
+include_directories(${entt_proj_SOURCE_DIR}/src)
