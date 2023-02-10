@@ -63,33 +63,36 @@ App::App() {
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 5000;
+    constexpr int bigness = 100;
 
-    Model modelTeapot("resources/models/teapot.obj");
-    modelTeapot.normalize();
-    Model modelSuzanne("resources/models/suzanne.obj");
-    modelSuzanne.normalize();
+    meshes.add("resources/models/teapot.obj", "", true);
+    meshes.add("resources/models/suzanne.obj", "", true);
+    meshes.add("resources/models/sphere.obj", "", true);
+    meshes.add("resources/models/cube.obj", "", true);
+    meshes.build(this->prog);
+    spdlog::info("Loaded meshes");
 
     for (size_t i = 0; i < bigness; i++) {
         entt::entity e = this->reg.create();
-        DynamicTransform& transform = this->reg.emplace<DynamicTransform>(e);
-        Model& model = this->reg.emplace<Model>(e, rng.choose({modelTeapot, modelSuzanne}));
-        uMaterial& mat = this->reg.emplace<uMaterial>(e);
+
+        Model& model = this->reg.emplace<Model>(e);
         model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
         model.pos = rng.vec(-Vector3f::Ones(), Vector3f::Ones()) * (float)bigness * 0.01f;
         model.rot = rng.rotation();
+
+        MeshData& meshData = this->reg.emplace<MeshData>(e, this->meshes.get("teapot"));
+        model.pivot = meshData.center;
+        this->vCounts.push_back(meshData.elemCount);
+        this->vOffsets.push_back(meshData.elemOffset);
+        
+        uMaterial& mat = this->reg.emplace<uMaterial>(e);
         float hue = rng.range(0.0f, 360.0f);
         mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
         mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
         mat.shininess = 2000.0f;
+
+        DynamicTransform& transform = this->reg.emplace<DynamicTransform>(e);
         transform.transform = model.transform();
-        model.addToWorld(
-            this->arrVerts,
-            this->arrElems,
-            this->vCounts,
-            this->vOffsets,
-            this->mTransforms,
-            this->mMaterials);
     }
 
     this->camera.orbitDist(50.0f);
@@ -118,29 +121,6 @@ App::App() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    // Create and populate VBO
-    glGenBuffers(1, &this->vertVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, this->vertVBO);
-    glBufferData(GL_ARRAY_BUFFER, this->arrVerts.size() * sizeof(Vector3f), this->arrVerts.data(), GL_STATIC_DRAW);
-
-    GLuint attrib_vPos = prog.AttribLocation("vPos");
-    glEnableVertexAttribArray(attrib_vPos);
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 0u));
-    GLuint attrib_vColor = prog.AttribLocation("vColor");
-    glEnableVertexAttribArray(attrib_vColor);
-    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 1u));
-    GLuint attrib_vNormal = prog.AttribLocation("vNormal");
-    glEnableVertexAttribArray(attrib_vNormal);
-    glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u));
-
-    // Create and populate triangles EBO
-    glGenBuffers(1, &this->triEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->arrElems.size() * sizeof(uint32_t), this->arrElems.data(), GL_STATIC_DRAW);
-
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
@@ -154,7 +134,10 @@ App::App() {
     // Create and bind materials SSBO
     glGenBuffers(1, &this->ssboMaterials);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->mMaterials.size() * sizeof(uMaterial), this->mMaterials.data(), GL_STATIC_DRAW);
+    auto& materialsStorage = this->reg.view<uMaterial>().storage<uMaterial>();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        materialsStorage.size() * sizeof(Matrix4f),
+        *materialsStorage.raw(), GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
@@ -351,7 +334,6 @@ void App::draw(float dt) {
         model.rot += Vector3f(sinf(model.pos.x() * 0.05f), 0.1f, sinf(model.pos.x() * 0.01f)) * dt;
         transform.transform = model.transform();
     }
-
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
     auto& transformsStorage = this->reg.view<DynamicTransform>().storage<DynamicTransform>();
     glBufferSubData(GL_SHADER_STORAGE_BUFFER,
@@ -361,6 +343,7 @@ void App::draw(float dt) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     
     // Draw models in scene
+    this->meshes.bind();
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),

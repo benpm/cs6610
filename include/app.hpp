@@ -11,6 +11,7 @@
 #include <GLFW/glfw3.h>
 #include <cyGL.h>
 #include <model.hpp>
+#include <mesh.hpp>
 #include <light.hpp>
 #include <entt/entt.hpp>
 
@@ -45,23 +46,13 @@ class App
         GLuint ssboMaterials;
         // ID of lights SSBO
         GLuint ssboLights;
-        // Index of VBO for storing vertex data
-        GLuint vertVBO;
-        // Index of EBO for storing triangle element indices
-        GLuint triEBO;
 
-        // Flat, strided vertex array data (pos, color, normal)
-        std::vector<Vector3f> arrVerts;
-        // Flat element array data (vertex indices for triangles: v0,v1,v2)
-        std::vector<uint32_t> arrElems;
+        MeshCollection meshes;
+
         // Element counts
         std::vector<GLsizei> vCounts;
         // Element offsets
         std::vector<size_t> vOffsets;
-        // Model transform matrices
-        std::vector<Matrix4f> mTransforms;
-        // Model materials
-        std::vector<uMaterial> mMaterials;
         // Lights
         std::vector<std::shared_ptr<Light>> lights;
     public:
