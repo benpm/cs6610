@@ -48,7 +48,8 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
 
     this->meshDataMap.emplace(name, MeshData{
         .elemCount = nElems,
-        .elemOffset = triOffset * sizeof(uint32_t)
+        .elemOffset = triOffset * sizeof(uint32_t),
+        .center = pivot
     });
 
     this->dirty = true;
@@ -60,34 +61,31 @@ const MeshData& MeshCollection::get(const std::string &meshName) const {
 
 void MeshCollection::build(const cyGLSLProgram& prog) const {
     if (!this->buffersBuilt) {
-        glGenBuffers(1, &this->vboVerts);
-        glGenBuffers(1, &this->eboElems);
+        glGenBuffers(1, &this->vboVerts); $gl_err();
+        glGenBuffers(1, &this->eboElems); $gl_err();
         this->buffersBuilt = true;
     }
 
     // Populate vertex data VBO
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts);
-    glBufferData(GL_ARRAY_BUFFER, this->arrVerts.size() * sizeof(Vector3f), this->arrVerts.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts); $gl_err();
+    glBufferData(GL_ARRAY_BUFFER, this->arrVerts.size() * sizeof(Vector3f), this->arrVerts.data(), GL_STATIC_DRAW); $gl_err();
 
-    GLuint attrib_vPos = prog.AttribLocation("vPos");
-    glEnableVertexAttribArray(attrib_vPos);
+    GLuint attrib_vPos = prog.AttribLocation("vPos"); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 0u));
-    GLuint attrib_vColor = prog.AttribLocation("vColor");
-    glEnableVertexAttribArray(attrib_vColor);
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 0u)); $gl_err();
+    GLuint attrib_vColor = prog.AttribLocation("vColor"); $gl_err();
+    glEnableVertexAttribArray(attrib_vColor); $gl_err();
     glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 1u));
-    GLuint attrib_vNormal = prog.AttribLocation("vNormal");
-    glEnableVertexAttribArray(attrib_vNormal);
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 1u)); $gl_err();
+    GLuint attrib_vNormal = prog.AttribLocation("vNormal"); $gl_err();
+    glEnableVertexAttribArray(attrib_vNormal); $gl_err();
     glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u));
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u)); $gl_err();
 
     // Populate triangles elements data EBO
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->arrElems.size() * sizeof(uint32_t), this->arrElems.data(), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems); $gl_err();
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->arrElems.size() * sizeof(uint32_t), this->arrElems.data(), GL_STATIC_DRAW); $gl_err();
 
     this->dirty = false;
 }
@@ -98,4 +96,5 @@ void MeshCollection::bind() const {
     }
     glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems);
+    $gl_err();
 }

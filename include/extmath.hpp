@@ -19,6 +19,9 @@ constexpr float tau4 = tau / 4.0f;
 
 constexpr size_t nVertAttribs = 3u;
 
+void glCheckError_(const char *file, int line);
+#define $gl_err() glCheckError_(__FILE__, __LINE__) 
+
 struct uMaterial {
     alignas(16) Vector3f diffuseColor = {1.0f, 1.0f, 1.0f};
     alignas(16) Vector3f specularColor = {1.0f, 1.0f, 1.0f};

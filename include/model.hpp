@@ -22,5 +22,6 @@ public:
 // Component for storing dynamic model transforms
 struct DynamicTransform
 {
+    static constexpr auto in_place_delete = true;
     Matrix4f transform;
 };

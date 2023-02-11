@@ -15,7 +15,9 @@ int main(int argc, char const *argv[])
         spdlog::error("GLFW3 failed to initialize!");
         return -1;
     }
-
+    glfwSetErrorCallback([](int error, const char* description) {
+        spdlog::error("GLFW error [{}] {}", error, description);
+    });
 
     gleqInit();
 

@@ -60,10 +60,15 @@ App::App() {
         this->prog.Bind();
     }
 
+    // Create and bind VAO
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
     RNG rng(0u);
     
     // Create models
-    constexpr int bigness = 100;
+    constexpr int bigness = 50;
 
     meshes.add("resources/models/teapot.obj", "", true);
     meshes.add("resources/models/suzanne.obj", "", true);
@@ -116,11 +121,6 @@ App::App() {
             LightType::point));
     }
 
-    // Create and bind VAO
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
@@ -130,6 +130,7 @@ App::App() {
         *transformsStorage.raw(), GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    $gl_err();
 
     // Create and bind materials SSBO
     glGenBuffers(1, &this->ssboMaterials);
@@ -140,6 +141,7 @@ App::App() {
         *materialsStorage.raw(), GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    $gl_err();
 
     // Create and bind lights SSBO
     glGenBuffers(1, &this->ssboLights);
@@ -147,6 +149,7 @@ App::App() {
     glBufferData(GL_SHADER_STORAGE_BUFFER, this->lights.size() * sizeof(uLight), NULL, GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    $gl_err();
     this->prog.SetUniform("nLights", (uint)this->lights.size());
 }
 
@@ -308,8 +311,8 @@ void App::draw(float dt) {
         };
         this->camera.control(
             this->mouseDeltaPos * dt,
-            this->mouseLeft ? Vector2f(panDelta * dt * 10.0f) : Vector2f(Vector2f::Zero()),
-            keyboardDelta * dt * 10.0f);
+            this->mouseLeft ? Vector2f(panDelta * dt * 20.0f) : Vector2f(Vector2f::Zero()),
+            keyboardDelta * dt * 20.0f);
     }
 
     // Set up transformation matrices
@@ -330,7 +333,7 @@ void App::draw(float dt) {
     // Update model transforms
     for (auto e : this->reg.view<Model, DynamicTransform>()) {
         auto [model, transform] = this->reg.get<Model, DynamicTransform>(e);
-        model.pos += Vector3f(sinf(model.pos.x() * 0.01f), 0.05f, 0.1f) * dt;
+        model.pos += Vector3f(sinf(model.pos.x() * 0.01f), 0.05f, 0.1f) * dt * 10.0f;
         model.rot += Vector3f(sinf(model.pos.x() * 0.05f), 0.1f, sinf(model.pos.x() * 0.01f)) * dt;
         transform.transform = model.transform();
     }
@@ -349,7 +352,7 @@ void App::draw(float dt) {
         this->vCounts.data(),
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
-        this->vCounts.size());
+        this->vCounts.size()); $gl_err();
 
     this->composeUI();
     ImGui::Render();
