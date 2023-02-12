@@ -1,6 +1,8 @@
 #pragma once
 
 #include <glad/glad.h>
+#undef near
+#undef far
 #include <extmath.hpp>
 #include <cyTriMesh.h>
 #include <cyGL.h>

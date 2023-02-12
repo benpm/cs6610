@@ -1,5 +1,8 @@
 #pragma once
 
+#ifdef PLATFORM_WINDOWS
+    #define NOMINMAX
+#endif
 #include <cmath>
 #include <iostream>
 #include <unordered_set>
@@ -8,6 +11,8 @@
 #include <camera.hpp>
 #include <spdlog/spdlog.h>
 #include <glad/glad.h>
+#undef near
+#undef far
 #include <GLFW/glfw3.h>
 #include <cyGL.h>
 #include <model.hpp>

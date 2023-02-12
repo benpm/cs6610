@@ -1,6 +1,8 @@
 #pragma once
 
 #include <extmath.hpp>
+#undef near
+#undef far
 
 class Camera
 {

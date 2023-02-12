@@ -6,6 +6,7 @@
 #include <Eigen/Geometry>
 #ifdef PLATFORM_WINDOWS
     #include <cstdint>
+    #define uint uint32_t
 #endif
 #include <cyVector.h>
 #include <spdlog/fmt/bundled/format.h>
@@ -108,16 +109,15 @@ public:
 class RNG
 {
 public:
-    const uint seed;
+    const uint32_t seed;
 
 private:
     std::minstd_rand gen;
     std::uniform_real_distribution<float> rdist;
     std::uniform_int_distribution<int> idist;
-    std::uniform_int_distribution<ulong> uldist;
 public:
     //Default constructor, uses specified seed for number generation
-    RNG(uint seed);
+    RNG(uint32_t seed);
     //Generate a random number between 0 and 1, returns if this number is less than given probability value
     bool test(float probability);
     //Random range from a to b, inclusive

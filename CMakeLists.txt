@@ -20,7 +20,10 @@ add_executable(app ${SOURCES})
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 
+target_compile_features(app PRIVATE cxx_std_20)
+
 if(WIN32)
+    message(STATUS "Windows detected, adding compile flags")
     target_compile_definitions(app PRIVATE PLATFORM_WINDOWS)
 endif()
 
@@ -34,7 +37,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_features(app PRIVATE cxx_std_17)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     message(STATUS "msvc detected, adding compile flags")
-    target_compile_options(app PRIVATE  /std:c++latest /EHsc)
+    target_compile_options(app PRIVATE  /std:c++20 /EHsc)
 else()
     message(STATUS "Could not determine compiler: ${CMAKE_CXX_COMPILER_ID}" )
     target_compile_features(app PRIVATE cxx_std_17)

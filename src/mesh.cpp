@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include <filesystem>
 #include <spdlog/spdlog.h>
 #include "mesh.hpp"

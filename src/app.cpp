@@ -172,7 +172,7 @@ App::App() {
     }
 
     this->camera.orbitDist(50.0f);
-    this->camera.far = 1.0e3f;
+    this->camera.far = 1e3f;
     this->camera.projection = Camera::Projection::orthographic;
     this->camera.mode = Camera::Mode::track2D;
     this->camera.zoom = 4500.0f;
@@ -218,7 +218,7 @@ App::App() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     $gl_err();
-    this->meshProg.SetUniform("nLights", (uint)this->lights.size());
+    this->meshProg.SetUniform("nLights", (uint32_t)this->lights.size());
 }
 
 App::~App() {

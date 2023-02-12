@@ -105,6 +105,7 @@
         "csignal": "cpp",
         "any": "cpp",
         "codecvt": "cpp",
-        "cassert": "cpp"
+        "cassert": "cpp",
+        "GLAD.C": "cpp"
     }
 }

@@ -21,7 +21,7 @@ void glCheckError_(const char *file, int line) {
 }
 
 /* Random Number Generator Class */
-RNG::RNG(uint seed) : seed(seed), gen(seed) {
+RNG::RNG(uint32_t seed) : seed(seed), gen(seed) {
 }
 int RNG::range(int a, int b) {
     const std::uniform_int_distribution<int>::param_type params(a, b);
