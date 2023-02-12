@@ -86,6 +86,12 @@ App::App() {
     glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
 
+    glCreateBuffers(1, &this->vboPath); $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboPath); $gl_err();
+    
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+
     glGenBuffers(1, &this->ssboArrows);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows);
@@ -356,15 +362,47 @@ void App::idle() {
 void App::simulate(float dt) {
 
     // Simulate physics objects
+    // for (auto e : this->reg.view<PhysicsBody>()) {
+    //     PhysicsBody& body = this->reg.get<PhysicsBody>(e);
+    //     // body.vel += body.acc * dt;
+
+    //     const float a = angle2D(vec2(body.pos));
+    //     const float d = body.pos.norm();
+    //     body.vel = {cosf(a + tau4 - 0.1f) * d, sinf(a + tau4 - 0.1f) * d, 0.0f};
+    //     body.pos += body.vel * dt;
+
+    // }
+    const float step = 0.01f;
+    const bool explicitEuler = false;
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
-        // body.vel += body.acc * dt;
 
-        const float a = angle2D(vec2(body.pos));
-        const float d = body.pos.norm();
-        body.vel = {cosf(a + tau4 - 0.1f) * d, sinf(a + tau4 - 0.1f) * d, 0.0f};
-        body.pos += body.vel * dt;
 
+        if (explicitEuler) {
+            // Explicit Euler
+            const size_t iters = 2000;
+            const float s = step / (float)iters;
+            for (size_t i = 0; i < iters; i++) {
+                const float a = angle2D(vec2(body.pos));
+                const float d = body.pos.norm() * 0.25f;
+                body.acc = {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
+                body.vel += body.acc * dt * s;
+                body.pos += body.vel * dt * s;
+            }
+        } else {
+            // Implicit Euler
+            const size_t iters = 10;
+            const float s = step / (float)iters;
+            for (size_t i = 0; i < iters; i++) {
+                const float d = body.pos.norm();
+                const float a = angle2D(vec2(body.pos)) + tau4 + 1.0e-8f;
+                const Vector3f np = {cosf(a) * d, sinf(a) * d, 0.0f};
+                const Vector3f dp = np - body.pos;
+                body.acc = dp / (dt * dt) - body.vel / dt;
+                body.vel += body.acc * dt * s;
+                body.pos += body.vel * dt * s;
+            }
+        }
     }
 
     // Update model transforms
@@ -381,6 +419,11 @@ void App::simulate(float dt) {
         ray.length = body.vel.norm();
         ray.rot = {0.0f, 0.0f, angle2D(vec2(body.vel))};
         t.transform = ray.transform();
+    }
+
+    if (int((this->t) * 10.0f) > int((this->t - dt) * 10.0f)) {
+        this->particlePath.push_back(this->reg.get<PhysicsBody>(this->particle).pos);
+        spdlog::debug("[{}] {}", this->particlePath.size(), this->particlePath.back());
     }
 }
 
@@ -456,8 +499,8 @@ void App::draw(float dt) {
     this->wiresProg.SetUniformMatrix4("uTView", tView.data());
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
 
-    std::vector<RayTransform> rayTransforms;
-    std::vector<DebugColor> debugColors;
+    std::vector<RayTransform> rayTransforms = {{.transform = identityTransform().matrix()}};
+    std::vector<DebugColor> debugColors = {{.color = {1.0f, 1.0f, 1.0f, 1.0f}}};
     for (auto e : this->reg.view<RayTransform, DebugColor>()) {
         auto [rayT, color] = this->reg.get<RayTransform, DebugColor>(e);
         rayTransforms.push_back(rayT);
@@ -476,7 +519,12 @@ void App::draw(float dt) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
-    glDrawArraysInstanced(GL_LINES, 0, 6, rayTransforms.size()); $gl_err();
+    // glDrawArraysInstanced(GL_LINES, 0, 6, rayTransforms.size()); $gl_err();
+
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboPath); $gl_err();
+    glBufferData(GL_ARRAY_BUFFER,
+        this->particlePath.size() * sizeof(Vector3f), this->particlePath.data(), GL_DYNAMIC_DRAW); $gl_err();
+    glDrawArrays(GL_LINE_STRIP, 0, this->particlePath.size()); $gl_err();
 
     this->composeUI();
     ImGui::Render();

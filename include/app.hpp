@@ -55,6 +55,7 @@ class App
 
         GLuint vaoWires;
         GLuint vboWires;
+        GLuint vboPath;
         // ID of arrow model transform matrices SSBO
         GLuint ssboArrows;
         // ID of arrow colors SSBO
@@ -68,6 +69,8 @@ class App
         std::vector<std::shared_ptr<Light>> lights;
 
         entt::entity particle;
+
+        std::vector<Vector3f> particlePath;
     public:
         GLFWwindow* window;
 
