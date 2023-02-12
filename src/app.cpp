@@ -81,16 +81,9 @@ App::App() {
     };
     glBufferData(GL_ARRAY_BUFFER, arrowVerts.size() * sizeof(Vector3f),
         arrowVerts.data(), GL_STATIC_DRAW); $gl_err();
-    
-    GLuint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
 
     glCreateBuffers(1, &this->vboPath); $gl_err();
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboPath); $gl_err();
-    
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    glCreateBuffers(1, &this->vboBox); $gl_err();
 
     glGenBuffers(1, &this->ssboArrows);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows);
@@ -374,22 +367,21 @@ void App::simulate(float dt) {
     // }
     const float step = 0.01f;
     const bool explicitEuler = true;
-    const AABB box({-5.0f, -5.0f, -5.0f}, {5.0f, 5.0f, 5.0f});
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
-        if (body.pos.x() < box.min.x()) {
-            body.pos.x() = box.min.x();
+        if (body.pos.x() < this->box.min.x()) {
+            body.pos.x() = this->box.min.x();
             body.vel.x() = -body.vel.x();
-        } else if (body.pos.x() > box.max.x()) {
-            body.pos.x() = box.max.x();
+        } else if (body.pos.x() > this->box.max.x()) {
+            body.pos.x() = this->box.max.x();
             body.vel.x() = -body.vel.x();
         }
-        if (body.pos.y() < box.min.y()) {
-            body.pos.y() = box.min.y();
+        if (body.pos.y() < this->box.min.y()) {
+            body.pos.y() = this->box.min.y();
             body.vel.y() = -body.vel.y();
-        } else if (body.pos.y() > box.max.y()) {
-            body.pos.y() = box.max.y();
+        } else if (body.pos.y() > this->box.max.y()) {
+            body.pos.y() = this->box.max.y();
             body.vel.y() = -body.vel.y();
         }
 
@@ -432,9 +424,11 @@ void App::simulate(float dt) {
         t.transform = ray.transform();
     }
 
-    if (int((this->t) * 10.0f) > int((this->t - dt) * 10.0f)) {
-        this->particlePath.push_back(this->reg.get<PhysicsBody>(this->particle).pos);
-        spdlog::debug("[{}] {}", this->particlePath.size(), this->particlePath.back());
+    if (int((this->t) * 24.0f) > int((this->t - dt) * 24.0f)) {
+        this->particlePath.insert(this->particlePath.begin(), this->reg.get<PhysicsBody>(this->particle).pos);
+        if (this->particlePath.size() > 200) {
+            this->particlePath.pop_back();
+        }
     }
 }
 
@@ -509,6 +503,10 @@ void App::draw(float dt) {
     this->wiresProg.SetUniformMatrix4("uTProj", tProj.data());
     this->wiresProg.SetUniformMatrix4("uTView", tView.data());
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
+    
+    GLuint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
 
     std::vector<RayTransform> rayTransforms = {{.transform = identityTransform().matrix()}};
     std::vector<DebugColor> debugColors = {{.color = {1.0f, 1.0f, 1.0f, 1.0f}}};
@@ -530,12 +528,24 @@ void App::draw(float dt) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
-    // glDrawArraysInstanced(GL_LINES, 0, 6, rayTransforms.size()); $gl_err();
+    glDrawArraysInstanced(GL_LINES, 0, 6, rayTransforms.size()); $gl_err();
 
     glBindBuffer(GL_ARRAY_BUFFER, this->vboPath); $gl_err();
+    
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
     glBufferData(GL_ARRAY_BUFFER,
         this->particlePath.size() * sizeof(Vector3f), this->particlePath.data(), GL_DYNAMIC_DRAW); $gl_err();
     glDrawArrays(GL_LINE_STRIP, 0, this->particlePath.size()); $gl_err();
+
+    const auto corners = this->box.cornersXY();
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboBox); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    glBufferData(GL_ARRAY_BUFFER,
+        corners.size() * sizeof(Vector3f), corners.data(), GL_DYNAMIC_DRAW); $gl_err();
+    glDrawArrays(GL_LINE_LOOP, 0, corners.size()); $gl_err();
+
 
     this->composeUI();
     ImGui::Render();

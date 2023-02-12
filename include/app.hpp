@@ -52,10 +52,11 @@ class App
         GLuint vaoMeshes;
         MeshCollection meshes;
 
-
+        AABB box{{-5.0f, -5.0f, -5.0f}, {5.0f, 5.0f, 5.0f}};
         GLuint vaoWires;
         GLuint vboWires;
         GLuint vboPath;
+        GLuint vboBox;
         // ID of arrow model transform matrices SSBO
         GLuint ssboArrows;
         // ID of arrow colors SSBO

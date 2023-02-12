@@ -1,6 +1,7 @@
 #pragma once
 
 #include <random>
+#include <array>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #ifdef PLATFORM_WINDOWS
@@ -137,6 +138,8 @@ public:
     Vector3f max;
 
     AABB(const Vector3f& min, const Vector3f& max);
+
+    std::array<Vector3f, 4> cornersXY() const;
 };
 
 // Linear interpolate

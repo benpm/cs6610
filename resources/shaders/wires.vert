@@ -24,4 +24,7 @@ void main()
     const mat4 tViewModel = uTView * tModel[gl_InstanceID];
     gl_Position = uTProj * tViewModel * vec4(vPos, 1.0);
     color = vec4(uColor[gl_InstanceID].rgb, 1.0);
+    if (gl_InstanceID == 0) {
+        color = vec4(uColor[gl_InstanceID].rgb * (1.0 - (gl_VertexID / 200.0)), 1.0);
+    }
 }

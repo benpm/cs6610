@@ -157,3 +157,12 @@ Vector2f vec2(const Vector3f &v) {
 
 AABB::AABB(const Vector3f& min, const Vector3f& max)
     : min(min), max(max) {}
+
+std::array<Vector3f, 4> AABB::cornersXY() const {
+    return {
+        Vector3f(min.x(), min.y(), 0.0f),
+        Vector3f(max.x(), min.y(), 0.0f),
+        Vector3f(max.x(), max.y(), 0.0f),
+        Vector3f(min.x(), max.y(), 0.0f),
+    };
+}
