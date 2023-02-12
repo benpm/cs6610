@@ -104,6 +104,7 @@
         "specialfunctions": "cpp",
         "csignal": "cpp",
         "any": "cpp",
-        "codecvt": "cpp"
+        "codecvt": "cpp",
+        "cassert": "cpp"
     }
 }

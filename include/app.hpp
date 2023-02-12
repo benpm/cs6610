@@ -30,12 +30,14 @@ class App
         bool mouseLeft = false;
         bool mouseRight = false;
         bool mouseMiddle = false;
+        bool mouseMoved = false;
         std::unordered_set<int> pressedKeys;
 
 
         Vector2i windowSize = {1280, 720};
         Camera camera;
-        cyGLSLProgram prog;
+        cyGLSLProgram meshProg;
+        cyGLSLProgram wiresProg;
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
@@ -47,7 +49,16 @@ class App
         // ID of lights SSBO
         GLuint ssboLights;
 
+        GLuint vaoMeshes;
         MeshCollection meshes;
+
+
+        GLuint vaoWires;
+        GLuint vboWires;
+        // ID of arrow model transform matrices SSBO
+        GLuint ssboArrows;
+        // ID of arrow colors SSBO
+        GLuint ssboArrowColors;
 
         // Element counts
         std::vector<GLsizei> vCounts;

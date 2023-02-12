@@ -94,7 +94,6 @@ void MeshCollection::bind() const {
     if (this->dirty) {
         spdlog::warn("MeshCollection::bind() called on dirty MeshCollection");
     }
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems);
-    $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts); $gl_err();
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems); $gl_err();
 }
