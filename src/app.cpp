@@ -373,22 +373,33 @@ void App::simulate(float dt) {
 
     // }
     const float step = 0.01f;
-    const bool explicitEuler = false;
+    const bool explicitEuler = true;
+    const AABB box({-5.0f, -5.0f, -5.0f}, {5.0f, 5.0f, 5.0f});
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
+        if (body.pos.x() < box.min.x()) {
+            body.pos.x() = box.min.x();
+            body.vel.x() = -body.vel.x();
+        } else if (body.pos.x() > box.max.x()) {
+            body.pos.x() = box.max.x();
+            body.vel.x() = -body.vel.x();
+        }
+        if (body.pos.y() < box.min.y()) {
+            body.pos.y() = box.min.y();
+            body.vel.y() = -body.vel.y();
+        } else if (body.pos.y() > box.max.y()) {
+            body.pos.y() = box.max.y();
+            body.vel.y() = -body.vel.y();
+        }
 
         if (explicitEuler) {
             // Explicit Euler
-            const size_t iters = 2000;
-            const float s = step / (float)iters;
-            for (size_t i = 0; i < iters; i++) {
-                const float a = angle2D(vec2(body.pos));
-                const float d = body.pos.norm() * 0.25f;
-                body.acc = {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
-                body.vel += body.acc * dt * s;
-                body.pos += body.vel * dt * s;
-            }
+            const float a = angle2D(vec2(body.pos));
+            const float d = body.pos.norm();
+            body.acc = {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
+            body.vel += body.acc * dt;
+            body.pos += body.vel * dt;
         } else {
             // Implicit Euler
             const size_t iters = 10;

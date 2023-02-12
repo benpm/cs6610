@@ -130,6 +130,15 @@ public:
     };
 };
 
+class AABB
+{
+public:
+    Vector3f min;
+    Vector3f max;
+
+    AABB(const Vector3f& min, const Vector3f& max);
+};
+
 // Linear interpolate
 template <typename T> T lerp(const T& a, const T& b, float t) {
     return a + (b - a) * t;
