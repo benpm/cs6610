@@ -122,11 +122,13 @@ App::App() {
     spdlog::info("Loaded meshes");
     
 
-    {
+    for (size_t i = 0; i < 40; i++) {
         entt::entity e = this->reg.create();
 
         Model& model = this->reg.emplace<Model>(e);
-        model.pos = {4.0f, 4.0f, 0.0f};
+        model.pos = rng.vec(this->box);
+        model.pos.z() = 0.0f;
+        model.scale *= 0.5f;
 
         MeshData& meshData = this->reg.emplace<MeshData>(e, this->meshes.get("sphere"));
         this->vCounts.push_back(meshData.elemCount);
@@ -530,17 +532,16 @@ void App::draw(float dt) {
 
     glDrawArraysInstanced(GL_LINES, 0, 6, rayTransforms.size()); $gl_err();
 
+    // Draw path
     glBindBuffer(GL_ARRAY_BUFFER, this->vboPath); $gl_err();
-    
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
     glBufferData(GL_ARRAY_BUFFER,
         this->particlePath.size() * sizeof(Vector3f), this->particlePath.data(), GL_DYNAMIC_DRAW); $gl_err();
     glDrawArrays(GL_LINE_STRIP, 0, this->particlePath.size()); $gl_err();
 
+    // Draw box
     const auto corners = this->box.cornersXY();
     glBindBuffer(GL_ARRAY_BUFFER, this->vboBox); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
     glBufferData(GL_ARRAY_BUFFER,
         corners.size() * sizeof(Vector3f), corners.data(), GL_DYNAMIC_DRAW); $gl_err();

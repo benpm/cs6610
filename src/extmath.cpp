@@ -37,6 +37,9 @@ Vector3f RNG::vec(const Vector3f& min, const Vector3f& max) {
 Vector3f RNG::vec(const Vector3f& max) {
     return this->vec(Vector3f::Zero(), max);
 }
+Vector3f RNG::vec(const AABB& bounds) {
+    return this->vec(bounds.min, bounds.max);
+}
 Vector3f RNG::rotation()
 {
     return {this->range(0.0f, tau), this->range(0.0f, tau), this->range(0.0f, tau)};
@@ -149,6 +152,10 @@ Matrix4f orthographic(const Vector2f& size, float near, float far) {
 
 Vector3f vec3(const Vector2f& v, float z) {
     return {v.x(), v.y(), z};
+}
+
+Vector3f vec3(float xyz) {
+    return {xyz, xyz, xyz};
 }
 
 Vector2f vec2(const Vector3f &v) {

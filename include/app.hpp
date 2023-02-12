@@ -52,7 +52,7 @@ class App
         GLuint vaoMeshes;
         MeshCollection meshes;
 
-        AABB box{{-5.0f, -5.0f, -5.0f}, {5.0f, 5.0f, 5.0f}};
+        AABB box{vec3(-10.0f), vec3(10.0f)};
         GLuint vaoWires;
         GLuint vboWires;
         GLuint vboPath;

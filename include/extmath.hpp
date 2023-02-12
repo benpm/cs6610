@@ -92,7 +92,19 @@ template <typename T> struct fmt::formatter<std::vector<T>> {
     }
 };
 
-//Random number generation helper class
+// Axis aligned bounding box
+class AABB
+{
+public:
+    Vector3f min;
+    Vector3f max;
+
+    AABB(const Vector3f& min, const Vector3f& max);
+
+    std::array<Vector3f, 4> cornersXY() const;
+};
+
+// Random number generation helper class
 class RNG
 {
 public:
@@ -114,6 +126,8 @@ public:
     float range(float a, float b);
     //Random vector3
     Vector3f vec(const Vector3f& min, const Vector3f& max);
+    //Random vector3
+    Vector3f vec(const AABB& bounds);
     //Random vector3 with min 0,0,0
     Vector3f vec(const Vector3f& max);
     //Random euler angles
@@ -129,17 +143,6 @@ public:
         std::advance(it, range(0, items.size() - 1));
         return *it;
     };
-};
-
-class AABB
-{
-public:
-    Vector3f min;
-    Vector3f max;
-
-    AABB(const Vector3f& min, const Vector3f& max);
-
-    std::array<Vector3f, 4> cornersXY() const;
 };
 
 // Linear interpolate
@@ -187,4 +190,5 @@ Matrix4f perspective(float fov, float aspect, float near, float far);
 Matrix4f orthographic(const Vector2f& size, float near, float far);
 
 Vector3f vec3(const Vector2f& v, float z=0.0f);
+Vector3f vec3(float xyz);
 Vector2f vec2(const Vector3f& v);
