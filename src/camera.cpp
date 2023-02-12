@@ -1,4 +1,5 @@
 #include <camera.hpp>
+#include <spdlog/spdlog.h>
 
 void Camera::orbit() {
     this->mode = Mode::orbit;
@@ -64,6 +65,10 @@ void Camera::control(const Vector2f& rotateDelta, const Vector2f& dragDelta, con
             break;
         case Mode::trackball:
             break;
+        case Mode::track2D:
+            this->pos.x() += dragDelta.x();
+            this->pos.y() -= dragDelta.y();
+            break;
         default:
             break;
     }
@@ -76,6 +81,7 @@ void Camera::universalZoom(float delta) {
             break;
         case Projection::orthographic:
             this->zoom *= (1.0f - delta);
+            spdlog::debug("camera zoom: {}", this->zoom);
             break;
         default:
             break;

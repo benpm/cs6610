@@ -188,7 +188,10 @@ App::App() {
         debugColor.color = {1.0f, 0.0f, 0.0f, 1.0f};
     }
 
-    this->camera.orbitDist(5.0f);
+    this->camera.orbitDist(50.0f);
+    this->camera.far = 1.0e3f;
+    this->camera.projection = Camera::Projection::orthographic;
+    this->camera.mode = Camera::Mode::track2D;
 
     // Add lights
     this->sunlight = this->lights.emplace_back(std::make_shared<Light>(

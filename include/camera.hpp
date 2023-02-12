@@ -28,7 +28,8 @@ public:
     enum class Mode {
         fly,
         orbit,
-        trackball
+        trackball,
+        track2D
     } mode = Mode::fly;
 
     // Orbit camera: start orbit panning (should be called on click)
