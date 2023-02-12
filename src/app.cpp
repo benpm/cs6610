@@ -71,13 +71,13 @@ App::App() {
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
     std::vector<Vector3f> arrowVerts = {
         {+0.0f, +0.0f, +0.0f},
-        {+0.0f, +0.0f, -1.0f},
+        {-1.0f, +0.0f, +0.0f},
 
-        {+0.0f, +0.0f, -1.0f},
-        {-0.1f, +0.0f, -0.9f},
+        {-1.0f, +0.0f, +0.0f},
+        {-0.9f, -0.1f, +0.0f},
 
-        {+0.0f, +0.0f, -1.0f},
-        {+0.1f, +0.0f, -0.9f},
+        {-1.0f, +0.0f, +0.0f},
+        {-0.9f, +0.1f, +0.0f},
     };
     glBufferData(GL_ARRAY_BUFFER, arrowVerts.size() * sizeof(Vector3f),
         arrowVerts.data(), GL_STATIC_DRAW); $gl_err();
@@ -123,15 +123,16 @@ App::App() {
     spdlog::info("Loaded meshes");
     
 
-    for (size_t i = 0; i < bigness; i++) {
+    {
         entt::entity e = this->reg.create();
 
         Model& model = this->reg.emplace<Model>(e);
-        model.pos.y() = 1.0f;
+        model.pos = {4.0f, 4.0f, 0.0f};
 
         MeshData& meshData = this->reg.emplace<MeshData>(e, this->meshes.get("sphere"));
         this->vCounts.push_back(meshData.elemCount);
         this->vOffsets.push_back(meshData.elemOffset);
+        model.pivot = meshData.center;
         
         uMaterial& mat = this->reg.emplace<uMaterial>(e);
 
@@ -141,57 +142,25 @@ App::App() {
         PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
         body.pos = model.pos;
 
-        // DebugRay& ray = this->reg.emplace<DebugRay>(e);
-        // ray.posA = model.pos;
-        // ray.posB = model.pos + Vector3f(0.0f, -10.0f, 0.0f);
+        DebugRay& ray = this->reg.emplace<DebugRay>(e);
+        ray.pos = model.pos;
+        ray.rot = {tau4, 0.0f, tau4};
+        ray.length = 1.0f;
 
-        // RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-        // rayTransform.transform = ray.transform();
-    }
-
-    {
-        entt::entity e = this->reg.create();
-        DebugRay r{
-            .pos = Vector3f(0.0f, 0.0f, 0.0f),
-            .rot = Vector3f(0.0f, 0.0f, 0.0f),
-            .length = 1.0f
-        };
-        RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-        rayTransform.transform = r.transform();
         DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-        debugColor.color = {0.0f, 0.0f, 1.0f, 1.0f};
-    }
+        debugColor.color = {1.0f, 1.0f, 1.0f, 1.0f};
 
-    {
-        entt::entity e = this->reg.create();
-        DebugRay r{
-            .pos = Vector3f(0.0f, 0.0f, 0.0f),
-            .rot = Vector3f(tau4, 0.0f, tau4),
-            .length = 1.0f
-        };
         RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-        rayTransform.transform = r.transform();
-        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-        debugColor.color = {0.0f, 1.0f, 0.0f, 1.0f};
-    }
+        rayTransform.transform = ray.transform();
 
-    {
-        entt::entity e = this->reg.create();
-        DebugRay r{
-            .pos = Vector3f(0.0f, 0.0f, 0.0f),
-            .rot = Vector3f(0.0f, -tau4, tau4),
-            .length = 1.0f
-        };
-        RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-        rayTransform.transform = r.transform();
-        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-        debugColor.color = {1.0f, 0.0f, 0.0f, 1.0f};
+        this->particle = e;
     }
 
     this->camera.orbitDist(50.0f);
     this->camera.far = 1.0e3f;
     this->camera.projection = Camera::Projection::orthographic;
     this->camera.mode = Camera::Mode::track2D;
+    this->camera.zoom = 4500.0f;
 
     // Add lights
     this->sunlight = this->lights.emplace_back(std::make_shared<Light>(
@@ -304,6 +273,11 @@ void App::onClick(int button, bool pressed) {
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
+            if (!pressed) {
+                PhysicsBody& body = this->reg.get<PhysicsBody>(this->particle);
+                Vector2f v = (this->mouseClickStart - this->mousePos) * 0.1f;
+                body.vel += Vector3f(v.x(), -v.y(), 0.0f);
+            }
             break;
         case GLFW_MOUSE_BUTTON_MIDDLE:
             this->mouseMiddle = pressed;
@@ -369,6 +343,7 @@ void App::run() {
         // Draw the scene
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        this->simulate(dt);
         this->draw(dt);
         this->idle();
         glfwSwapBuffers(this->window);
@@ -378,6 +353,37 @@ void App::run() {
 void App::idle() {
 }
 
+void App::simulate(float dt) {
+
+    // Simulate physics objects
+    for (auto e : this->reg.view<PhysicsBody>()) {
+        PhysicsBody& body = this->reg.get<PhysicsBody>(e);
+        // body.vel += body.acc * dt;
+
+        const float a = angle2D(vec2(body.pos));
+        const float d = body.pos.norm();
+        body.vel = {cosf(a + tau4 - 0.1f) * d, sinf(a + tau4 - 0.1f) * d, 0.0f};
+        body.pos += body.vel * dt;
+
+    }
+
+    // Update model transforms
+    for (auto e : this->reg.view<PhysicsBody, Model, ModelTransform>()) {
+        auto [body, model, transform] = this->reg.get<PhysicsBody, Model, ModelTransform>(e);
+        model.pos = body.pos;
+        transform.transform = model.transform();
+    }
+
+    // Update debug rays
+    for (auto e : this->reg.view<PhysicsBody, DebugRay, RayTransform>()) {
+        auto [body, ray, t] = this->reg.get<PhysicsBody, DebugRay, RayTransform>(e);
+        ray.pos = body.pos;
+        ray.length = body.vel.norm();
+        ray.rot = {0.0f, 0.0f, angle2D(vec2(body.vel))};
+        t.transform = ray.transform();
+    }
+}
+
 void App::draw(float dt) {
     if (this->mouseLeft && this->pressedKeys.count(GLFW_KEY_LEFT_CONTROL)) {
         // Move light
@@ -385,8 +391,8 @@ void App::draw(float dt) {
         this->sunlight->pos = identityTransform()
             .rotate(euler({panDelta.x(), panDelta.y(), 0.0f})) * this->sunlight->pos;
     } else if (this->mouseRight) {
-        // Camera zoom
-        this->camera.universalZoom(-(this->mouseDeltaPos.y() / this->windowSize.y()) * 10.0f);
+        
+        
     } else {
         // Camera controls
         const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
@@ -427,14 +433,6 @@ void App::draw(float dt) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
-    // Update model transforms
-    for (auto e : this->reg.view<PhysicsBody, Model, ModelTransform>()) {
-        auto [body, model, transform] = this->reg.get<PhysicsBody, Model, ModelTransform>(e);
-        body.vel += body.acc * dt;
-        body.pos += body.vel * dt;
-        model.pos = body.pos;
-        transform.transform = model.transform();
-    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels); $gl_err();
     auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>(); $gl_err();
     glBufferSubData(GL_SHADER_STORAGE_BUFFER,

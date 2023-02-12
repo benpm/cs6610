@@ -146,3 +146,11 @@ Matrix4f orthographic(const Vector2f& size, float near, float far) {
     m(3, 2) = -(far + near) / (far - near);
     return m;
 }
+
+Vector3f vec3(const Vector2f& v, float z) {
+    return {v.x(), v.y(), z};
+}
+
+Vector2f vec2(const Vector3f &v) {
+    return {v.x(), v.y()};
+}

@@ -173,3 +173,6 @@ Vector3f towards(const Vector3f& a, const Vector3f& b);
 Matrix4f perspective(float fov, float aspect, float near, float far);
 // Orthographic projection matrix
 Matrix4f orthographic(const Vector2f& size, float near, float far);
+
+Vector3f vec3(const Vector2f& v, float z=0.0f);
+Vector2f vec2(const Vector3f& v);

@@ -66,6 +66,8 @@ class App
         std::vector<size_t> vOffsets;
         // Lights
         std::vector<std::shared_ptr<Light>> lights;
+
+        entt::entity particle;
     public:
         GLFWwindow* window;
 
@@ -110,6 +112,8 @@ class App
          * @brief Draw the scene
          */
         void draw(float dt);
+
+        void simulate(float dt);
 
         void composeUI();
 };
