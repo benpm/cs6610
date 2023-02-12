@@ -136,6 +136,7 @@ App::App() {
         model.pivot = meshData.center;
         
         uMaterial& mat = this->reg.emplace<uMaterial>(e);
+        mat.ambientColor = {0.08f, 0.08f, 0.08f};
 
         ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
         transform.transform = model.transform();
@@ -155,6 +156,19 @@ App::App() {
         rayTransform.transform = ray.transform();
 
         this->particle = e;
+    }
+
+    {
+        entt::entity e = this->reg.create();
+        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+        debugColor.color = {1.0f, 1.0f, 0.0f, 1.0f};
+        DebugRay& ray = this->reg.emplace<DebugRay>(e);
+        ray.pos = {0.0f, 0.0f, 0.0f};
+        ray.rot = {tau4, 0.0f, tau4};
+        ray.length = 1.0f;
+        RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+        rayTransform.transform = ray.transform();
+        this->interactArrow = e;
     }
 
     this->camera.orbitDist(50.0f);
@@ -270,15 +284,15 @@ void App::onClick(int button, bool pressed) {
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
-            this->camera.orbitPanStart();
-            break;
-        case GLFW_MOUSE_BUTTON_RIGHT:
-            this->mouseRight = pressed;
             if (!pressed) {
                 PhysicsBody& body = this->reg.get<PhysicsBody>(this->particle);
                 Vector2f v = (this->mouseClickStart - this->mousePos) * 0.1f;
                 body.vel += Vector3f(v.x(), -v.y(), 0.0f);
             }
+            break;
+        case GLFW_MOUSE_BUTTON_RIGHT:
+            this->mouseRight = pressed;
+            this->camera.dragStart();
             break;
         case GLFW_MOUSE_BUTTON_MIDDLE:
             this->mouseMiddle = pressed;
@@ -342,7 +356,7 @@ void App::run() {
         this->lastFrameTime = glfwGetTime();
 
         // Draw the scene
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         this->simulate(dt);
         this->draw(dt);
@@ -367,8 +381,19 @@ void App::simulate(float dt) {
     //     body.pos += body.vel * dt;
 
     // }
+
+    DebugRay& debugRay = this->reg.get<DebugRay>(this->interactArrow);
+    debugRay.pos = this->reg.get<PhysicsBody>(this->particle).pos;
+    debugRay.rot = {0.0f, 0.0f, -angle2D(this->mouseClickStart - this->mousePos)};
+    if (this->mouseLeft) {
+        debugRay.length = (this->mousePos - this->mouseClickStart).norm() * 0.1f;
+    } else {
+        debugRay.length = 0.0f;
+    }
+
     const float step = 0.01f;
     const bool explicitEuler = true;
+    const float dampingFactor = 2.0f;
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
@@ -394,6 +419,7 @@ void App::simulate(float dt) {
             body.acc = {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
             body.vel += body.acc * dt;
             body.pos += body.vel * dt;
+            body.vel *= 1.0f - (dampingFactor * dt);
         } else {
             // Implicit Euler
             const size_t iters = 10;
@@ -423,6 +449,9 @@ void App::simulate(float dt) {
         ray.pos = body.pos;
         ray.length = body.vel.norm();
         ray.rot = {0.0f, 0.0f, angle2D(vec2(body.vel))};
+    }
+    for (auto e : this->reg.view<DebugRay, RayTransform>()) {
+        auto [ray, t] = this->reg.get<DebugRay, RayTransform>(e);
         t.transform = ray.transform();
     }
 
@@ -435,29 +464,20 @@ void App::simulate(float dt) {
 }
 
 void App::draw(float dt) {
-    if (this->mouseLeft && this->pressedKeys.count(GLFW_KEY_LEFT_CONTROL)) {
-        // Move light
-        const Vector2f panDelta = this->mouseDeltaPos * 0.01f;
-        this->sunlight->pos = identityTransform()
-            .rotate(euler({panDelta.x(), panDelta.y(), 0.0f})) * this->sunlight->pos;
-    } else if (this->mouseRight) {
-        
-        
-    } else {
-        // Camera controls
-        const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
-        const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
-        const Vector2f keyboardDelta = {
-            (float)this->pressedKeys.count(GLFW_KEY_D) - (float)this->pressedKeys.count(GLFW_KEY_A),
-            (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
-        };
-        Vector2f dragDelta = Vector2f::Zero();
-        if (this->mouseLeft) {
-            dragDelta = panDelta * dt * 20.0f;
-        }
-        if (this->mouseMoved) {
-            this->camera.control(this->mouseDeltaPos * dt, dragDelta, keyboardDelta * dt * 20.0f);
-        }
+    // Camera controls
+    const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
+    const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
+    const Vector2f keyboardDelta = {
+        (float)this->pressedKeys.count(GLFW_KEY_D) - (float)this->pressedKeys.count(GLFW_KEY_A),
+        (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
+    };
+    Vector2f dragDelta = Vector2f::Zero();
+    if (this->mouseRight) {
+        dragDelta = panDelta * dt * 20.0f;
+        dragDelta.y() *= -1.0f;
+    }
+    if (this->mouseMoved) {
+        this->camera.control(this->mouseDeltaPos * dt, dragDelta, keyboardDelta * dt * 20.0f);
     }
 
     this->meshProg.Bind();

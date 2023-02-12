@@ -4,6 +4,7 @@
 
 struct PhysicsBody
 {
+    static constexpr std::size_t page_size = 65536u;
     Vector3f pos = Vector3f::Zero();
     Vector3f vel = Vector3f::Zero();
     Vector3f acc = Vector3f::Zero();
@@ -20,12 +21,12 @@ struct DebugRay
 
 struct RayTransform
 {
-    static constexpr auto in_place_delete = true;
+    static constexpr std::size_t page_size = 65536u;
     Matrix4f transform;
 };
 
 struct DebugColor
 {
-    static constexpr auto in_place_delete = true;
+    static constexpr std::size_t page_size = 65536u;
     Vector4f color;
 };

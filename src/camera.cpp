@@ -7,6 +7,17 @@ void Camera::orbit() {
     this->rot = {this->theta, -this->phi, 0.0f};
 }
 
+void Camera::dragStart() {
+    switch (this->mode) {
+        case Mode::orbit:
+            this->orbitPanStart();
+            break;
+        default:
+            this->posStart = this->pos;
+            break;
+    }
+}
+
 void Camera::orbitPanStart() {
     this->panStartTheta = this->theta;
     this->panStartPhi = this->phi;
@@ -61,13 +72,13 @@ void Camera::control(const Vector2f& rotateDelta, const Vector2f& dragDelta, con
             this->rot += Vector3f(rotateDelta.y(), rotateDelta.x(), 0.0f);
             break;
         case Mode::orbit:
-            this->orbitPan({dragDelta.x(), -dragDelta.y()});
+            this->orbitPan({dragDelta.x(), dragDelta.y()});
             break;
         case Mode::trackball:
             break;
         case Mode::track2D:
-            this->pos.x() += dragDelta.x();
-            this->pos.y() -= dragDelta.y();
+            this->pos = this->posStart + vec3((dragDelta * 100000.0f) / this->zoom);
+            this->pos.z() = 50.0f;
             break;
         default:
             break;
@@ -81,7 +92,6 @@ void Camera::universalZoom(float delta) {
             break;
         case Projection::orthographic:
             this->zoom *= (1.0f - delta);
-            spdlog::debug("camera zoom: {}", this->zoom);
             break;
         default:
             break;

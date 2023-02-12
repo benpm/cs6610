@@ -22,6 +22,6 @@ public:
 // Component for storing dynamic model transforms
 struct ModelTransform
 {
-    static constexpr auto in_place_delete = true;
+    static constexpr std::size_t page_size = 65536u;
     Matrix4f transform;
 };

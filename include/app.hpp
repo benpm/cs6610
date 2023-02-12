@@ -70,6 +70,7 @@ class App
         std::vector<std::shared_ptr<Light>> lights;
 
         entt::entity particle;
+        entt::entity interactArrow;
 
         std::vector<Vector3f> particlePath;
     public:

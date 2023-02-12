@@ -11,6 +11,7 @@ private:
     float phi = 0.0f;
     float panStartTheta = 0.0f;
     float panStartPhi = 0.0f;
+    Vector3f posStart = Vector3f::Zero();
 
     // Computes camera position and rotation as an orbit camera (uses theta, phi, distance, target)
     void orbit();
@@ -54,6 +55,8 @@ public:
     float orbitPhi() const;
     // Fly camera: move camera in specified direction relative to camera
     void flyDir(const Vector3f& dir);
+    // Drag start
+    void dragStart();
     /**
      * @brief Universal control for camera, uses current mode
      * 
