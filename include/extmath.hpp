@@ -103,6 +103,25 @@ public:
     AABB(const Vector3f& min, const Vector3f& max);
 
     std::array<Vector3f, 4> cornersXY() const;
+    // Returns width (x span) of AABB
+    float width() const;
+    // Changes width (x span) of AABB, relative to current center
+    void width(float width);
+    // Returns height (y span) of AABB
+    float height() const;
+    // Changes height (y span) of AABB, relative to current center
+    void height(float height);
+    // Returns height (z span) of AABB
+    float depth() const;
+    // Changes depth (z span) of AABB, relative to current center
+    void depth(float depth);
+    // Makes AABB a square with given width / heighy, using current center
+    void size(float size);
+    // Returns center of AABB
+    Vector3f center() const;
+    // Places AABB by given center and size
+    void place(const Vector3f& center, const Vector3f& size);
+    void place(const Vector2f& center, const Vector2f& size);
 };
 
 // Random number generation helper class

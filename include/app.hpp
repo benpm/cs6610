@@ -46,6 +46,7 @@ class App
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
+        RNG rng{0u};
 
         // ID of model transform matrices SSBO
         GLuint ssboModels;
@@ -66,6 +67,21 @@ class App
         GLuint ssboArrows;
         // ID of arrow colors SSBO
         GLuint ssboArrowColors;
+
+        enum class SimulationMethod {
+            explicitEuler,
+            implicitEuler,
+            verlet,
+            implicit,
+            velocityOnly
+        } simulationMethod = SimulationMethod::explicitEuler;
+        const std::unordered_map<SimulationMethod, std::string> simMethodNames = {
+            {SimulationMethod::explicitEuler, "Explicit Euler"},
+            {SimulationMethod::implicitEuler, "Implicit Euler"},
+            {SimulationMethod::verlet,        "Verlet"},
+            {SimulationMethod::implicit,      "Constrained Implicit"},
+            {SimulationMethod::velocityOnly,  "Velocity Only"}
+        };
 
         // Element counts
         std::vector<GLsizei> vCounts;
@@ -126,4 +142,6 @@ class App
         void simulate(float dt);
 
         void composeUI();
+
+        entt::entity makeParticle();
 };

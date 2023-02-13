@@ -1,8 +1,8 @@
-# CS 6610
+# Render N Simulate
 
 ![](thumb.png)
 
-Interactive Computer Graphics project assignments!
+Assignments for Interactive Computer Graphics and Physics-Based Animation.
 
 ## Building
 
@@ -11,14 +11,16 @@ You might need to install a couple packages:
 - `libxinerama-dev`
 - `libglu1-mesa-dev`
 - `libxi-dev`
+- `ninja-build`
 
 Then let CMake handle the rest:
 ```bash
-mkdir build && cd build && cmake .. && make -j
+cmake -B build
+cmake --build build
 ```
 
 ### Windows
-Open project as a CMake project, click "Build All", and hope for the best
+Open project as a CMake project, click "Build All", and hope for the best. You might want to install Ninja.
 
 ## Running
 `./build/app` or `.\build\app.exe`

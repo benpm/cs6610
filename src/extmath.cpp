@@ -173,3 +173,48 @@ std::array<Vector3f, 4> AABB::cornersXY() const {
         Vector3f(min.x(), max.y(), 0.0f),
     };
 }
+
+float AABB::width() const {
+    return max.x() - min.x();
+}
+
+void AABB::width(float width) {
+    const Vector3f c = this->center();
+    this->place(c, Vector3f(width, this->height(), this->depth()));
+}
+
+float AABB::height() const {
+    return max.y() - min.y();
+}
+
+void AABB::height(float height) {
+    const Vector3f c = this->center();
+    this->place(c, Vector3f(this->width(), height, this->depth()));
+}
+
+float AABB::depth() const {
+    return max.z() - min.z();
+}
+
+void AABB::depth(float depth) {
+    const Vector3f c = this->center();
+    this->place(c, Vector3f(this->width(), this->height(), depth));
+}
+
+void AABB::size(float size) {
+    this->place(this->center(), Vector3f(size, size, size));
+}
+
+Vector3f AABB::center() const {
+    return (min + max) / 2.0f;
+}
+
+void AABB::place(const Vector3f& center, const Vector3f& size) {
+    this->min = (center - size) / 2.0f;
+    this->max = (center + size) / 2.0f;
+}
+
+void AABB::place(const Vector2f& center, const Vector2f& size) {
+    this->min = vec3((center - size) / 2.0f, this->min.z());
+    this->max = vec3((center + size) / 2.0f, this->max.z());
+}

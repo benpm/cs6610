@@ -108,8 +108,6 @@ App::App() {
     // Create and bind VAO
     glGenVertexArrays(1, &this->vaoMeshes);
     glBindVertexArray(this->vaoMeshes);
-
-    RNG rng(0u);
     
     // Create models
     constexpr int bigness = 1;
@@ -120,43 +118,8 @@ App::App() {
     meshes.add("resources/models/cube.obj", "", true);
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
-    
 
-    for (size_t i = 0; i < 40; i++) {
-        entt::entity e = this->reg.create();
-
-        Model& model = this->reg.emplace<Model>(e);
-        model.pos = rng.vec(this->box);
-        model.pos.z() = 0.0f;
-        model.scale *= 0.5f;
-
-        MeshData& meshData = this->reg.emplace<MeshData>(e, this->meshes.get("sphere"));
-        this->vCounts.push_back(meshData.elemCount);
-        this->vOffsets.push_back(meshData.elemOffset);
-        model.pivot = meshData.center;
-        
-        uMaterial& mat = this->reg.emplace<uMaterial>(e);
-        mat.ambientColor = {0.08f, 0.08f, 0.08f};
-
-        ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
-        transform.transform = model.transform();
-
-        PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
-        body.pos = model.pos;
-
-        DebugRay& ray = this->reg.emplace<DebugRay>(e);
-        ray.pos = model.pos;
-        ray.rot = {tau4, 0.0f, tau4};
-        ray.length = 1.0f;
-
-        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-        debugColor.color = {1.0f, 1.0f, 1.0f, 1.0f};
-
-        RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-        rayTransform.transform = ray.transform();
-
-        this->particle = e;
-    }
+    this->particle = this->makeParticle();
 
     {
         entt::entity e = this->reg.create();
@@ -369,19 +332,6 @@ void App::idle() {
 }
 
 void App::simulate(float dt) {
-
-    // Simulate physics objects
-    // for (auto e : this->reg.view<PhysicsBody>()) {
-    //     PhysicsBody& body = this->reg.get<PhysicsBody>(e);
-    //     // body.vel += body.acc * dt;
-
-    //     const float a = angle2D(vec2(body.pos));
-    //     const float d = body.pos.norm();
-    //     body.vel = {cosf(a + tau4 - 0.1f) * d, sinf(a + tau4 - 0.1f) * d, 0.0f};
-    //     body.pos += body.vel * dt;
-
-    // }
-
     DebugRay& debugRay = this->reg.get<DebugRay>(this->interactArrow);
     debugRay.pos = this->reg.get<PhysicsBody>(this->particle).pos;
     debugRay.rot = {0.0f, 0.0f, -angle2D(this->mouseClickStart - this->mousePos)};
@@ -391,9 +341,13 @@ void App::simulate(float dt) {
         debugRay.length = 0.0f;
     }
 
-    const float step = 0.01f;
-    const bool explicitEuler = true;
-    const float dampingFactor = 2.0f;
+    constexpr auto F = [](const Vector3f& v) -> Vector3f {
+        const float a = angle2D(vec2(v));
+        const float d = v.norm();
+        return {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
+    };
+
+    // Physics simulation
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
@@ -412,27 +366,50 @@ void App::simulate(float dt) {
             body.vel.y() = -body.vel.y();
         }
 
-        if (explicitEuler) {
-            // Explicit Euler
-            const float a = angle2D(vec2(body.pos));
-            const float d = body.pos.norm();
-            body.acc = {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
-            body.vel += body.acc * dt;
-            body.pos += body.vel * dt;
-            body.vel *= 1.0f - (dampingFactor * dt);
-        } else {
-            // Implicit Euler
-            const size_t iters = 10;
-            const float s = step / (float)iters;
-            for (size_t i = 0; i < iters; i++) {
+        switch (this->simulationMethod) {
+            case SimulationMethod::explicitEuler: {
+                const float dampingFactor = 2.0f;
+                body.acc = F(body.pos);
+                body.vel += body.acc * dt;
+                body.pos += body.vel * dt;
+                body.vel *= 1.0f - (dampingFactor * dt);
+            } break;
+            case SimulationMethod::implicitEuler: {
+                const size_t iters = 100;
+                const float step = 0.25f;
+                const float s = dt * (step / (float)iters);
+                for (size_t i = 0; i < iters; i++) {
+                    const Vector3f x = body.pos + body.vel*s + F(body.pos)*s*s;
+                    body.acc = (x - body.pos) / (dt * dt) - body.vel / dt;
+                    body.vel += body.acc * s;
+                    body.pos += body.vel * s;
+                }
+            } break;
+            case SimulationMethod::verlet: {
+                body.acc = F(body.pos);
+                body.vel += body.acc * dt * 0.5f;
+                body.pos += body.vel * dt;
+            } break;
+            case SimulationMethod::implicit: {
+                const size_t iters = 10;
+                const float step = 0.01f;
+                const float s = step / (float)iters;
+                for (size_t i = 0; i < iters; i++) {
+                    const float d = body.pos.norm();
+                    const float a = angle2D(vec2(body.pos)) + tau4 + 1.0e-8f;
+                    const Vector3f np = {cosf(a) * d, sinf(a) * d, 0.0f};
+                    const Vector3f dp = np - body.pos;
+                    body.acc = dp / (dt * dt) - body.vel / dt;
+                    body.vel += body.acc * dt * s;
+                    body.pos += body.vel * dt * s;
+                }
+            } break;
+            case SimulationMethod::velocityOnly: {
+                const float a = angle2D(vec2(body.pos));
                 const float d = body.pos.norm();
-                const float a = angle2D(vec2(body.pos)) + tau4 + 1.0e-8f;
-                const Vector3f np = {cosf(a) * d, sinf(a) * d, 0.0f};
-                const Vector3f dp = np - body.pos;
-                body.acc = dp / (dt * dt) - body.vel / dt;
-                body.vel += body.acc * dt * s;
-                body.pos += body.vel * dt * s;
-            }
+                body.vel = {cosf(a + tau4 - 0.1f) * d, sinf(a + tau4 - 0.1f) * d, 0.0f};
+                body.pos += body.vel * dt;
+            } break;
         }
     }
 
@@ -579,8 +556,90 @@ void App::composeUI() {
 
     ImGui::NewFrame();
 
-    ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImVec2(200, 500));
+    ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::TextWrapped(
+        "Particle simulation! Use left mouse to add a force, right mouse to pan camera."
+    );
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 
+    // Dropdown to choose simulation method
+    if (ImGui::BeginCombo("Simulation Method", this->simMethodNames.at(this->simulationMethod).c_str())) {
+        for (int i = 0; i < this->simMethodNames.size(); i++) {
+            const SimulationMethod s = (SimulationMethod)i;
+            bool isSelected = (this->simulationMethod == s);
+            if (ImGui::Selectable(this->simMethodNames.at(s).c_str(), isSelected)) {
+                this->simulationMethod = s;
+            }
+            if (isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    auto bodies = this->reg.view<PhysicsBody>();
+
+    // Box size slider
+    float boxSize = this->box.width();
+    ImGui::SliderFloat("Box Size", &boxSize, 1.0f, 100.0f);
+    this->box.size(boxSize);
+
+    // Button that sets all velocities to zero
+    if (ImGui::Button("Reset Velocities")) {
+        for (auto e : bodies) {
+            PhysicsBody& body = this->reg.get<PhysicsBody>(e);
+            body.vel = Vector3f::Zero();
+        }
+    }
+
+    // Particle count slider
+    int particleCount = bodies.size();
+    ImGui::SliderInt("Particle Count", &particleCount, 1, 500);
+    while (particleCount != bodies.size()) {
+        if (particleCount < bodies.size()) {
+            this->reg.destroy(*bodies.begin());
+        } else {
+            this->makeParticle();
+        }
+    }
+
     ImGui::End();
+}
+
+entt::entity App::makeParticle() {
+    entt::entity e = this->reg.create();
+
+    Model& model = this->reg.emplace<Model>(e);
+    model.pos = this->rng.vec(this->box);
+    model.pos.z() = 0.0f;
+    model.scale *= 0.5f;
+
+    MeshData& meshData = this->reg.emplace<MeshData>(e, this->meshes.get("sphere"));
+    this->vCounts.push_back(meshData.elemCount);
+    this->vOffsets.push_back(meshData.elemOffset);
+    model.pivot = meshData.center;
+    
+    uMaterial& mat = this->reg.emplace<uMaterial>(e);
+    mat.ambientColor = {0.08f, 0.08f, 0.08f};
+
+    ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
+    transform.transform = model.transform();
+
+    PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
+    body.pos = model.pos;
+
+    DebugRay& ray = this->reg.emplace<DebugRay>(e);
+    ray.pos = model.pos;
+    ray.rot = {tau4, 0.0f, tau4};
+    ray.length = 1.0f;
+
+    DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+    debugColor.color = {0.5f, 0.5f, 0.5f, 1.0f};
+
+    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+    rayTransform.transform = ray.transform();
+
+    return e;
 }
