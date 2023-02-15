@@ -28,11 +28,11 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     const size_t triOffset = this->arrElems.size();
     const int nElems = m.NF() * 3;
 
-    std::vector<Vector3f> texCoords;
+    // std::vector<Vector3f> texCoords;
 
-    for (size_t i = 0; i < m.NF(); i++) {
-        texCoords.push_back(m.GetTexCoord(i, ));
-    }
+    // for (size_t i = 0; i < m.NF(); i++) {
+    //     texCoords.push_back(m.GetTexCoord(i, ));
+    // }
 
     // Add vertex data
     this->arrVerts.resize(vertOffset + m.NV() * nVertAttribs);
