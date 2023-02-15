@@ -19,7 +19,7 @@ constexpr float tau = 6.283185307179586476925286766559f;
 constexpr float tau2 = tau / 2.0f;
 constexpr float tau4 = tau / 4.0f;
 
-constexpr size_t nVertAttribs = 3u;
+constexpr size_t nVertAttribs = 4u;
 
 void glCheckError_(const char *file, int line);
 #define $gl_err() glCheckError_(__FILE__, __LINE__) 

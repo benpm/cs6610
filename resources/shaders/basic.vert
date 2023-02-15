@@ -3,6 +3,7 @@
 in vec3 vPos;
 in vec3 vColor;
 in vec3 vNormal;
+in vec3 vUV;
 
 // Vertex color
 layout(location = 0) out vec4 color;
@@ -12,6 +13,8 @@ layout(location = 1) out vec3 normal;
 layout(location = 2) out vec3 position;
 // Draw ID
 layout(location = 3) flat out uint drawID;
+// UV coordinates
+layout(location = 4) out vec2 uv;
 
 uniform mat4 uTProj;
 uniform mat4 uTView;
@@ -29,5 +32,6 @@ void main()
     color = vec4(vColor, 1.0);
     normal = (tViewModel * vec4(vNormal, 0.0)).xyz;
     position = (tViewModel * vec4(vPos, 1.0)).xyz;
+    uv = vUV.xy;
     drawID = gl_DrawID;
 }

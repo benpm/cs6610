@@ -19,6 +19,7 @@
 #include <mesh.hpp>
 #include <light.hpp>
 #include <entt/entt.hpp>
+#include <texture.hpp>
 
 class App
 {
@@ -96,6 +97,8 @@ class App
         entt::entity interactArrow;
 
         std::vector<Vector3f> particlePath;
+
+        TextureCollection tex;
     public:
         GLFWwindow* window;
 

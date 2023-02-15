@@ -117,6 +117,9 @@ App::App() {
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
+    this->tex.add("resources/textures/brick.png");
+    this->tex.add("resources/textures/brick-specular.png");
+
     for (size_t i = 0; i < this->objectsToGen; i++) {
         entt::entity e = this->reg.create();
 
@@ -125,7 +128,7 @@ App::App() {
         model.pos = rng.vec(this->box);
         model.rot = rng.rotation();
 
-        MeshData& meshData = this->reg.emplace<MeshData>(e, meshes.get(rng.choose({"teapot", "suzanne", "sphere"})));
+        MeshData& meshData = this->reg.emplace<MeshData>(e, meshes.get("teapot"));
         model.pivot = meshData.center;
         this->vCounts.push_back(meshData.elemCount);
         this->vOffsets.push_back(meshData.elemOffset);
@@ -468,6 +471,10 @@ void App::draw(float dt) {
         0, transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw()); $gl_err();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+
+    TextureData texData = this->tex.get("brick");
+    glActiveTexture(GL_TEXTURE0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, texData.id); $gl_err();
     
     // Draw models in scene
     this->meshes.bind();
@@ -477,55 +484,6 @@ void App::draw(float dt) {
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
-    
-    // Draw wireframe stuff
-    this->wiresProg.Bind();
-    glBindVertexArray(this->vaoWires); $gl_err();
-    this->wiresProg.SetUniformMatrix4("uTProj", tProj.data());
-    this->wiresProg.SetUniformMatrix4("uTView", tView.data());
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
-    
-    GLuint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
-
-    std::vector<RayTransform> rayTransforms = {{.transform = identityTransform().matrix()}};
-    std::vector<DebugColor> debugColors = {{.color = {1.0f, 1.0f, 1.0f, 1.0f}}};
-    for (auto e : this->reg.view<RayTransform, DebugColor>()) {
-        auto [rayT, color] = this->reg.get<RayTransform, DebugColor>(e);
-        rayTransforms.push_back(rayT);
-        debugColors.push_back(color);
-    }
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows); $gl_err();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        rayTransforms.size() * sizeof(RayTransform), rayTransforms.data(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrowColors); $gl_err();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        debugColors.size() * sizeof(DebugColor), debugColors.data(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
-
-    glDrawArraysInstanced(GL_LINES, 0, 6, rayTransforms.size()); $gl_err();
-
-    // Draw path
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboPath); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
-    glBufferData(GL_ARRAY_BUFFER,
-        this->particlePath.size() * sizeof(Vector3f), this->particlePath.data(), GL_DYNAMIC_DRAW); $gl_err();
-    glDrawArrays(GL_LINE_STRIP, 0, this->particlePath.size()); $gl_err();
-
-    // Draw box
-    const auto corners = this->box.corners();
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboBox); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
-    glBufferData(GL_ARRAY_BUFFER,
-        corners.size() * sizeof(Vector3f), corners.data(), GL_DYNAMIC_DRAW); $gl_err();
-    glDrawArrays(GL_LINE_LOOP, 0, corners.size()); $gl_err();
-
 
     this->composeUI();
     ImGui::Render();

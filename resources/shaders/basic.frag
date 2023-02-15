@@ -10,11 +10,14 @@ layout(location = 1) in vec3 normal;
 layout(location = 2) in vec3 position;
 // Draw ID
 layout(location = 3) flat in uint drawID;
+// UV coordinates for texture sampling
+layout(location = 4) in vec2 uv;
 
 // Fragment color
 out vec4 fColor;
 
 uniform uint nLights;
+uniform sampler2D uTex;
 
 struct Material {
     vec3 diffuseColor;
@@ -67,7 +70,8 @@ void main() {
         vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
         // Blinn shading
-        vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * mat.diffuseColor;
+        vec3 diffuseColor = texture(uTex, uv).rgb;// * mat.diffuseColor;
+        vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * diffuseColor;
         vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * mat.specularColor;
 
         float attenuation = uLight[i].intensity;

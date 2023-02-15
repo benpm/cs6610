@@ -28,15 +28,23 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     const size_t triOffset = this->arrElems.size();
     const int nElems = m.NF() * 3;
 
+    std::vector<Vector3f> texCoords;
+
+    for (size_t i = 0; i < m.NF(); i++) {
+        texCoords.push_back(m.GetTexCoord(i, ));
+    }
+
     // Add vertex data
-    this->arrVerts.resize(vertOffset + m.NV() * 3);
+    this->arrVerts.resize(vertOffset + m.NV() * nVertAttribs);
     for (size_t i = 0; i < m.NV(); i++) {
         // Vertex position
-        this->arrVerts[vertOffset + i*3 + 0] = toEigen(m.V(i));
+        this->arrVerts[vertOffset + i*nVertAttribs + 0] = toEigen(m.V(i));
         // Vertex color
-        this->arrVerts[vertOffset + i*3 + 1] = toEigen(m.VN(i));
+        this->arrVerts[vertOffset + i*nVertAttribs + 1] = toEigen(m.VN(i));
         // Vertex normal
-        this->arrVerts[vertOffset + i*3 + 2] = toEigen(m.VN(i));
+        this->arrVerts[vertOffset + i*nVertAttribs + 2] = toEigen(m.VN(i));
+        // Vertex UV
+        this->arrVerts[vertOffset + i*nVertAttribs + 3] = toEigen(m.VT(i));
     }
 
     // Add triangles
@@ -83,6 +91,10 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     glEnableVertexAttribArray(attrib_vNormal); $gl_err();
     glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE,
         sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u)); $gl_err();
+    GLuint attrib_vUV = prog.AttribLocation("vUV"); $gl_err();
+    glEnableVertexAttribArray(attrib_vUV); $gl_err();
+    glVertexAttribPointer(attrib_vUV, 3, GL_FLOAT, GL_FALSE,
+        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 3u)); $gl_err();
 
     // Populate triangles elements data EBO
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems); $gl_err();

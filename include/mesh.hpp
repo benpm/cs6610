@@ -19,7 +19,7 @@ struct MeshData {
 class MeshCollection
 {
 private:
-    // Flat, strided vertex array data (pos, color, normal)
+    // Flat, strided vertex array data (pos, color, normal, uv)
     std::vector<Vector3f> arrVerts;
     // Flat element array data (vertex indices for triangles: v0,v1,v2)
     std::vector<uint32_t> arrElems;
