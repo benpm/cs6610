@@ -39,7 +39,7 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
         uint32_t vertIndices[3] = {*m.F(i).v};
         for (size_t j = 0; j < 3; j++) {
             assert(vertIndices[j] == normalIndices[j]);
-            texCoords.at(vertIndices[j]) = toEigen(m.VT(texIndices[j])) / 16.0f;
+            texCoords.at(vertIndices[j]) = toEigen(m.VT(texIndices[j]));
             normals.at(vertIndices[j]) = toEigen(m.VN(vertIndices[j]));
         }
     }
@@ -95,7 +95,7 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
         glEnableVertexAttribArray(attrib_vPos); $gl_err();
         glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE,
             sizeof(float) * nVertAttribs * 3u,
-            (void*)(sizeof(float) * nVertAttribs * i)); $gl_err();
+            (void*)(sizeof(float) * 3u * i)); $gl_err();
     }
 
     // Populate triangles elements data EBO

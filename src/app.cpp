@@ -137,7 +137,7 @@ App::App() {
         float hue = rng.range(0.0f, 360.0f);
         mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
         mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-        mat.shininess = 50.0f;
+        mat.shininess = 5.0f;
 
         ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
         transform.transform = model.transform();
@@ -150,13 +150,20 @@ App::App() {
     this->sunlight = this->lights.emplace_back(std::make_shared<Light>(
         Vector3f(0.25f, 0.5f, 0.25f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        0.9f,
+        0.25f,
         LightType::directional));
     this->lights.emplace_back(std::make_shared<Light>(
         Vector3f(-0.15f, -0.5f, -0.45f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        0.1f,
+        0.05f,
         LightType::directional));
+    for (size_t i = 0; i < 8; i++) {
+        this->lights.emplace_back(std::make_shared<Light>(
+            rng.vec(this->box),
+            hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
+            2.0f,
+            LightType::point));
+    }
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
