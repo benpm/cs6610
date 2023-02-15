@@ -110,8 +110,6 @@ App::App() {
     glBindVertexArray(this->vaoMeshes);
     
     // Create models
-    constexpr int bigness = 1;
-
     meshes.add("resources/models/teapot.obj", "", true);
     meshes.add("resources/models/suzanne.obj", "", true);
     meshes.add("resources/models/sphere.obj", "", true);
@@ -119,26 +117,31 @@ App::App() {
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
-    this->particle = this->makeParticle();
-
-    {
+    for (size_t i = 0; i < this->objectsToGen; i++) {
         entt::entity e = this->reg.create();
-        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-        debugColor.color = {1.0f, 1.0f, 0.0f, 1.0f};
-        DebugRay& ray = this->reg.emplace<DebugRay>(e);
-        ray.pos = {0.0f, 0.0f, 0.0f};
-        ray.rot = {tau4, 0.0f, tau4};
-        ray.length = 1.0f;
-        RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-        rayTransform.transform = ray.transform();
-        this->interactArrow = e;
+
+        Model& model = this->reg.emplace<Model>(e);
+        model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
+        model.pos = rng.vec(this->box);
+        model.rot = rng.rotation();
+
+        MeshData& meshData = this->reg.emplace<MeshData>(e, meshes.get(rng.choose({"teapot", "suzanne", "sphere"})));
+        model.pivot = meshData.center;
+        this->vCounts.push_back(meshData.elemCount);
+        this->vOffsets.push_back(meshData.elemOffset);
+        
+        uMaterial& mat = this->reg.emplace<uMaterial>(e);
+        float hue = rng.range(0.0f, 360.0f);
+        mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
+        mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
+        mat.shininess = 2000.0f;
+
+        ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
+        transform.transform = model.transform();
     }
+    spdlog::debug("placed {} objects", this->objectsToGen);
 
     this->camera.orbitDist(50.0f);
-    this->camera.far = 1e3f;
-    this->camera.projection = Camera::Projection::orthographic;
-    this->camera.mode = Camera::Mode::track2D;
-    this->camera.zoom = 4500.0f;
 
     // Add lights
     this->sunlight = this->lights.emplace_back(std::make_shared<Light>(
@@ -247,15 +250,10 @@ void App::onClick(int button, bool pressed) {
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
-            if (!pressed) {
-                PhysicsBody& body = this->reg.get<PhysicsBody>(this->particle);
-                Vector2f v = (this->mouseClickStart - this->mousePos) * 0.1f;
-                body.vel += Vector3f(v.x(), -v.y(), 0.0f);
-            }
+            this->camera.dragStart();
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
-            this->camera.dragStart();
             break;
         case GLFW_MOUSE_BUTTON_MIDDLE:
             this->mouseMiddle = pressed;
@@ -332,15 +330,6 @@ void App::idle() {
 }
 
 void App::simulate(float dt) {
-    DebugRay& debugRay = this->reg.get<DebugRay>(this->interactArrow);
-    debugRay.pos = this->reg.get<PhysicsBody>(this->particle).pos;
-    debugRay.rot = {0.0f, 0.0f, -angle2D(this->mouseClickStart - this->mousePos)};
-    if (this->mouseLeft) {
-        debugRay.length = (this->mousePos - this->mouseClickStart).norm() * 0.1f;
-    } else {
-        debugRay.length = 0.0f;
-    }
-
     constexpr auto F = [](const Vector3f& v) -> Vector3f {
         const float a = angle2D(vec2(v));
         const float d = v.norm();
@@ -431,13 +420,6 @@ void App::simulate(float dt) {
         auto [ray, t] = this->reg.get<DebugRay, RayTransform>(e);
         t.transform = ray.transform();
     }
-
-    if (int((this->t) * 24.0f) > int((this->t - dt) * 24.0f)) {
-        this->particlePath.insert(this->particlePath.begin(), this->reg.get<PhysicsBody>(this->particle).pos);
-        if (this->particlePath.size() > 200) {
-            this->particlePath.pop_back();
-        }
-    }
 }
 
 void App::draw(float dt) {
@@ -449,7 +431,7 @@ void App::draw(float dt) {
         (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
     };
     Vector2f dragDelta = Vector2f::Zero();
-    if (this->mouseRight) {
+    if (this->mouseLeft) {
         dragDelta = panDelta * dt * 20.0f;
         dragDelta.y() *= -1.0f;
     }
@@ -537,7 +519,7 @@ void App::draw(float dt) {
     glDrawArrays(GL_LINE_STRIP, 0, this->particlePath.size()); $gl_err();
 
     // Draw box
-    const auto corners = this->box.cornersXY();
+    const auto corners = this->box.corners();
     glBindBuffer(GL_ARRAY_BUFFER, this->vboBox); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
     glBufferData(GL_ARRAY_BUFFER,

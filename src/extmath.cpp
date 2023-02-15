@@ -174,6 +174,19 @@ std::array<Vector3f, 4> AABB::cornersXY() const {
     };
 }
 
+std::array<Vector3f, 8> AABB::corners() const {
+    return {
+        Vector3f(min.x(), min.y(), min.z()),
+        Vector3f(max.x(), min.y(), min.z()),
+        Vector3f(max.x(), max.y(), min.z()),
+        Vector3f(min.x(), max.y(), min.z()),
+        Vector3f(min.x(), min.y(), max.z()),
+        Vector3f(max.x(), min.y(), max.z()),
+        Vector3f(max.x(), max.y(), max.z()),
+        Vector3f(min.x(), max.y(), max.z()),
+    };
+}
+
 float AABB::width() const {
     return max.x() - min.x();
 }
@@ -217,4 +230,8 @@ void AABB::place(const Vector3f& center, const Vector3f& size) {
 void AABB::place(const Vector2f& center, const Vector2f& size) {
     this->min = vec3((center - size) / 2.0f, this->min.z());
     this->max = vec3((center + size) / 2.0f, this->max.z());
+}
+
+float AABB::volume() const {
+    return this->width() * this->height() * this->depth();
 }

@@ -25,6 +25,7 @@ void glCheckError_(const char *file, int line);
 #define $gl_err() glCheckError_(__FILE__, __LINE__) 
 
 struct uMaterial {
+    static constexpr std::size_t page_size = 65536u;
     alignas(16) Vector3f diffuseColor = {1.0f, 1.0f, 1.0f};
     alignas(16) Vector3f specularColor = {1.0f, 1.0f, 1.0f};
     alignas(16) Vector3f ambientColor = {1.0f, 1.0f, 1.0f};
@@ -103,6 +104,7 @@ public:
     AABB(const Vector3f& min, const Vector3f& max);
 
     std::array<Vector3f, 4> cornersXY() const;
+    std::array<Vector3f, 8> corners() const;
     // Returns width (x span) of AABB
     float width() const;
     // Changes width (x span) of AABB, relative to current center
@@ -122,6 +124,8 @@ public:
     // Places AABB by given center and size
     void place(const Vector3f& center, const Vector3f& size);
     void place(const Vector2f& center, const Vector2f& size);
+    // Returns 3D volume of AABB
+    float volume() const;
 };
 
 // Random number generation helper class
