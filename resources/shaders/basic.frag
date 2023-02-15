@@ -18,6 +18,7 @@ out vec4 fColor;
 
 uniform uint nLights;
 uniform sampler2D uTex;
+uniform sampler2D uTexSpecular;
 
 struct Material {
     vec3 diffuseColor;
@@ -70,9 +71,11 @@ void main() {
         vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
         // Blinn shading
-        vec3 diffuseColor = texture(uTex, uv).rgb;// * mat.diffuseColor;
+        vec3 diffuseTex = texture(uTex, uv).rgb;
+        vec3 specularTex = texture(uTexSpecular, uv).rgb;
+        vec3 diffuseColor = diffuseTex;
         vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * diffuseColor;
-        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * mat.specularColor;
+        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * specularTex;
 
         float attenuation = uLight[i].intensity;
         if (uLight[i].type == lightPoint) {

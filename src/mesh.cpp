@@ -8,6 +8,8 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     m.LoadFromFileObj(filename.c_str());
     m.ComputeBoundingBox();
     m.ComputeNormals();
+    spdlog::debug("loading '{}' vertices:{}, faces:{}, vertex normals:{}, texture verts:{}, materials:{}",
+        filename, m.NV(), m.NF(), m.NVN(), m.NVT(), m.NM());
 
     Vector3f pivot = toEigen(m.GetBoundMax() + m.GetBoundMin()) / 2.0f;
     if (normalize) {
@@ -28,11 +30,19 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     const size_t triOffset = this->arrElems.size();
     const int nElems = m.NF() * 3;
 
-    // std::vector<Vector3f> texCoords;
-
-    // for (size_t i = 0; i < m.NF(); i++) {
-    //     texCoords.push_back(m.GetTexCoord(i, ));
-    // }
+    // Copy texture coordinates so that they have the same indices as vertices
+    std::vector<Vector3f> texCoords(m.NV());
+    std::vector<Vector3f> normals(m.NV());
+    for (size_t i = 0; i < m.NF(); i++) {
+        uint32_t normalIndices[3] = {*m.FN(i).v};
+        uint32_t texIndices[3] = {*m.FT(i).v};
+        uint32_t vertIndices[3] = {*m.F(i).v};
+        for (size_t j = 0; j < 3; j++) {
+            assert(vertIndices[j] == normalIndices[j]);
+            texCoords.at(vertIndices[j]) = toEigen(m.VT(texIndices[j])) / 16.0f;
+            normals.at(vertIndices[j]) = toEigen(m.VN(vertIndices[j]));
+        }
+    }
 
     // Add vertex data
     this->arrVerts.resize(vertOffset + m.NV() * nVertAttribs);
@@ -40,11 +50,11 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
         // Vertex position
         this->arrVerts[vertOffset + i*nVertAttribs + 0] = toEigen(m.V(i));
         // Vertex color
-        this->arrVerts[vertOffset + i*nVertAttribs + 1] = toEigen(m.VN(i));
+        this->arrVerts[vertOffset + i*nVertAttribs + 1] = normals[i];
         // Vertex normal
-        this->arrVerts[vertOffset + i*nVertAttribs + 2] = toEigen(m.VN(i));
+        this->arrVerts[vertOffset + i*nVertAttribs + 2] = normals[i];
         // Vertex UV
-        this->arrVerts[vertOffset + i*nVertAttribs + 3] = toEigen(m.VT(i));
+        this->arrVerts[vertOffset + i*nVertAttribs + 3] = texCoords[i];
     }
 
     // Add triangles
@@ -79,22 +89,14 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts); $gl_err();
     glBufferData(GL_ARRAY_BUFFER, this->arrVerts.size() * sizeof(Vector3f), this->arrVerts.data(), GL_STATIC_DRAW); $gl_err();
 
-    GLuint attrib_vPos = prog.AttribLocation("vPos"); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 0u)); $gl_err();
-    GLuint attrib_vColor = prog.AttribLocation("vColor"); $gl_err();
-    glEnableVertexAttribArray(attrib_vColor); $gl_err();
-    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 1u)); $gl_err();
-    GLuint attrib_vNormal = prog.AttribLocation("vNormal"); $gl_err();
-    glEnableVertexAttribArray(attrib_vNormal); $gl_err();
-    glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 2u)); $gl_err();
-    GLuint attrib_vUV = prog.AttribLocation("vUV"); $gl_err();
-    glEnableVertexAttribArray(attrib_vUV); $gl_err();
-    glVertexAttribPointer(attrib_vUV, 3, GL_FLOAT, GL_FALSE,
-        sizeof(float) * nVertAttribs * 3u, (void*)(sizeof(float) * nVertAttribs * 3u)); $gl_err();
+    std::array attribNames = std::to_array({"vPos", "vColor", "vNormal", "vUV"});
+    for (size_t i = 0; i < attribNames.size(); i++) {
+        GLuint attrib_vPos = prog.AttribLocation(attribNames[i]); $gl_err();
+        glEnableVertexAttribArray(attrib_vPos); $gl_err();
+        glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE,
+            sizeof(float) * nVertAttribs * 3u,
+            (void*)(sizeof(float) * nVertAttribs * i)); $gl_err();
+    }
 
     // Populate triangles elements data EBO
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems); $gl_err();

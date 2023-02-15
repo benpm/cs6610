@@ -137,7 +137,7 @@ App::App() {
         float hue = rng.range(0.0f, 360.0f);
         mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
         mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-        mat.shininess = 2000.0f;
+        mat.shininess = 50.0f;
 
         ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
         transform.transform = model.transform();
@@ -472,9 +472,14 @@ void App::draw(float dt) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
-    TextureData texData = this->tex.get("brick");
+    TextureData texDataBrick = this->tex.get("brick");
     glActiveTexture(GL_TEXTURE0); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, texData.id); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, texDataBrick.id); $gl_err();
+
+    TextureData texDataBrickSpecular = this->tex.get("brick-specular");
+    glActiveTexture(GL_TEXTURE1); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, texDataBrickSpecular.id); $gl_err();
+    
     
     // Draw models in scene
     this->meshes.bind();
