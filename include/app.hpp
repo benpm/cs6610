@@ -95,10 +95,6 @@ class App
 
         entt::entity particle;
         entt::entity interactArrow;
-
-        std::vector<Vector3f> particlePath;
-
-        TextureCollection tex;
     public:
         GLFWwindow* window;
 
@@ -149,4 +145,5 @@ class App
         void composeUI();
 
         entt::entity makeParticle();
+        entt::entity makeModel(const std::string& name);
 };

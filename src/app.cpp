@@ -106,10 +106,11 @@ App::App() {
     }
 
     // Create and bind VAO
-    glGenVertexArrays(1, &this->vaoMeshes);
-    glBindVertexArray(this->vaoMeshes);
+    glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
+    glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Create models
+    meshes.add("resources/models/yoda/yoda.obj", "", true);
     meshes.add("resources/models/teapot.obj", "", true);
     meshes.add("resources/models/suzanne.obj", "", true);
     meshes.add("resources/models/sphere.obj", "", true);
@@ -117,32 +118,29 @@ App::App() {
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
-    this->tex.add("resources/textures/brick.png");
-    this->tex.add("resources/textures/brick-specular.png");
+    // for (size_t i = 0; i < this->objectsToGen; i++) {
+    //     entt::entity e = this->makeModel("teapot");
+    //     auto [model, mat, transform] = this->reg.get<Model, uMaterial, ModelTransform>(e);
 
-    for (size_t i = 0; i < this->objectsToGen; i++) {
-        entt::entity e = this->reg.create();
-
-        Model& model = this->reg.emplace<Model>(e);
-        model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model.pos = rng.vec(this->box);
-        model.rot = rng.rotation();
-
-        MeshData& meshData = this->reg.emplace<MeshData>(e, meshes.get("teapot"));
-        model.pivot = meshData.center;
-        this->vCounts.push_back(meshData.elemCount);
-        this->vOffsets.push_back(meshData.elemOffset);
+    //     model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
+    //     model.pos = rng.vec(this->box);
+    //     model.rot = rng.rotation();
         
-        uMaterial& mat = this->reg.emplace<uMaterial>(e);
-        float hue = rng.range(0.0f, 360.0f);
-        mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
-        mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-        mat.shininess = 5.0f;
+    //     float hue = rng.range(0.0f, 360.0f);
+    //     mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
+    //     mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
+    //     mat.shininess = 5.0f;
 
-        ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
-        transform.transform = model.transform();
+    //     transform.transform = model.transform();
+    // }
+    {
+        entt::entity e = this->makeModel("yoda");
+        Model& model = this->reg.get<Model>(e);
+        model.scale *= 10.0f;
+        model.rot.x() = -tau4;
     }
-    spdlog::debug("placed {} objects", this->objectsToGen);
+
+    spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
     this->camera.orbitDist(50.0f);
 
@@ -173,17 +171,6 @@ App::App() {
         transformsStorage.size() * sizeof(Matrix4f),
         *transformsStorage.raw(), GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    $gl_err();
-
-    // Create and bind materials SSBO
-    glGenBuffers(1, &this->ssboMaterials);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials);
-    auto& materialsStorage = this->reg.view<uMaterial>().storage<uMaterial>();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        materialsStorage.size() * sizeof(Matrix4f),
-        *materialsStorage.raw(), GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     $gl_err();
 
@@ -413,9 +400,12 @@ void App::simulate(float dt) {
     }
 
     // Update model transforms
-    for (auto e : this->reg.view<PhysicsBody, Model, ModelTransform>()) {
-        auto [body, model, transform] = this->reg.get<PhysicsBody, Model, ModelTransform>(e);
+    for (auto e : this->reg.view<PhysicsBody, Model>()) {
+        auto [body, model] = this->reg.get<PhysicsBody, Model>(e);
         model.pos = body.pos;
+    }
+    for (auto e : this->reg.view<Model, ModelTransform>()) {
+        auto [model, transform] = this->reg.get<Model, ModelTransform>(e);
         transform.transform = model.transform();
     }
 
@@ -458,10 +448,6 @@ void App::draw(float dt) {
     const Matrix4f tView = this->camera.getView();
     this->meshProg.SetUniformMatrix4("uTView", tView.data());
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
-
     // Update lights
     std::vector<uLight> lightStructs(this->lights.size());
     for (size_t i = 0; i < this->lights.size(); i++) {
@@ -478,15 +464,6 @@ void App::draw(float dt) {
         0, transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw()); $gl_err();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
-
-    TextureData texDataBrick = this->tex.get("brick");
-    glActiveTexture(GL_TEXTURE0); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, texDataBrick.id); $gl_err();
-
-    TextureData texDataBrickSpecular = this->tex.get("brick-specular");
-    glActiveTexture(GL_TEXTURE1); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, texDataBrickSpecular.id); $gl_err();
-    
     
     // Draw models in scene
     this->meshes.bind();
@@ -568,10 +545,10 @@ entt::entity App::makeParticle() {
     model.pos.z() = 0.0f;
     model.scale *= 0.5f;
 
-    MeshData& meshData = this->reg.emplace<MeshData>(e, this->meshes.get("sphere"));
-    this->vCounts.push_back(meshData.elemCount);
-    this->vOffsets.push_back(meshData.elemOffset);
-    model.pivot = meshData.center;
+    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, this->meshes.get("sphere"));
+    this->vCounts.push_back(meshRef.elemCount);
+    this->vOffsets.push_back(meshRef.elemOffset);
+    model.pivot = meshRef.center;
     
     uMaterial& mat = this->reg.emplace<uMaterial>(e);
     mat.ambientColor = {0.08f, 0.08f, 0.08f};
@@ -593,5 +570,18 @@ entt::entity App::makeParticle() {
     RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
     rayTransform.transform = ray.transform();
 
+    return e;
+}
+
+entt::entity App::makeModel(const std::string& name) {
+    entt::entity e = this->reg.create();
+
+    Model& model = this->reg.emplace<Model>(e);
+    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshes.get(name));
+    model.pivot = meshRef.center;
+    this->vCounts.push_back(meshRef.elemCount);
+    this->vOffsets.push_back(meshRef.elemOffset);
+    
+    this->reg.emplace<ModelTransform>(e);
     return e;
 }

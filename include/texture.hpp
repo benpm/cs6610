@@ -7,14 +7,20 @@
 
 struct TextureData
 {
-    GLuint id;
+    // OpenGL texture name
+    GLuint bindID;
+    // Index in texture collection (will be split in the future)
+    uint32_t colID;
 };
 
 class TextureCollection
 {
 private:
+    uint32_t nextID = 0u;
     std::unordered_map<std::string, TextureData> map;
 public:
-    void add(const std::string& path);
-    TextureData get(const std::string& path) const;
+    // Add texture to collection and return its ID (same as texture unit for now)
+    uint32_t add(const std::string& path);
+    // Bind current texture set to texture units
+    void bind() const;
 };

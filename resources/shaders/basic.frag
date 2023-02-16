@@ -12,13 +12,14 @@ layout(location = 2) in vec3 position;
 layout(location = 3) flat in uint drawID;
 // UV coordinates for texture sampling
 layout(location = 4) in vec2 uv;
+// Material ID
+layout(location = 5) flat in uint matID;
 
 // Fragment color
 out vec4 fColor;
 
 uniform uint nLights;
-uniform sampler2D uTex;
-uniform sampler2D uTexSpecular;
+uniform sampler2D uTex[32];
 
 struct Material {
     vec3 diffuseColor;
@@ -27,6 +28,8 @@ struct Material {
     float shininess;
     float specularFactor;
     float ambientFactor;
+    uint diffuseTexID;
+    uint specularTexID;
 };
 
 const uint lightPoint = 0;
@@ -53,7 +56,7 @@ layout(std430, binding = 2) buffer Lights
 
 
 void main() {
-    Material mat = uMaterial[drawID];
+    Material mat = uMaterial[matID];
     // Fragment normal
     vec3 n = normalize(normal);
 
@@ -71,11 +74,11 @@ void main() {
         vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
         // Blinn shading
-        vec3 diffuseTex = texture(uTex, uv).rgb;
-        vec3 specularTex = texture(uTexSpecular, uv).rgb;
+        vec3 diffuseTex = texture(uTex[mat.diffuseTexID], uv).rgb;
+        vec3 specularTex = texture(uTex[mat.specularTexID], uv).rgb;
         vec3 diffuseColor = diffuseTex;
         vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * diffuseColor;
-        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * specularTex;
+        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess));// * specularTex;
 
         float attenuation = uLight[i].intensity;
         if (uLight[i].type == lightPoint) {

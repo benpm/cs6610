@@ -150,7 +150,11 @@ Matrix4f orthographic(const Vector2f& size, float near, float far) {
     return m;
 }
 
-Vector3f vec3(const Vector2f& v, float z) {
+Vector3f vec3(float v[3]) {
+    return {v[0], v[1], v[2]};
+}
+
+Vector3f vec3(const Vector2f &v, float z) {
     return {v.x(), v.y(), z};
 }
 

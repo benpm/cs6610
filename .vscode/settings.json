@@ -106,6 +106,7 @@
         "any": "cpp",
         "codecvt": "cpp",
         "cassert": "cpp",
-        "GLAD.C": "cpp"
+        "GLAD.C": "cpp",
+        "*.ipp": "cpp"
     }
 }

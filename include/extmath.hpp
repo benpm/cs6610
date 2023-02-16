@@ -19,20 +19,8 @@ constexpr float tau = 6.283185307179586476925286766559f;
 constexpr float tau2 = tau / 2.0f;
 constexpr float tau4 = tau / 4.0f;
 
-constexpr size_t nVertAttribs = 4u;
-
 void glCheckError_(const char *file, int line);
 #define $gl_err() glCheckError_(__FILE__, __LINE__) 
-
-struct uMaterial {
-    static constexpr std::size_t page_size = 65536u;
-    alignas(16) Vector3f diffuseColor = {1.0f, 1.0f, 1.0f};
-    alignas(16) Vector3f specularColor = {1.0f, 1.0f, 1.0f};
-    alignas(16) Vector3f ambientColor = {1.0f, 1.0f, 1.0f};
-    float shininess = 35.0f;
-    float specularFactor = 2.0f;
-    float ambientFactor = 0.05f;
-};
 
 enum class LightType: uint32_t {
     point,
@@ -212,6 +200,7 @@ Matrix4f perspective(float fov, float aspect, float near, float far);
 // Orthographic projection matrix
 Matrix4f orthographic(const Vector2f& size, float near, float far);
 
+Vector3f vec3(float v[3]);
 Vector3f vec3(const Vector2f& v, float z=0.0f);
 Vector3f vec3(float xyz);
 Vector2f vec2(const Vector3f& v);
