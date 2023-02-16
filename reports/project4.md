@@ -1,18 +1,19 @@
 # CS 6610 Project 4
 *Benjamin Mastripolito u1419419*
 
-![](2023-02-14-23-51-58.png)
+![](2023-02-15_23-01.png)
 
 > What you implemented
 
-- Textures
+- Diffuse and specular textures loaded and mapped onto teapots
 
 > What you could not implement
 
-- Specular
+- Multiple material and texture per object support
 
 > Additional functionalities beyond project requirements
 
+N/A
 
 > How to use your implementation
 
