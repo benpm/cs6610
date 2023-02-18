@@ -3,6 +3,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/fmt.h>
 #include "mesh.hpp"
 
 void MeshCollection::add(const std::string &filename, const std::string &meshName, bool normalize) {
@@ -39,53 +40,9 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     this->vertexData.resize(vertOffset + m.NV());
     this->arrElems.resize(elemOffset + nElems);
 
-    // Mapping from vertex index to (normalIdx, texIdx)
-    std::vector<std::tuple<int, int>> indices(m.NV(), {-1, -1});
-    // Map from text,normal indices to vertex index
-    std::unordered_map<size_t, size_t> vertRemap({});
-    // Map mixed indices to flat indices
-    for (size_t i = 0; i < m.NF(); i++) {
-        const uint32_t* normalIndices = m.FN(i).v;
-        const uint32_t* texIndices = m.FT(i).v;
-        const uint32_t* vertIndices = m.F(i).v;
-        const int matID = std::max(0, m.GetMaterialIndex(i));
-        for (size_t j = 0; j < 3; j++) {
-            uint32_t vertIdx = vertIndices[j];
-            const uint32_t inNormalIdx = normalIndices[j];
-            const uint32_t inTexIdx = texIndices[j];
-            if (vertRemap.count(vertIdx)) {
-                // Vertex has already been remapped, so use the stored remapped vertex index
-                vertIdx = vertRemap.at(vertIdx);
-            } else {
-                // Vertex either hasn't been stored, or hasn't been remapped
-                const int storedNormalIdx = std::get<0>(indices[vertIdx]);
-                const int storedTexIdx = std::get<1>(indices[vertIdx]);
-                const VertexData vertData = {
-                    .pos    = toEigen(m.V(vertIdx)),
-                    .color  = {1.0f, 1.0f, 1.0f},
-                    .normal = toEigen(m.VN(inNormalIdx)),
-                    .uv     = toEigen(m.VT(inTexIdx)),
-                    .matID  = (uint32_t)matID
-                };
-                if (storedNormalIdx == -1 || storedTexIdx == -1) {
-                    // First encounter with this vertex
-                    indices[vertIdx] = {inNormalIdx, inTexIdx};
-                    this->vertexData[vertIdx + vertOffset] = vertData;
-                } else {
-                    if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
-                        // Stored index set doesn't match, so we dupe and remap
-                        vertIdx = vertRemap.emplace(vertIdx, this->vertexData.size() - vertOffset).first->second;
-                        this->vertexData.push_back(vertData);
-                    }
-                }
-            }
-            this->arrElems[elemOffset + i*3 + j] = vertIdx + vertOffset;
-        }
-    }
-    spdlog::debug("\tremapped {} vertex indices", vertRemap.size());
-
     // Parse materials
     std::vector<uint32_t> meshMaterialIDs(m.NM());
+    std::vector<uint32_t> matIDs(m.NF(), 0u);
     for (size_t i = 0; i < m.NM(); i++) {
         uMaterial mat {
             .diffuseColor = vec3(m.M(i).Kd),
@@ -101,9 +58,64 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
             mat.specularTexID = this->textures.add(textureDir / std::filesystem::path(m.M(i).map_Ks.data));
         }
 
-        meshMaterialIDs[i] = this->materials.size();
+        const uint32_t globalMatID = this->materials.size();
+
+        meshMaterialIDs[i] = globalMatID;
         this->materials.push_back(mat);
+
+        size_t matFaceOffset = m.GetMaterialFirstFace(i);
+        size_t matFaceCount = m.GetMaterialFaceCount(i);
+        for (size_t j = 0; j < matFaceCount; j++) {
+            matIDs[matFaceOffset + j] = globalMatID;
+        }
     }
+
+    // Mapping from vertex index to (normalIdx, texIdx)
+    std::vector<std::tuple<int, int>> indices(m.NV(), {-1, -1});
+    // Remapping (normalIdx, texIdx) -> new vertex index
+    std::unordered_map<size_t, size_t> vertRemap({});
+    // Map mixed indices to flat indices
+    for (size_t i = 0; i < m.NF(); i++) {
+        const uint32_t* normalIndices = m.FN(i).v;
+        const uint32_t* texIndices = m.FT(i).v;
+        const uint32_t* vertIndices = m.F(i).v;
+        const uint32_t matID = matIDs.at(i);
+        for (size_t j = 0; j < 3; j++) {
+            uint32_t vertIdx = vertIndices[j];
+            const uint32_t inNormalIdx = normalIndices[j];
+            const uint32_t inTexIdx = texIndices[j];
+            const uint32_t combinedAttrIdx = cantor(inNormalIdx, inTexIdx);
+            if (vertRemap.count(combinedAttrIdx)) {
+                // Vertex has already been remapped, so use the stored remapped vertex index
+                vertIdx = vertRemap.at(combinedAttrIdx);
+            } else {
+                // Vertex either hasn't been stored, or hasn't been remapped
+                const int storedNormalIdx = std::get<0>(indices[vertIdx]);
+                const int storedTexIdx = std::get<1>(indices[vertIdx]);
+                const VertexData vertData = {
+                    .pos    = toEigen(m.V(vertIdx)),
+                    .color  = {1.0f, 1.0f, 1.0f},
+                    .normal = toEigen(m.VN(inNormalIdx)),
+                    .uv     = toEigen(m.VT(inTexIdx)),
+                    .matID  = matID
+                };
+                if (storedNormalIdx == -1 || storedTexIdx == -1) {
+                    // First encounter with this vertex
+                    indices[vertIdx] = {inNormalIdx, inTexIdx};
+                    this->vertexData[vertIdx + vertOffset] = vertData;
+                } else {
+                    if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
+                        // Stored index set doesn't match, so we dupe and remap
+                        vertIdx = vertRemap.emplace(combinedAttrIdx,
+                            this->vertexData.size() - vertOffset).first->second;
+                        this->vertexData.push_back(vertData);
+                    }
+                }
+            }
+            this->arrElems[elemOffset + i*3 + j] = vertIdx + vertOffset;
+        }
+    }
+    spdlog::debug("\tremapped {} vertex indices", vertRemap.size());
 
     // Add mesh data
     this->meshDataMap.emplace(name, MeshData{
@@ -127,6 +139,10 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
         glGenBuffers(1, &this->eboElems); $gl_err();
         glGenBuffers(1, &this->ssboMaterials); $gl_err();
         this->buffersBuilt = true;
+    }
+
+    for (size_t i = 0; i < this->materials.size(); i++) {
+        spdlog::trace("mat [{}] : {}", i, this->materials.at(i));
     }
 
     // Populate vertex data VBO
@@ -160,7 +176,7 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     offset += sizeof(VertexData::uv);
 
     glEnableVertexAttribArray(attrib_vMatID); $gl_err();
-    glVertexAttribPointer(attrib_vMatID, 1, GL_UNSIGNED_INT, GL_FALSE, sizeof(VertexData), (void*)(offset)); $gl_err();
+    glVertexAttribIPointer(attrib_vMatID, 1, GL_UNSIGNED_INT, sizeof(VertexData), (void*)(offset)); $gl_err();
     offset += sizeof(VertexData::matID);
 
     // Populate triangles elements data EBO
@@ -179,7 +195,7 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     spdlog::debug("built mesh collection with {} vertices and {} elements", this->vertexData.size(), this->arrElems.size());
 }
 
-void MeshCollection::bind() const {
+void MeshCollection::bind(cyGLSLProgram& prog) const {
     if (this->dirty) {
         spdlog::warn("MeshCollection::bind() called on dirty MeshCollection");
     }
@@ -193,5 +209,5 @@ void MeshCollection::bind() const {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
     // Bind textures
-    this->textures.bind();
+    this->textures.bind(prog);
 }

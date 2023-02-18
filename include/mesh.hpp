@@ -1,6 +1,9 @@
 #pragma once
 
 #include <tuple>
+#include <ostream>
+#include <spdlog/spdlog.h>
+#include <spdlog/formatter.h>
 #include <texture.hpp>
 #include <glad/glad.h>
 #undef near
@@ -25,7 +28,7 @@ struct VertexData {
     Vector3f color;
     Vector3f normal;
     Vector3f uv;
-    alignas(4) uint32_t matID;
+    uint32_t matID;
 };
 
 struct uMaterial {
@@ -34,10 +37,24 @@ struct uMaterial {
     alignas(16) Vector3f specularColor = {1.0f, 1.0f, 1.0f};
     alignas(16) Vector3f ambientColor = {1.0f, 1.0f, 1.0f};
     float shininess = 35.0f;
-    float specularFactor = 2.0f;
+    float specularFactor = 1.0f;
     float ambientFactor = 0.05f;
-    uint32_t diffuseTexID = 0u;
-    uint32_t specularTexID = 0u;
+    int diffuseTexID = -1;
+    int specularTexID = -1;
+};
+
+template<> struct fmt::formatter<uMaterial> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const uMaterial& o, FormatContext& ctx) -> decltype(ctx.out()) {
+        return format_to(ctx.out(),
+            "material(diffuseColor={}, specularColor={}, ambientColor={}, shininess={}, specularFactor={}, ambientFactor={}, diffuseTexID={}, specularTexID={})",
+            o.diffuseColor, o.specularColor, o.ambientColor, o.shininess, o.specularFactor, o.ambientFactor, o.diffuseTexID, o.specularTexID
+        );
+    }
 };
 
 // References data inside mesh collection
@@ -69,7 +86,7 @@ private:
     // Map from mesh name to its data offsets
     std::unordered_map<std::string, MeshData> meshDataMap;
     // All materials for all stored meshes, referenced by MeshData::materials
-    std::vector<uMaterial> materials;
+    std::vector<uMaterial> materials = {uMaterial{}};
     // Indicates if buffers have been built
     mutable bool buffersBuilt = false;
     // Indicates if there are unbuilt changes to the buffers
@@ -88,5 +105,5 @@ public:
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built
     void build(const cyGLSLProgram& prog) const;
     // Binds the VBO and EBO
-    void bind() const;
+    void bind(cyGLSLProgram& prog) const;
 };

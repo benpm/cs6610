@@ -34,3 +34,5 @@ These dependencies are either included or managed by CMake and built locally:
 - [cyCodeBase](http://www.cemyuksel.com/cyCodeBase/code.html)
 - [spdlog](https://github.com/gabime/spdlog)
 - glad
+- [EnTT](https://github.com/skypjack/entt)
+- [libspng](https://libspng.org)

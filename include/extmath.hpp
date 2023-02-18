@@ -204,3 +204,6 @@ Vector3f vec3(float v[3]);
 Vector3f vec3(const Vector2f& v, float z=0.0f);
 Vector3f vec3(float xyz);
 Vector2f vec2(const Vector3f& v);
+
+// Cantor's pairing function
+uint64_t cantor(uint32_t x, uint32_t y);

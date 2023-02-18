@@ -239,3 +239,7 @@ void AABB::place(const Vector2f& center, const Vector2f& size) {
 float AABB::volume() const {
     return this->width() * this->height() * this->depth();
 }
+
+uint64_t cantor(uint32_t x, uint32_t y) {
+    return ((x + y) * (x + y + 1u)) / 2u + y;
+}

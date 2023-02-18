@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <texture.hpp>
 #include <glad/glad.h>
+#include <spdlog/spdlog.h>
 
 uint32_t TextureCollection::add(const std::string& path) {
     spng_ctx* ctx = spng_ctx_new(0);
@@ -35,14 +36,18 @@ uint32_t TextureCollection::add(const std::string& path) {
     const std::string name = std::filesystem::path(path).stem().string();
 
     this->map.emplace(name, TextureData {.bindID = bindID, .colID = colID});
+    spdlog::trace("tex {} bindID={} colID={}", name, bindID, colID);
     spng_ctx_free(ctx);
-    return bindID;
+    return colID;
 }
 
-void TextureCollection::bind() const {
+void TextureCollection::bind(cyGLSLProgram& prog) const {
     // Bind textures to texture units
+    std::vector<GLint> colIDs(this->map.size());
     for (const auto [name, texData] : this->map) {
         glActiveTexture(GL_TEXTURE0 + (GLenum)texData.colID); $gl_err();
         glBindTexture(GL_TEXTURE_2D, texData.bindID); $gl_err();
+        colIDs[texData.colID] = (GLint)texData.colID;
     }
+    prog.SetUniform1("uTex", colIDs.data(), colIDs.size()); $gl_err();
 }

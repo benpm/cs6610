@@ -28,8 +28,8 @@ struct Material {
     float shininess;
     float specularFactor;
     float ambientFactor;
-    uint diffuseTexID;
-    uint specularTexID;
+    int diffuseTexID;
+    int specularTexID;
 };
 
 const uint lightPoint = 0;
@@ -60,13 +60,27 @@ void main() {
     // Fragment normal
     vec3 n = normalize(normal);
 
+    vec3 diffuseTex = mat.diffuseColor;
+    if (mat.diffuseTexID >= 0) {
+        diffuseTex = texture(uTex[mat.diffuseTexID], uv).rgb;
+    }
+    vec3 specularTex = mat.specularColor;
+    if (mat.specularTexID >= 0) {
+        specularTex = texture(uTex[mat.specularTexID], uv).rgb;
+    }
+    vec3 diffuseColor = diffuseTex;
+    vec3 specularColor = specularTex;
+    // vec3 diffuseColor = vec3(1.0);
+    // vec3 specularColor = vec3(1.0);
+    // vec3 diffuseColor = texture(uTex[1], uv).rgb;
+
     // Accumulate lights
     vec3 C = mat.ambientColor * mat.ambientFactor;
     for (uint i = 0; i < nLights; i++) {
         // Vector to light
         vec3 lightVec = uLight[i].position - position;
         if (uLight[i].type == lightDirectional) {
-            lightVec = -uLight[i].position;
+            lightVec = uLight[i].position;
         }
         // Direction to light
         vec3 lightDir = normalize(lightVec);
@@ -74,11 +88,8 @@ void main() {
         vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
 
         // Blinn shading
-        vec3 diffuseTex = texture(uTex[mat.diffuseTexID], uv).rgb;
-        vec3 specularTex = texture(uTex[mat.specularTexID], uv).rgb;
-        vec3 diffuseColor = diffuseTex;
-        vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * diffuseColor;
-        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * specularTex;
+        vec3 diffuse = max(0.0, dot(n, lightDir)) * diffuseColor;
+        vec3 specular = pow(max(0.0, dot(h, n)), max(0.1, mat.shininess)) * specularColor;
 
         float attenuation = uLight[i].intensity;
         if (uLight[i].type == lightPoint) {
@@ -88,5 +99,10 @@ void main() {
         C += attenuation * (diffuse + specular * mat.specularFactor);
     }
 
+    // Debug: color all invalid values as magenta
+    if (any(isnan(C) || isinf(C))) {
+        C = vec3(1.0, 0.0, 1.0);
+    }
+    
     fColor = vec4(C, 1.0);
 }

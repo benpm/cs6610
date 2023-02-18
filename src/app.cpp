@@ -143,25 +143,25 @@ App::App() {
     this->sunlight = this->lights.emplace_back(std::make_shared<Light>(
         Vector3f(0.25f, 0.5f, 0.25f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        0.25f,
+        0.9f,
         LightType::directional));
     this->lights.emplace_back(std::make_shared<Light>(
         Vector3f(-0.15f, -0.5f, -0.45f),
         Vector3f(1.0f, 1.0f, 0.9f),
         0.05f,
         LightType::directional));
-    for (size_t i = 0; i < 8; i++) {
-        this->lights.emplace_back(std::make_shared<Light>(
-            rng.vec(this->box),
-            hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
-            2.0f,
-            LightType::point));
-    }
-    this->lights.emplace_back(std::make_shared<Light>(
-        Vector3f(-9.0f, -1.5f, -16.0f),
-        Vector3f(1.0f, 1.0f, 0.9f),
-        4.0f,
-        LightType::point));
+    // for (size_t i = 0; i < 8; i++) {
+    //     this->lights.emplace_back(std::make_shared<Light>(
+    //         rng.vec(this->box),
+    //         hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
+    //         2.0f,
+    //         LightType::point));
+    // }
+    // this->lights.emplace_back(std::make_shared<Light>(
+    //     Vector3f(-9.0f, -1.5f, -16.0f),
+    //     Vector3f(1.0f, 1.0f, 0.9f),
+    //     4.0f,
+    //     LightType::point));
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
@@ -466,7 +466,7 @@ void App::draw(float dt) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
     // Draw models in scene
-    this->meshes.bind();
+    this->meshes.bind(this->meshProg);
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),

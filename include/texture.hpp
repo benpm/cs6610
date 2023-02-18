@@ -4,6 +4,7 @@
 #include <extmath.hpp>
 #include <spng.h>
 #include <glad/glad.h>
+#include <cyGL.h>
 
 struct TextureData
 {
@@ -22,5 +23,5 @@ public:
     // Add texture to collection and return its ID (same as texture unit for now)
     uint32_t add(const std::string& path);
     // Bind current texture set to texture units
-    void bind() const;
+    void bind(cyGLSLProgram& prog) const;
 };
