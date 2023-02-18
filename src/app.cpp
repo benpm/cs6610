@@ -110,8 +110,8 @@ App::App() {
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Create models
-    meshes.add("resources/models/yoda/yoda.obj", "", true);
     meshes.add("resources/models/teapot.obj", "", true);
+    meshes.add("resources/models/yoda/yoda.obj", "", true);
     meshes.add("resources/models/suzanne.obj", "", true);
     meshes.add("resources/models/sphere.obj", "", true);
     meshes.add("resources/models/cube.obj", "", true);
@@ -120,25 +120,20 @@ App::App() {
 
     for (size_t i = 0; i < this->objectsToGen; i++) {
         entt::entity e = this->makeModel("teapot");
-        auto [model, mat, transform] = this->reg.get<Model, uMaterial, ModelTransform>(e);
+        auto [model, transform] = this->reg.get<Model, ModelTransform>(e);
 
         model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model.pos = rng.vec(this->box);
+        model.pos = this->box.width() * spherePoint(rng.range(-tau2, tau2), rng.range(-tau2, tau2));
         model.rot = rng.rotation();
-        
-        float hue = rng.range(0.0f, 360.0f);
-        mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
-        mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-        mat.shininess = 5.0f;
 
         transform.transform = model.transform();
     }
-    // {
-    //     entt::entity e = this->makeModel("yoda");
-    //     Model& model = this->reg.get<Model>(e);
-    //     model.scale *= 10.0f;
-    //     model.rot.x() = -tau4;
-    // }
+    {
+        entt::entity e = this->makeModel("yoda");
+        Model& model = this->reg.get<Model>(e);
+        model.scale *= 15.0f;
+        model.rot.x() = -tau4;
+    }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
@@ -162,6 +157,11 @@ App::App() {
             2.0f,
             LightType::point));
     }
+    this->lights.emplace_back(std::make_shared<Light>(
+        Vector3f(-9.0f, -1.5f, -16.0f),
+        Vector3f(1.0f, 1.0f, 0.9f),
+        4.0f,
+        LightType::point));
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
@@ -538,37 +538,13 @@ void App::composeUI() {
 }
 
 entt::entity App::makeParticle() {
-    entt::entity e = this->reg.create();
+    entt::entity e = this->makeModel("sphere");
 
-    Model& model = this->reg.emplace<Model>(e);
-    model.pos = this->rng.vec(this->box);
-    model.pos.z() = 0.0f;
-    model.scale *= 0.5f;
-
-    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, this->meshes.get("sphere"));
-    this->vCounts.push_back(meshRef.elemCount);
-    this->vOffsets.push_back(meshRef.elemOffset);
-    model.pivot = meshRef.center;
-    
-    uMaterial& mat = this->reg.emplace<uMaterial>(e);
-    mat.ambientColor = {0.08f, 0.08f, 0.08f};
-
-    ModelTransform& transform = this->reg.emplace<ModelTransform>(e);
-    transform.transform = model.transform();
-
-    PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
-    body.pos = model.pos;
-
-    DebugRay& ray = this->reg.emplace<DebugRay>(e);
-    ray.pos = model.pos;
-    ray.rot = {tau4, 0.0f, tau4};
-    ray.length = 1.0f;
-
+    this->reg.emplace<PhysicsBody>(e);
+    this->reg.emplace<DebugRay>(e);
+    this->reg.emplace<RayTransform>(e);
     DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
     debugColor.color = {0.5f, 0.5f, 0.5f, 1.0f};
-
-    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-    rayTransform.transform = ray.transform();
 
     return e;
 }
@@ -576,9 +552,11 @@ entt::entity App::makeParticle() {
 entt::entity App::makeModel(const std::string& name) {
     entt::entity e = this->reg.create();
 
+    const MeshData& meshData = this->meshes.get(name);
+
     Model& model = this->reg.emplace<Model>(e);
-    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshes.get(name));
-    model.pivot = meshRef.center;
+    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
+    model.pivot = meshData.center;
     this->vCounts.push_back(meshRef.elemCount);
     this->vOffsets.push_back(meshRef.elemOffset);
     

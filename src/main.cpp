@@ -8,7 +8,7 @@ int main(int argc, char const *argv[])
     auto console = spdlog::stdout_color_mt("console");
     auto err_logger = spdlog::stderr_color_mt("stderr");
     spdlog::set_pattern("%^%L%$> %v");
-    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::trace);
 
     // Init GLFW
     if (!glfwInit()) {

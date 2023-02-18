@@ -24,8 +24,9 @@
 class App
 {
     private:
-        AABB box{vec3(-25.0f), vec3(25.0f)};
-        const size_t objectsToGen = this->box.volume() * 0.01f;
+        AABB box{vec3(-15.0f), vec3(15.0f)};
+        // const size_t objectsToGen = this->box.volume() * 0.01f;
+        const size_t objectsToGen = 100u;
         const float frameRate = 60.0f;
         const float framePeriod = 1.0f / this->frameRate;
 

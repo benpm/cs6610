@@ -25,7 +25,7 @@ struct VertexData {
     Vector3f color;
     Vector3f normal;
     Vector3f uv;
-    uint32_t matID;
+    alignas(4) uint32_t matID;
 };
 
 struct uMaterial {
@@ -40,18 +40,20 @@ struct uMaterial {
     uint32_t specularTexID = 0u;
 };
 
-// References data inside  mesh collection
+// References data inside mesh collection
 struct MeshRef {
     GLsizei elemCount; // Number of elements
     size_t elemOffset; // Offset into arrElems
-    Vector3f center;   // Center of mesh
 };
 
 // Mesh data
 struct MeshData {
+    // Reference information: element counts and offsets
     MeshRef ref;
     // List of material indices, references materials in MeshCollection::materials
     std::vector<uint32_t> materials;
+    // Center of mesh
+    Vector3f center;
 };
 
 // Collection of mesh data
@@ -82,7 +84,7 @@ public:
     // Load and add mesh to the collection. 
     void add(const std::string& filename, const std::string& meshName="", bool normalize=true);
     // Returns the meshdata corresponding to given meshname
-    const MeshRef& get(const std::string& meshName) const;
+    const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built
     void build(const cyGLSLProgram& prog) const;
     // Binds the VBO and EBO

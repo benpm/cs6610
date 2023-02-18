@@ -78,7 +78,7 @@ void main() {
         vec3 specularTex = texture(uTex[mat.specularTexID], uv).rgb;
         vec3 diffuseColor = diffuseTex;
         vec3 diffuse = vec3(max(0.0, dot(n, lightDir))) * diffuseColor;
-        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess));// * specularTex;
+        vec3 specular = vec3(pow(max(0.0, dot(h, n)), mat.shininess)) * specularTex;
 
         float attenuation = uLight[i].intensity;
         if (uLight[i].type == lightPoint) {

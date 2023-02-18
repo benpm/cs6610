@@ -32,54 +32,57 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     const std::string name = meshName.empty() ? std::filesystem::path(filename).stem().string() : meshName;
 
     const size_t vertOffset = this->vertexData.size();
-    const size_t triOffset = this->arrElems.size();
-    const int nElems = m.NF() * 3;
+    const size_t elemOffset = this->arrElems.size();
+    const size_t nElems = m.NF() * 3;
 
-    // Store all combinations of tex,normal indices for each vertex index
+    // Resize vertex data and element arrays to fit at least as many new vertices as in the obj file
+    this->vertexData.resize(vertOffset + m.NV());
+    this->arrElems.resize(elemOffset + nElems);
+
+    // Mapping from vertex index to (normalIdx, texIdx)
     std::vector<std::tuple<int, int>> indices(m.NV(), {-1, -1});
-    std::unordered_map<std::tuple<uint32_t, uint32_t>, size_t> vertRemap({});
+    // Map from text,normal indices to vertex index
+    std::unordered_map<size_t, size_t> vertRemap({});
+    // Map mixed indices to flat indices
     for (size_t i = 0; i < m.NF(); i++) {
-        uint32_t normalIndices[3] = {*m.FN(i).v};
-        uint32_t texIndices[3] = {*m.FT(i).v};
-        uint32_t vertIndices[3] = {*m.F(i).v};
+        const uint32_t* normalIndices = m.FN(i).v;
+        const uint32_t* texIndices = m.FT(i).v;
+        const uint32_t* vertIndices = m.F(i).v;
+        const int matID = std::max(0, m.GetMaterialIndex(i));
         for (size_t j = 0; j < 3; j++) {
-            const VertexData vertData = {
-                .pos = toEigen(m.V(vertIndices[j])),
-                .color = {1.0f, 1.0f, 1.0f},
-                .normal = toEigen(m.VN(normalIndices[j])),
-                .uv = toEigen(m.VT(texIndices[j])),
-                .matID = m.GetMaterialIndex(i)
-            };
-            uint32_t inNormalIdx = normalIndices[j];
-            uint32_t inTexIdx = texIndices[j];
-            int storedNormalIdx = std::get<0>(indices[vertIndices[j]]);
-            int storedTexIdx = std::get<1>(indices[vertIndices[j]]);
-            if (storedNormalIdx == -1) {
-                std::get<0>(indices[vertIndices[j]]) = inNormalIdx;
-                std::get<1>(indices[vertIndices[j]]) = inTexIdx;
+            uint32_t vertIdx = vertIndices[j];
+            const uint32_t inNormalIdx = normalIndices[j];
+            const uint32_t inTexIdx = texIndices[j];
+            if (vertRemap.count(vertIdx)) {
+                // Vertex has already been remapped, so use the stored remapped vertex index
+                vertIdx = vertRemap.at(vertIdx);
             } else {
-                indices[vertIndices[j]] = {inNormalIdx, inTexIdx};
-                if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
-                    std::tuple<uint32_t, uint32_t> k = {inNormalIdx, inTexIdx};
-                    if (!vertRemap.count(k)) {
-                        // Duplicate vertex
-                        vertRemap[k] = this->vertexData.size();
+                // Vertex either hasn't been stored, or hasn't been remapped
+                const int storedNormalIdx = std::get<0>(indices[vertIdx]);
+                const int storedTexIdx = std::get<1>(indices[vertIdx]);
+                const VertexData vertData = {
+                    .pos    = toEigen(m.V(vertIdx)),
+                    .color  = {1.0f, 1.0f, 1.0f},
+                    .normal = toEigen(m.VN(inNormalIdx)),
+                    .uv     = toEigen(m.VT(inTexIdx)),
+                    .matID  = (uint32_t)matID
+                };
+                if (storedNormalIdx == -1 || storedTexIdx == -1) {
+                    // First encounter with this vertex
+                    indices[vertIdx] = {inNormalIdx, inTexIdx};
+                    this->vertexData[vertIdx + vertOffset] = vertData;
+                } else {
+                    if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
+                        // Stored index set doesn't match, so we dupe and remap
+                        vertIdx = vertRemap.emplace(vertIdx, this->vertexData.size() - vertOffset).first->second;
                         this->vertexData.push_back(vertData);
                     }
-                } else {
-                    this->vertexData[vertIndices[j]] = vertData;
                 }
             }
+            this->arrElems[elemOffset + i*3 + j] = vertIdx + vertOffset;
         }
     }
-
-    // Add triangles
-    this->arrElems.resize(triOffset + nElems);
-    for (size_t i = 0; i < m.NF(); i++) {
-        this->arrElems[triOffset + i*3 + 0] = m.F(i).v[0] + vertOffset;
-        this->arrElems[triOffset + i*3 + 1] = m.F(i).v[1] + vertOffset;
-        this->arrElems[triOffset + i*3 + 2] = m.F(i).v[2] + vertOffset;
-    }
+    spdlog::debug("\tremapped {} vertex indices", vertRemap.size());
 
     // Parse materials
     std::vector<uint32_t> meshMaterialIDs(m.NM());
@@ -105,17 +108,17 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     // Add mesh data
     this->meshDataMap.emplace(name, MeshData{
         .ref = MeshRef{
-            .elemCount = nElems,
-            .elemOffset = triOffset * sizeof(uint32_t),
-            .center = pivot},
-        .materials = meshMaterialIDs
+            .elemCount = (int)nElems,
+            .elemOffset = elemOffset * sizeof(uint32_t)},
+        .materials = meshMaterialIDs,
+        .center = pivot
     });
 
     this->dirty = true;
 }
 
-const MeshRef& MeshCollection::get(const std::string &meshName) const {
-    return this->meshDataMap.at(meshName).ref;
+const MeshData& MeshCollection::get(const std::string &meshName) const {
+    return this->meshDataMap.at(meshName);
 }
 
 void MeshCollection::build(const cyGLSLProgram& prog) const {
@@ -173,6 +176,7 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
     this->dirty = false;
+    spdlog::debug("built mesh collection with {} vertices and {} elements", this->vertexData.size(), this->arrElems.size());
 }
 
 void MeshCollection::bind() const {
@@ -187,4 +191,7 @@ void MeshCollection::bind() const {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials); $gl_err();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+
+    // Bind textures
+    this->textures.bind();
 }
