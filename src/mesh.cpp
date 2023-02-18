@@ -1,5 +1,7 @@
 #define NOMINMAX
 #include <filesystem>
+#include <tuple>
+#include <unordered_map>
 #include <spdlog/spdlog.h>
 #include "mesh.hpp"
 
@@ -33,33 +35,42 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
     const size_t triOffset = this->arrElems.size();
     const int nElems = m.NF() * 3;
 
-    // Process stored vertex data to usable form
-    std::vector<Vector3f> vertTexCoords(m.NV());
-    std::vector<Vector3f> vertNormals(m.NV());
-    std::vector<uint32_t> vertMatIDs(m.NV());
+    // Store all combinations of tex,normal indices for each vertex index
+    std::vector<std::tuple<int, int>> indices(m.NV(), {-1, -1});
+    std::unordered_map<std::tuple<uint32_t, uint32_t>, size_t> vertRemap({});
     for (size_t i = 0; i < m.NF(); i++) {
         uint32_t normalIndices[3] = {*m.FN(i).v};
         uint32_t texIndices[3] = {*m.FT(i).v};
         uint32_t vertIndices[3] = {*m.F(i).v};
-        uint32_t matID = m.GetMaterialIndex(i);
         for (size_t j = 0; j < 3; j++) {
-            assert(vertIndices[j] == normalIndices[j]);
-            vertTexCoords.at(vertIndices[j]) = toEigen(m.VT(texIndices[j]));
-            vertNormals.at(vertIndices[j]) = toEigen(m.VN(vertIndices[j]));
-            vertMatIDs.at(vertIndices[j]) = matID;
+            const VertexData vertData = {
+                .pos = toEigen(m.V(vertIndices[j])),
+                .color = {1.0f, 1.0f, 1.0f},
+                .normal = toEigen(m.VN(normalIndices[j])),
+                .uv = toEigen(m.VT(texIndices[j])),
+                .matID = m.GetMaterialIndex(i)
+            };
+            uint32_t inNormalIdx = normalIndices[j];
+            uint32_t inTexIdx = texIndices[j];
+            int storedNormalIdx = std::get<0>(indices[vertIndices[j]]);
+            int storedTexIdx = std::get<1>(indices[vertIndices[j]]);
+            if (storedNormalIdx == -1) {
+                std::get<0>(indices[vertIndices[j]]) = inNormalIdx;
+                std::get<1>(indices[vertIndices[j]]) = inTexIdx;
+            } else {
+                indices[vertIndices[j]] = {inNormalIdx, inTexIdx};
+                if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
+                    std::tuple<uint32_t, uint32_t> k = {inNormalIdx, inTexIdx};
+                    if (!vertRemap.count(k)) {
+                        // Duplicate vertex
+                        vertRemap[k] = this->vertexData.size();
+                        this->vertexData.push_back(vertData);
+                    }
+                } else {
+                    this->vertexData[vertIndices[j]] = vertData;
+                }
+            }
         }
-    }
-
-    // Add vertex data
-    this->vertexData.resize(vertOffset + m.NV());
-    for (size_t i = 0; i < m.NV(); i++) {
-        this->vertexData[vertOffset + i] = VertexData{
-            .pos    = toEigen(m.V(i)),
-            .color  = vertNormals[i],
-            .normal = vertNormals[i],
-            .uv     = vertTexCoords[i],
-            .matID  = vertMatIDs[i]
-        };
     }
 
     // Add triangles

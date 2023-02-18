@@ -118,27 +118,27 @@ App::App() {
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
-    // for (size_t i = 0; i < this->objectsToGen; i++) {
-    //     entt::entity e = this->makeModel("teapot");
-    //     auto [model, mat, transform] = this->reg.get<Model, uMaterial, ModelTransform>(e);
+    for (size_t i = 0; i < this->objectsToGen; i++) {
+        entt::entity e = this->makeModel("teapot");
+        auto [model, mat, transform] = this->reg.get<Model, uMaterial, ModelTransform>(e);
 
-    //     model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-    //     model.pos = rng.vec(this->box);
-    //     model.rot = rng.rotation();
+        model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
+        model.pos = rng.vec(this->box);
+        model.rot = rng.rotation();
         
-    //     float hue = rng.range(0.0f, 360.0f);
-    //     mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
-    //     mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
-    //     mat.shininess = 5.0f;
+        float hue = rng.range(0.0f, 360.0f);
+        mat.diffuseColor = hsvToRgb({hue, 0.8f, 0.7f});
+        mat.specularColor = hsvToRgb({hue, 0.4f, 1.0f});
+        mat.shininess = 5.0f;
 
-    //     transform.transform = model.transform();
-    // }
-    {
-        entt::entity e = this->makeModel("yoda");
-        Model& model = this->reg.get<Model>(e);
-        model.scale *= 10.0f;
-        model.rot.x() = -tau4;
+        transform.transform = model.transform();
     }
+    // {
+    //     entt::entity e = this->makeModel("yoda");
+    //     Model& model = this->reg.get<Model>(e);
+    //     model.scale *= 10.0f;
+    //     model.rot.x() = -tau4;
+    // }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
