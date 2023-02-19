@@ -17,6 +17,7 @@
 #include <cyGL.h>
 #include <model.hpp>
 #include <mesh.hpp>
+#include <physics.hpp>
 #include <light.hpp>
 #include <entt/entt.hpp>
 #include <texture.hpp>
@@ -24,9 +25,9 @@
 class App
 {
     private:
-        AABB box{vec3(-15.0f), vec3(15.0f)};
+        ColliderInteriorBox box{vec3(-25.0f), vec3(25.0f)};
         // const size_t objectsToGen = this->box.volume() * 0.01f;
-        const size_t objectsToGen = 100u;
+        const size_t objectsToGen = 10000u;
         const float frameRate = 60.0f;
         const float framePeriod = 1.0f / this->frameRate;
 
@@ -72,30 +73,10 @@ class App
         // ID of arrow colors SSBO
         GLuint ssboArrowColors;
 
-        enum class SimulationMethod {
-            explicitEuler,
-            implicitEuler,
-            verlet,
-            implicit,
-            velocityOnly
-        } simulationMethod = SimulationMethod::explicitEuler;
-        const std::unordered_map<SimulationMethod, std::string> simMethodNames = {
-            {SimulationMethod::explicitEuler, "Explicit Euler"},
-            {SimulationMethod::implicitEuler, "Implicit Euler"},
-            {SimulationMethod::verlet,        "Verlet"},
-            {SimulationMethod::implicit,      "Constrained Implicit"},
-            {SimulationMethod::velocityOnly,  "Velocity Only"}
-        };
-
         // Element counts
         std::vector<GLsizei> vCounts;
         // Element offsets
         std::vector<size_t> vOffsets;
-        // Lights
-        std::vector<std::shared_ptr<Light>> lights;
-
-        entt::entity particle;
-        entt::entity interactArrow;
     public:
         GLFWwindow* window;
 
@@ -147,4 +128,5 @@ class App
 
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);
+        entt::entity makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type);
 };

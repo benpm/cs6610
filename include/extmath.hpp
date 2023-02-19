@@ -22,18 +22,6 @@ constexpr float tau4 = tau / 4.0f;
 void glCheckError_(const char *file, int line);
 #define $gl_err() glCheckError_(__FILE__, __LINE__) 
 
-enum class LightType: uint32_t {
-    point,
-    directional
-};
-
-struct uLight {
-    alignas(16) Vector3f position;
-    alignas(16) Vector3f color;
-    float intensity;
-    LightType type;
-};
-
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {

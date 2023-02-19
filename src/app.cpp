@@ -89,16 +89,8 @@ App::App() {
 
     glCreateBuffers(1, &this->vboPath); $gl_err();
     glCreateBuffers(1, &this->vboBox); $gl_err();
-
-    glGenBuffers(1, &this->ssboArrows);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    glGenBuffers(1, &this->ssboArrowColors);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrowColors);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    glCreateBuffers(1, &this->ssboArrows); $gl_err();
+    glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
     
     // Build and bind meshes shader program
     built = this->meshProg.BuildFiles(
@@ -132,6 +124,9 @@ App::App() {
         model.rot = rng.rotation();
 
         transform.transform = model.transform();
+
+        PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
+        body.pos = model.pos;
     }
     {
         entt::entity e = this->makeModel("yoda");
@@ -145,43 +140,36 @@ App::App() {
     this->camera.orbitDist(50.0f);
 
     // Add lights
-    this->sunlight = this->lights.emplace_back(std::make_shared<Light>(
+    this->makeLight(
         Vector3f(0.25f, 0.5f, 0.25f),
         Vector3f(1.0f, 1.0f, 0.9f),
         0.9f,
-        LightType::directional));
-    this->lights.emplace_back(std::make_shared<Light>(
+        LightType::directional);
+    this->makeLight(
         Vector3f(-0.15f, -0.5f, -0.45f),
         Vector3f(1.0f, 1.0f, 0.9f),
         0.05f,
-        LightType::directional));
+        LightType::directional);
     for (size_t i = 0; i < 16; i++) {
-        this->lights.emplace_back(std::make_shared<Light>(
+        this->makeLight(
             rng.vec(this->box),
             hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
             2.0f,
-            LightType::point));
+            LightType::point);
     }
 
     // Create and bind model transforms SSBO
-    glGenBuffers(1, &this->ssboModels);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels);
+    glGenBuffers(1, &this->ssboModels); $gl_err();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels); $gl_err();
     auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>();
     glBufferData(GL_SHADER_STORAGE_BUFFER,
         transformsStorage.size() * sizeof(Matrix4f),
-        *transformsStorage.raw(), GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    $gl_err();
+        *transformsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
     // Create and bind lights SSBO
-    glGenBuffers(1, &this->ssboLights);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->lights.size() * sizeof(uLight), NULL, GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    $gl_err();
-    this->meshProg.SetUniform("nLights", (uint32_t)this->lights.size());
+    glGenBuffers(1, &this->ssboLights); $gl_err();
 }
 
 App::~App() {
@@ -328,75 +316,34 @@ void App::idle() {
 
 void App::simulate(float dt) {
     constexpr auto F = [](const Vector3f& v) -> Vector3f {
-        const float a = angle2D(vec2(v));
-        const float d = v.norm();
-        return {cosf(a + tau4) * d, sinf(a + tau4) * d, 0.0f};
+        return v.cross(Vector3f(0.0f, 0.0f, 4.0f));
     };
 
+    // Camera controls
+    const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
+    const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim;
+    const Vector2f keyboardDelta = {
+        (float)this->pressedKeys.count(GLFW_KEY_D) - (float)this->pressedKeys.count(GLFW_KEY_A),
+        (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
+    };
+    Vector2f dragDelta = Vector2f::Zero();
+    if (this->mouseLeft) {
+        dragDelta = panDelta * 2.0f;
+        dragDelta.y() *= -1.0f;
+    }
+    this->camera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+
     // Physics simulation
+    constexpr float dampingFactor = 4.0f;
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
-        if (body.pos.x() < this->box.min.x()) {
-            body.pos.x() = this->box.min.x();
-            body.vel.x() = -body.vel.x();
-        } else if (body.pos.x() > this->box.max.x()) {
-            body.pos.x() = this->box.max.x();
-            body.vel.x() = -body.vel.x();
-        }
-        if (body.pos.y() < this->box.min.y()) {
-            body.pos.y() = this->box.min.y();
-            body.vel.y() = -body.vel.y();
-        } else if (body.pos.y() > this->box.max.y()) {
-            body.pos.y() = this->box.max.y();
-            body.vel.y() = -body.vel.y();
-        }
+        this->box.collide(body);
 
-        switch (this->simulationMethod) {
-            case SimulationMethod::explicitEuler: {
-                const float dampingFactor = 2.0f;
-                body.acc = F(body.pos);
-                body.vel += body.acc * dt;
-                body.pos += body.vel * dt;
-                body.vel *= 1.0f - (dampingFactor * dt);
-            } break;
-            case SimulationMethod::implicitEuler: {
-                const size_t iters = 100;
-                const float step = 0.25f;
-                const float s = dt * (step / (float)iters);
-                for (size_t i = 0; i < iters; i++) {
-                    const Vector3f x = body.pos + body.vel*s + F(body.pos)*s*s;
-                    body.acc = (x - body.pos) / (dt * dt) - body.vel / dt;
-                    body.vel += body.acc * s;
-                    body.pos += body.vel * s;
-                }
-            } break;
-            case SimulationMethod::verlet: {
-                body.acc = F(body.pos);
-                body.vel += body.acc * dt * 0.5f;
-                body.pos += body.vel * dt;
-            } break;
-            case SimulationMethod::implicit: {
-                const size_t iters = 10;
-                const float step = 0.01f;
-                const float s = step / (float)iters;
-                for (size_t i = 0; i < iters; i++) {
-                    const float d = body.pos.norm();
-                    const float a = angle2D(vec2(body.pos)) + tau4 + 1.0e-8f;
-                    const Vector3f np = {cosf(a) * d, sinf(a) * d, 0.0f};
-                    const Vector3f dp = np - body.pos;
-                    body.acc = dp / (dt * dt) - body.vel / dt;
-                    body.vel += body.acc * dt * s;
-                    body.pos += body.vel * dt * s;
-                }
-            } break;
-            case SimulationMethod::velocityOnly: {
-                const float a = angle2D(vec2(body.pos));
-                const float d = body.pos.norm();
-                body.vel = {cosf(a + tau4 - 0.1f) * d, sinf(a + tau4 - 0.1f) * d, 0.0f};
-                body.pos += body.vel * dt;
-            } break;
-        }
+        body.acc = F(body.pos);
+        body.vel += body.acc * dt;
+        body.pos += body.vel * dt;
+        body.vel *= 1.0f - (dampingFactor * dt);
     }
 
     // Update model transforms
@@ -420,23 +367,15 @@ void App::simulate(float dt) {
         auto [ray, t] = this->reg.get<DebugRay, RayTransform>(e);
         t.transform = ray.transform();
     }
+
+    // Update lights
+    for (auto e : this->reg.view<Light, uLight>()) {
+        auto [light, ulight] = this->reg.get<Light, uLight>(e);
+        ulight = light.toStruct(this->camera);
+    }
 }
 
 void App::draw(float dt) {
-    // Camera controls
-    const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
-    const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim;
-    const Vector2f keyboardDelta = {
-        (float)this->pressedKeys.count(GLFW_KEY_D) - (float)this->pressedKeys.count(GLFW_KEY_A),
-        (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
-    };
-    Vector2f dragDelta = Vector2f::Zero();
-    if (this->mouseLeft) {
-        dragDelta = panDelta * 2.0f;
-        dragDelta.y() *= -1.0f;
-    }
-    this->camera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
-
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
@@ -446,16 +385,16 @@ void App::draw(float dt) {
     const Matrix4f tView = this->camera.getView();
     this->meshProg.SetUniformMatrix4("uTView", tView.data());
 
-    // Update lights
-    std::vector<uLight> lightStructs(this->lights.size());
-    for (size_t i = 0; i < this->lights.size(); i++) {
-        lightStructs[i] = this->lights[i]->toStruct(this->camera);
-    }
+    // Update lights buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights); $gl_err();
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, lightStructs.size() * sizeof(uLight), lightStructs.data()); $gl_err();
+    auto& lightsStorage = this->reg.view<uLight>().storage<uLight>(); $gl_err();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        lightsStorage.size() * sizeof(uLight), *lightsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+    this->meshProg.SetUniform("nLights", (GLuint)lightsStorage.size());
 
+    // Update model transforms buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels); $gl_err();
     auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>(); $gl_err();
     glBufferSubData(GL_SHADER_STORAGE_BUFFER,
@@ -471,6 +410,35 @@ void App::draw(float dt) {
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
+    
+    // Draw wireframe stuff
+    this->wiresProg.Bind();
+    glBindVertexArray(this->vaoWires); $gl_err();
+    this->wiresProg.SetUniformMatrix4("uTProj", tProj.data());
+    this->wiresProg.SetUniformMatrix4("uTView", tView.data());
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
+    
+    GLuint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+
+    // Update arrows buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows); $gl_err();
+    auto& arrowsStorage = this->reg.view<RayTransform>().storage<RayTransform>(); $gl_err();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        arrowsStorage.size() * sizeof(RayTransform), *arrowsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows); $gl_err();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+
+    // Update arrow colors buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrowColors); $gl_err();
+    auto& colorsStorage = this->reg.view<DebugColor>().storage<DebugColor>(); $gl_err();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        colorsStorage.size() * sizeof(DebugColor), *colorsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+
+    glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
 
     this->composeUI();
     ImGui::Render();
@@ -485,52 +453,12 @@ void App::composeUI() {
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(200, 500));
-    ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-    ImGui::TextWrapped(
-        "Particle simulation! Use left mouse to add a force, right mouse to pan camera."
-    );
-    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-
-    // Dropdown to choose simulation method
-    if (ImGui::BeginCombo("Simulation Method", this->simMethodNames.at(this->simulationMethod).c_str())) {
-        for (int i = 0; i < this->simMethodNames.size(); i++) {
-            const SimulationMethod s = (SimulationMethod)i;
-            bool isSelected = (this->simulationMethod == s);
-            if (ImGui::Selectable(this->simMethodNames.at(s).c_str(), isSelected)) {
-                this->simulationMethod = s;
-            }
-            if (isSelected) {
-                ImGui::SetItemDefaultFocus();
-            }
-        }
-        ImGui::EndCombo();
-    }
-
-    auto bodies = this->reg.view<PhysicsBody>();
-
-    // Box size slider
-    float boxSize = this->box.width();
-    ImGui::SliderFloat("Box Size", &boxSize, 1.0f, 100.0f);
-    this->box.size(boxSize);
-
-    // Button that sets all velocities to zero
-    if (ImGui::Button("Reset Velocities")) {
-        for (auto e : bodies) {
-            PhysicsBody& body = this->reg.get<PhysicsBody>(e);
-            body.vel = Vector3f::Zero();
-        }
-    }
-
-    // Particle count slider
-    int particleCount = bodies.size();
-    ImGui::SliderInt("Particle Count", &particleCount, 1, 500);
-    while (particleCount != bodies.size()) {
-        if (particleCount < bodies.size()) {
-            this->reg.destroy(*bodies.begin());
-        } else {
-            this->makeParticle();
-        }
-    }
+    ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::Text("Left Click: Pan");
+    ImGui::Text("Wheel / Right Click: Zoom");
+    ImGui::Text("1: Orbit camera");
+    ImGui::Text("2: Fly camera");
+    ImGui::Text("F6: Reload shaders");
 
     ImGui::End();
 }
@@ -559,5 +487,29 @@ entt::entity App::makeModel(const std::string& name) {
     this->vOffsets.push_back(meshRef.elemOffset);
     
     this->reg.emplace<ModelTransform>(e);
+    return e;
+}
+
+entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type) {
+    entt::entity e = this->reg.create();
+
+    Light& light = this->reg.emplace<Light>(e);
+    light.pos = pos;
+    light.color = color;
+    light.intensity = intensity;
+    light.type = type;
+
+    this->reg.emplace<uLight>(e);
+
+    DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
+    debugRay.pos = pos;
+    debugRay.rot = towards(pos, {0.0f, 0.0f, 0.0f});
+
+    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+    rayTransform.transform = debugRay.transform();
+
+    DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+    debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
+
     return e;
 }
