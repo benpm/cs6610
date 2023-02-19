@@ -45,6 +45,14 @@ else()
     target_compile_options(app PRIVATE -Wall)
 endif()
 
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Debug build: adding compile flags")
+    target_compile_definitions(app PRIVATE BUILD_DEBUG)
+elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Release build: adding compile flags")
+    target_compile_definitions(app PRIVATE BUILD_RELEASE)
+endif()
+
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 

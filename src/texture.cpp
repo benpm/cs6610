@@ -41,13 +41,21 @@ uint32_t TextureCollection::add(const std::string& path) {
     return colID;
 }
 
+uint32_t TextureCollection::add(const std::string& name, GLuint bindID) {
+    const uint32_t colID = this->nextID++;
+    this->map.emplace(name, TextureData {.bindID = bindID, .colID = colID});
+    return colID;
+}
+
 void TextureCollection::bind(cyGLSLProgram& prog) const {
     // Bind textures to texture units
-    std::vector<GLint> colIDs(this->map.size());
+    std::vector<GLint> colIDs(32);
     for (const auto& [name, texData] : this->map) {
         glActiveTexture(GL_TEXTURE0 + (GLenum)texData.colID); $gl_err();
         glBindTexture(GL_TEXTURE_2D, texData.bindID); $gl_err();
-        colIDs[texData.colID] = (GLint)texData.colID;
+    }
+    for (size_t i = 0; i < 32; i++) {
+        colIDs[i] = i;
     }
     prog.SetUniform1("uTex", colIDs.data(), colIDs.size()); $gl_err();
 }

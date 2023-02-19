@@ -59,6 +59,12 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
         }
 
         const uint32_t globalMatID = this->materials.size();
+        std::string matName;
+        if (m.M(i).name) {
+            matName = fmt::format("{}.{}", name, m.M(i).name.data);
+        } else {
+            matName = fmt::format("{}.mat_{}", name, i);
+        }
 
         meshMaterialIDs[i] = globalMatID;
         this->materials.push_back(mat);
@@ -68,6 +74,9 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
         for (size_t j = 0; j < matFaceCount; j++) {
             matIDs[matFaceOffset + j] = globalMatID;
         }
+
+        this->nameMaterialMap.emplace(matName, globalMatID);
+        this->materialNameMap.emplace(globalMatID, matName);
     }
 
     // Mapping from vertex index to (normalIdx, texIdx)
@@ -141,8 +150,8 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
         this->buffersBuilt = true;
     }
 
-    for (size_t i = 0; i < this->materials.size(); i++) {
-        spdlog::trace("mat [{}] : {}", i, this->materials.at(i));
+    for (const auto& [name, idx] : this->nameMaterialMap) {
+        spdlog::trace("n[{}] '{}' {}", idx, name, this->materials.at(idx));
     }
 
     // Populate vertex data VBO
@@ -210,4 +219,36 @@ void MeshCollection::bind(cyGLSLProgram& prog) const {
 
     // Bind textures
     this->textures.bind(prog);
+}
+
+void MeshCollection::setMaterial(const std::string& meshName, const uMaterial& mat) {
+    MeshData& mesh = this->meshDataMap.at(meshName);
+    const size_t elemOffset = mesh.ref.elemOffset / sizeof(uint32_t);
+    const uint32_t matID = this->materials.size();
+    this->materials.push_back(mat);
+    mesh.materials.push_back(matID);
+
+    for (size_t i = elemOffset; i < elemOffset + mesh.ref.elemCount; i++) {
+        this->vertexData[i].matID = matID;
+    }
+
+    this->dirty = true;
+}
+
+void MeshCollection::setMaterial(const std::string& meshName, const std::string& matName) {
+    MeshData& mesh = this->meshDataMap.at(meshName);
+    const size_t elemOffset = mesh.ref.elemOffset / sizeof(uint32_t);
+    const uint32_t matID = this->nameMaterialMap.at(matName);
+
+    for (size_t i = elemOffset; i < elemOffset + mesh.ref.elemCount; i++) {
+        this->vertexData[i].matID = matID;
+    }
+
+    this->dirty = true;
+}
+
+void MeshCollection::setMaterial(const std::string& meshName, GLuint diffuseTexID) {
+    uMaterial mat;
+    mat.diffuseTexID = this->textures.add(fmt::format("{}_custom_diffuse", meshName), diffuseTexID);
+    this->setMaterial(meshName, mat);
 }

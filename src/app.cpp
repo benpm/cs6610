@@ -17,11 +17,6 @@
 
 App::App() {
     // Initialize GLFW and Gleq
-    if (glfwRawMouseMotionSupported()) {
-        glfwSetInputMode(this->window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-    } else {
-        spdlog::warn("GLFW: raw mouse motion not supported");
-    }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     this->window = glfwCreateWindow(
@@ -33,6 +28,11 @@ App::App() {
     }
     gleqTrackWindow(this->window);
     glfwMakeContextCurrent(this->window);
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(this->window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    } else {
+        spdlog::warn("GLFW: raw mouse motion not supported");
+    }
 
     // Init glad
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -105,13 +105,38 @@ App::App() {
     // Create and bind VAO
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
+    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glfwSwapBuffers(this->window);
+
+    // Create framebuffer and framebuffer textures
+    glGenTextures(1, &this->fTexMainCopy); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, this->fTexMainCopy); $gl_err();
+    std::vector<uint8_t> data(this->windowSize.x() * this->windowSize.y() * 3, 0u);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+
+    glGenTextures(1, &this->fTexMain); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, this->fTexMain); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glGenFramebuffers(1, &this->fboMain); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->fTexMain, 0); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
     
     // Create models
-    meshes.add("resources/models/teapot.obj", "", true);
-    meshes.add("resources/models/yoda/yoda.obj", "", true);
-    meshes.add("resources/models/suzanne.obj", "", true);
-    meshes.add("resources/models/sphere.obj", "", true);
-    meshes.add("resources/models/cube.obj", "", true);
+    meshes.add("resources/models/quad.obj", "", false);
+    meshes.add("resources/models/teapot.obj");
+    meshes.add("resources/models/yoda/yoda.obj");
+    meshes.add("resources/models/suzanne.obj");
+    meshes.add("resources/models/sphere.obj");
+    meshes.add("resources/models/cube.obj");
+    meshes.setMaterial("quad", this->fTexMainCopy);
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
@@ -133,6 +158,11 @@ App::App() {
         Model& model = this->reg.get<Model>(e);
         model.scale *= 15.0f;
         model.rot.x() = -tau4;
+    }
+    {
+        entt::entity e = this->makeModel("quad");
+        Model& model = this->reg.get<Model>(e);
+        model.scale = vec3(this->windowSize.cast<float>() * 0.05f, 1.0f);
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -228,6 +258,14 @@ void App::onKey(int key, bool pressed) {
 void App::onResize(int width, int height) {
     glViewport(0, 0, width, height);
     this->windowSize = {width, height};
+
+    // Resize framebuffer target texture and its copy
+    glBindTexture(GL_TEXTURE_2D, this->fTexMain); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, this->fTexMainCopy); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+
     spdlog::debug("Resized window to {},{}", width, height);
 }
 
@@ -302,8 +340,6 @@ void App::run() {
         this->lastFrameTime = glfwGetTime();
 
         // Draw the scene
-        glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         this->simulate(dt);
         this->draw(dt);
         this->idle();
@@ -403,7 +439,28 @@ void App::draw(float dt) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
     // Draw models in scene
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
     this->meshes.bind(this->meshProg);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+        glClearColor(1.0f, 0.0f, 1.0f, 1.0f); $gl_err();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+        glMultiDrawElements(
+            GL_TRIANGLES,
+            this->vCounts.data(),
+            GL_UNSIGNED_INT,
+            (const void**)this->vOffsets.data(),
+            this->vCounts.size()); $gl_err();
+    } else {
+        spdlog::warn("framebuffer not ready");
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+    glCopyImageSubData(
+        this->fTexMain, GL_TEXTURE_2D, 0, 0, 0, 0,
+        this->fTexMainCopy, GL_TEXTURE_2D, 0, 0, 0, 0,
+        this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
+    this->meshes.bind(this->meshProg);
+    glClearColor(0.08f, 0.08f, 0.08f, 1.0f); $gl_err();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),

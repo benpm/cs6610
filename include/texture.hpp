@@ -22,6 +22,8 @@ private:
 public:
     // Add texture to collection and return its ID (same as texture unit for now)
     uint32_t add(const std::string& path);
+    // Adds an already created texture to this collection
+    uint32_t add(const std::string& name, GLuint bindID);
     // Bind current texture set to texture units
     void bind(cyGLSLProgram& prog) const;
 };

@@ -6,7 +6,8 @@
 			"label": "C/C++: Build Main",
 			"command": "cmake",
 			"args": [
-				"--build", "build"
+				"--build", "build",
+				"-j"
 			],
 			"options": {
 				"cwd": "${workspaceFolder}"

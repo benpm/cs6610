@@ -60,7 +60,7 @@ template<> struct fmt::formatter<uMaterial> {
 // References data inside mesh collection
 struct MeshRef {
     GLsizei elemCount; // Number of elements
-    size_t elemOffset; // Offset into arrElems
+    size_t elemOffset; // Byte offset into arrElems
 };
 
 // Mesh data
@@ -87,6 +87,10 @@ private:
     std::unordered_map<std::string, MeshData> meshDataMap;
     // All materials for all stored meshes, referenced by MeshData::materials
     std::vector<uMaterial> materials = {uMaterial{}};
+    // Map material names -> material indices
+    std::unordered_map<std::string, size_t> nameMaterialMap = {{"DEFAULT", 0u}};
+    // Map material indices -> material names
+    std::unordered_map<size_t, std::string> materialNameMap = {{0u, "DEFAULT"}};
     // Indicates if buffers have been built
     mutable bool buffersBuilt = false;
     // Indicates if there are unbuilt changes to the buffers
@@ -106,4 +110,10 @@ public:
     void build(const cyGLSLProgram& prog) const;
     // Binds the VBO and EBO
     void bind(cyGLSLProgram& prog) const;
+    // Assigns a custom material to a all vertices in a mesh
+    void setMaterial(const std::string& meshName, const uMaterial& mat);
+    // Assigns a custom material (a named material) to a all vertices in a mesh
+    void setMaterial(const std::string& meshName, const std::string& matName);
+    // Assigns a custom material (a previously generated texture) to a all vertices in a mesh
+    void setMaterial(const std::string& meshName, GLuint diffuseTexID);
 };

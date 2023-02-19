@@ -20,7 +20,12 @@ constexpr float tau2 = tau / 2.0f;
 constexpr float tau4 = tau / 4.0f;
 
 void glCheckError_(const char *file, int line);
-#define $gl_err() glCheckError_(__FILE__, __LINE__) 
+
+#ifdef BUILD_RELEASE
+    #define $gl_err() {}
+#else
+    #define $gl_err() glCheckError_(__FILE__, __LINE__) 
+#endif
 
 // fmt overload for Matrix4f
 template<> struct fmt::formatter<Matrix4f> {
