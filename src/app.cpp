@@ -17,6 +17,11 @@
 
 App::App() {
     // Initialize GLFW and Gleq
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(this->window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    } else {
+        spdlog::warn("GLFW: raw mouse motion not supported");
+    }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     this->window = glfwCreateWindow(
@@ -150,18 +155,13 @@ App::App() {
         Vector3f(1.0f, 1.0f, 0.9f),
         0.05f,
         LightType::directional));
-    // for (size_t i = 0; i < 8; i++) {
-    //     this->lights.emplace_back(std::make_shared<Light>(
-    //         rng.vec(this->box),
-    //         hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
-    //         2.0f,
-    //         LightType::point));
-    // }
-    // this->lights.emplace_back(std::make_shared<Light>(
-    //     Vector3f(-9.0f, -1.5f, -16.0f),
-    //     Vector3f(1.0f, 1.0f, 0.9f),
-    //     4.0f,
-    //     LightType::point));
+    for (size_t i = 0; i < 16; i++) {
+        this->lights.emplace_back(std::make_shared<Light>(
+            rng.vec(this->box),
+            hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
+            2.0f,
+            LightType::point));
+    }
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels);
@@ -267,7 +267,7 @@ void App::onClick(int button, bool pressed) {
 
 void App::run() {
     while (!glfwWindowShouldClose(this->window)) {
-        this->mouseDeltaPos = {0.0f, 0.0f};
+        this->mouseDeltaPos = this->mousePos;
         this->mouseMoved = false;
 
         // Handle GLFW events (100 gleqs)
@@ -281,7 +281,6 @@ void App::run() {
                     this->onKey(event.keyboard.key, false);
                     break;
                 case GLEQ_CURSOR_MOVED:
-                    this->mouseDeltaPos = Vector2f(event.pos.x, event.pos.y) - this->mousePos;
                     this->mousePos = {event.pos.x, event.pos.y};
                     this->mouseMoved = true;
                     break;
@@ -307,6 +306,7 @@ void App::run() {
             gleqFreeEvent(&event);
         }
         glfwPollEvents();
+        this->mouseDeltaPos -= this->mousePos;
 
         // Wait until next frame
         this->t = glfwGetTime();
@@ -425,19 +425,17 @@ void App::simulate(float dt) {
 void App::draw(float dt) {
     // Camera controls
     const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
-    const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim * tau2;
+    const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim;
     const Vector2f keyboardDelta = {
         (float)this->pressedKeys.count(GLFW_KEY_D) - (float)this->pressedKeys.count(GLFW_KEY_A),
         (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
     };
     Vector2f dragDelta = Vector2f::Zero();
     if (this->mouseLeft) {
-        dragDelta = panDelta * dt * 20.0f;
+        dragDelta = panDelta * 2.0f;
         dragDelta.y() *= -1.0f;
     }
-    if (this->mouseMoved) {
-        this->camera.control(this->mouseDeltaPos * dt, dragDelta, keyboardDelta * dt * 20.0f);
-    }
+    this->camera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
 
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();

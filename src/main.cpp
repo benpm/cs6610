@@ -52,17 +52,13 @@ namespace spdlog::sinks {
 int main(int argc, char const *argv[])
 {
     // Setup logging
-    auto console = spdlog::stdout_color_mt("console");
-    auto err_logger = spdlog::stderr_color_mt("stderr");
-    spdlog::set_pattern("%^%L%$> %v");
-    spdlog::set_level(spdlog::level::trace);
-
     auto stderrSink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
     auto errSink = std::make_shared<spdlog::sinks::error_proxy_sink_mt>(stderrSink);
     auto formatter = std::make_unique<spdlog::pattern_formatter>("%^%L%$> %v");
     auto logger = std::make_shared<spdlog::logger>("logger", errSink);
     logger->set_formatter(std::move(formatter));
     spdlog::set_default_logger(logger);
+    spdlog::set_level(spdlog::level::trace);
     spdlog::flush_on(spdlog::level::trace);
 
     // Init GLFW

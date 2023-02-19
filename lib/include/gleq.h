@@ -85,8 +85,8 @@ typedef struct GLEQevent
     };
     union {
         struct {
-            int x;
-            int y;
+            double x;
+            double y;
         } pos;
         struct {
             int width;
@@ -170,8 +170,8 @@ static void gleq_window_pos_callback(GLFWwindow* window, int x, int y)
     GLEQevent* event = gleq_new_event();
     event->type = GLEQ_WINDOW_MOVED;
     event->window = window;
-    event->pos.x = x;
-    event->pos.y = y;
+    event->pos.x = (double)x;
+    event->pos.y = (double)y;
 }
 
 static void gleq_window_size_callback(GLFWwindow* window, int width, int height)
@@ -246,8 +246,8 @@ static void gleq_cursor_pos_callback(GLFWwindow* window, double x, double y)
     GLEQevent* event = gleq_new_event();
     event->type = GLEQ_CURSOR_MOVED;
     event->window = window;
-    event->pos.x = (int) x;
-    event->pos.y = (int) y;
+    event->pos.x = x;
+    event->pos.y = y;
 }
 
 static void gleq_cursor_enter_callback(GLFWwindow* window, int entered)

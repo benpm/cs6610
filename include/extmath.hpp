@@ -64,6 +64,18 @@ template<> struct fmt::formatter<Vector3f> {
     }
 };
 
+// fmt overload for Vector2f
+template<> struct fmt::formatter<Vector2f> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const Vector2f& input, FormatContext& ctx) -> decltype(ctx.out()) {
+        return format_to(ctx.out(), "[{:.1f}, {:.1f}]", input.x(), input.y());
+    }
+};
+
 // fmt overload for std::vector
 template <typename T> struct fmt::formatter<std::vector<T>> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {

@@ -44,7 +44,7 @@ uint32_t TextureCollection::add(const std::string& path) {
 void TextureCollection::bind(cyGLSLProgram& prog) const {
     // Bind textures to texture units
     std::vector<GLint> colIDs(this->map.size());
-    for (const auto [name, texData] : this->map) {
+    for (const auto& [name, texData] : this->map) {
         glActiveTexture(GL_TEXTURE0 + (GLenum)texData.colID); $gl_err();
         glBindTexture(GL_TEXTURE_2D, texData.bindID); $gl_err();
         colIDs[texData.colID] = (GLint)texData.colID;

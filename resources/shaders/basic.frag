@@ -70,9 +70,6 @@ void main() {
     }
     vec3 diffuseColor = diffuseTex;
     vec3 specularColor = specularTex;
-    // vec3 diffuseColor = vec3(1.0);
-    // vec3 specularColor = vec3(1.0);
-    // vec3 diffuseColor = texture(uTex[1], uv).rgb;
 
     // Accumulate lights
     vec3 C = mat.ambientColor * mat.ambientFactor;
