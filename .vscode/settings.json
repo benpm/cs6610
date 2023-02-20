@@ -107,6 +107,7 @@
         "codecvt": "cpp",
         "cassert": "cpp",
         "GLAD.C": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "regex": "cpp"
     }
 }

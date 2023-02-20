@@ -112,22 +112,29 @@ App::App(cxxopts::ParseResult& args) {
     glBindTexture(GL_TEXTURE_2D, this->fTexMainCopy); $gl_err();
     std::vector<uint8_t> data(this->windowSize.x() * this->windowSize.y() * 3, 0u);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 4.0f); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
 
     glGenTextures(1, &this->fTexMain); $gl_err();
     glBindTexture(GL_TEXTURE_2D, this->fTexMain); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 4.0f); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
     glGenFramebuffers(1, &this->fboMain); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->fTexMain, 0); $gl_err();
+
+    glGenRenderbuffers(1, &this->fDepthBuffer); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, this->fDepthBuffer); $gl_err();
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->fDepthBuffer); $gl_err();
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
-    
+
     // Load and construct models
     this->loadingScreen("loading meshes");
     meshes.add("resources/models/quad.obj", "", false);
@@ -223,7 +230,8 @@ void App::loadingScreen(const std::string& message) {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(this->windowSize.x(), this->windowSize.y()));
     ImGui::Begin("Loading...", nullptr,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground
+        | ImGuiWindowFlags_NoDecoration);
     ImGui::Text(message.c_str());
     ImGui::End();
 
@@ -463,6 +471,7 @@ void App::draw(float dt) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
     // Draw models in scene
+    glGenerateTextureMipmap(this->fTexMain);
     glGenerateTextureMipmap(this->fTexMainCopy);
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
     this->meshes.bind(this->meshProg);

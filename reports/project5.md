@@ -4,6 +4,8 @@
 ![](2023-02-20-10-53-14.png)
 *"Witness me"*
 
+![](2023-02-20_14-33.png)
+
 > What you implemented
 
 - Rendering to a texture
@@ -13,7 +15,7 @@
 
 > What you could not implement
 
-- Rendering to buffer looks like it's rendering with depth reversed or something??
+N/A
 
 > Additional functionalities beyond project requirements
 

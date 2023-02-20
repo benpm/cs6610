@@ -82,6 +82,8 @@ class App
         // ID of main framebuffer texture copy
         GLuint fTexMainCopy;
 
+        GLuint fDepthBuffer;
+
         // Element counts
         std::vector<GLsizei> vCounts;
         // Element offsets
