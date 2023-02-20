@@ -120,7 +120,8 @@ App::App(cxxopts::ParseResult& args) {
     glBindTexture(GL_TEXTURE_2D, this->fTexMain); $gl_err();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST); $gl_err();
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 4.0f); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
     glGenFramebuffers(1, &this->fboMain); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
@@ -462,6 +463,7 @@ void App::draw(float dt) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
     // Draw models in scene
+    glGenerateTextureMipmap(this->fTexMainCopy);
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", this->secondaryCamera.getProj(this->windowSize.cast<float>()).data());
@@ -480,6 +482,7 @@ void App::draw(float dt) {
         this->fTexMain, GL_TEXTURE_2D, 0, 0, 0, 0,
         this->fTexMainCopy, GL_TEXTURE_2D, 0, 0, 0, 0,
         this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
+    glGenerateTextureMipmap(this->fTexMainCopy);
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", this->camera.getProj(this->windowSize.cast<float>()).data());
     this->meshProg.SetUniformMatrix4("uTView", this->camera.getView().data());

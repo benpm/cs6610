@@ -9,6 +9,7 @@
 - Rendering to a texture
 - Two cameras, one can be controlled with ALT + click
 - Pass model argument with `-m` option
+- Bilinear filtering for mag, mip-mapped with anistropic for min (see `src/app.cpp:122`)
 
 > What you could not implement
 
