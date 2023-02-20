@@ -6,7 +6,18 @@
 #include <spdlog/fmt/fmt.h>
 #include "mesh.hpp"
 
-void MeshCollection::add(const std::string &filename, const std::string &meshName, bool normalize) {
+std::string MeshCollection::add(const std::string &filename, const std::string &meshName, bool normalize) {
+    assert(std::filesystem::exists(filename));
+
+    const std::filesystem::path textureDir = {"resources/textures"};
+    const std::filesystem::path modelDir = std::filesystem::path(filename).parent_path();
+    const std::string name = meshName.empty() ? std::filesystem::path(filename).stem().string() : meshName;
+
+    if (this->meshDataMap.count(name)) {
+        spdlog::warn("MeshCollection: already has model '{}'", name);
+        return name;
+    }
+
     cyTriMesh m;
     m.LoadFromFileObj(filename.c_str());
     m.ComputeBoundingBox();
@@ -27,10 +38,6 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
         }
         pivot *= scale;
     }
-
-    const std::filesystem::path textureDir = {"resources/textures"};
-    const std::filesystem::path modelDir = std::filesystem::path(filename).parent_path();
-    const std::string name = meshName.empty() ? std::filesystem::path(filename).stem().string() : meshName;
 
     const size_t vertOffset = this->vertexData.size();
     const size_t elemOffset = this->arrElems.size();
@@ -98,22 +105,22 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
                 // Vertex has already been remapped, so use the stored remapped vertex index
                 vertIdx = vertRemap.at(combinedAttrIdx);
             } else {
-                // Vertex either hasn't been stored, or hasn't been remapped
                 const int storedNormalIdx = std::get<0>(indices[vertIdx]);
                 const int storedTexIdx = std::get<1>(indices[vertIdx]);
-                const VertexData vertData = {
-                    .pos    = toEigen(m.V(vertIdx)),
-                    .color  = {1.0f, 1.0f, 1.0f},
-                    .normal = toEigen(m.VN(inNormalIdx)),
-                    .uv     = toEigen(m.VT(inTexIdx)),
-                    .matID  = matID
-                };
-                if (storedNormalIdx == -1 || storedTexIdx == -1) {
-                    // First encounter with this vertex
-                    indices[vertIdx] = {inNormalIdx, inTexIdx};
-                    this->vertexData[vertIdx + vertOffset] = vertData;
-                } else {
-                    if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
+                if (storedNormalIdx != (int)inNormalIdx || storedTexIdx != (int)inTexIdx) {
+                    // Vertex either hasn't been stored, or hasn't been remapped
+                    const VertexData vertData = {
+                        .pos    = toEigen(m.V(vertIdx)),
+                        .color  = {1.0f, 1.0f, 1.0f},
+                        .normal = toEigen(m.VN(inNormalIdx)),
+                        .uv     = toEigen(m.VT(inTexIdx)),
+                        .matID  = matID
+                    };
+                    if (storedNormalIdx == -1 || storedTexIdx == -1) {
+                        // First encounter with this vertex, store it for the first time
+                        indices[vertIdx] = {inNormalIdx, inTexIdx};
+                        this->vertexData[vertIdx + vertOffset] = vertData;
+                    } else {
                         // Stored index set doesn't match, so we dupe and remap
                         vertIdx = vertRemap.emplace(combinedAttrIdx,
                             this->vertexData.size() - vertOffset).first->second;
@@ -124,6 +131,7 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
             this->arrElems[elemOffset + i*3 + j] = vertIdx + vertOffset;
         }
     }
+    const size_t nVerts = this->vertexData.size() - vertOffset;
     spdlog::debug("\tremapped {} vertex indices", vertRemap.size());
 
     // Add mesh data
@@ -132,10 +140,14 @@ void MeshCollection::add(const std::string &filename, const std::string &meshNam
             .elemCount = (int)nElems,
             .elemOffset = elemOffset * sizeof(uint32_t)},
         .materials = meshMaterialIDs,
-        .center = pivot
+        .center = pivot,
+        .vertOffset = vertOffset,
+        .vertCount = nVerts
     });
 
     this->dirty = true;
+
+    return name;
 }
 
 const MeshData& MeshCollection::get(const std::string &meshName) const {
@@ -148,10 +160,6 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
         glGenBuffers(1, &this->eboElems); $gl_err();
         glGenBuffers(1, &this->ssboMaterials); $gl_err();
         this->buffersBuilt = true;
-    }
-
-    for (const auto& [name, idx] : this->nameMaterialMap) {
-        spdlog::trace("n[{}] '{}' {}", idx, name, this->materials.at(idx));
     }
 
     // Populate vertex data VBO
@@ -221,34 +229,39 @@ void MeshCollection::bind(cyGLSLProgram& prog) const {
     this->textures.bind(prog);
 }
 
-void MeshCollection::setMaterial(const std::string& meshName, const uMaterial& mat) {
+uMaterial& MeshCollection::setMaterial(const std::string& meshName, const uMaterial& mat) {
     MeshData& mesh = this->meshDataMap.at(meshName);
-    const size_t elemOffset = mesh.ref.elemOffset / sizeof(uint32_t);
     const uint32_t matID = this->materials.size();
     this->materials.push_back(mat);
     mesh.materials.push_back(matID);
 
-    for (size_t i = elemOffset; i < elemOffset + mesh.ref.elemCount; i++) {
+    for (size_t i = mesh.vertOffset; i < mesh.vertCount; i++) {
         this->vertexData[i].matID = matID;
     }
 
     this->dirty = true;
+    return this->materials.back();
 }
 
-void MeshCollection::setMaterial(const std::string& meshName, const std::string& matName) {
+uMaterial& MeshCollection::setMaterial(const std::string& meshName, const std::string& matName) {
     MeshData& mesh = this->meshDataMap.at(meshName);
-    const size_t elemOffset = mesh.ref.elemOffset / sizeof(uint32_t);
     const uint32_t matID = this->nameMaterialMap.at(matName);
 
-    for (size_t i = elemOffset; i < elemOffset + mesh.ref.elemCount; i++) {
+    for (size_t i = mesh.vertOffset; i < mesh.vertCount; i++) {
         this->vertexData[i].matID = matID;
     }
 
     this->dirty = true;
+    return this->materials.at(matID);
 }
 
-void MeshCollection::setMaterial(const std::string& meshName, GLuint diffuseTexID) {
+uMaterial& MeshCollection::setMaterial(const std::string& meshName, GLuint diffuseTexID) {
     uMaterial mat;
     mat.diffuseTexID = this->textures.add(fmt::format("{}_custom_diffuse", meshName), diffuseTexID);
-    this->setMaterial(meshName, mat);
+    return this->setMaterial(meshName, mat);
+}
+
+uMaterial& MeshCollection::getMaterial(const std::string& meshName) {
+    this->dirty = true;
+    return this->materials.at(this->nameMaterialMap.at(meshName));
 }

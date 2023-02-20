@@ -36,7 +36,6 @@ uint32_t TextureCollection::add(const std::string& path) {
     const std::string name = std::filesystem::path(path).stem().string();
 
     this->map.emplace(name, TextureData {.bindID = bindID, .colID = colID});
-    spdlog::trace("tex {} bindID={} colID={}", name, bindID, colID);
     spng_ctx_free(ctx);
     return colID;
 }

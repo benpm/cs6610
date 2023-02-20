@@ -15,7 +15,7 @@
 #include <spdlog/formatter.h>
 #include <physics.hpp>
 
-App::App() {
+App::App(cxxopts::ParseResult& args) {
     // Initialize GLFW and Gleq
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -45,6 +45,7 @@ App::App() {
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForOpenGL(this->window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
+    this->loadingScreen("building shader programs, creating buffers");
 
     // OpenGL config
     // glEnable(GL_PROGRAM_POINT_SIZE);
@@ -105,9 +106,6 @@ App::App() {
     // Create and bind VAO
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
-    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glfwSwapBuffers(this->window);
 
     // Create framebuffer and framebuffer textures
     glGenTextures(1, &this->fTexMainCopy); $gl_err();
@@ -129,17 +127,18 @@ App::App() {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->fTexMain, 0); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
     
-    // Create models
+    // Load and construct models
+    this->loadingScreen("loading meshes");
     meshes.add("resources/models/quad.obj", "", false);
+    uMaterial& mat = meshes.setMaterial("quad", this->fTexMainCopy);
+    mat.ambientColor = {1.0f, 1.0f, 1.0f};
+    mat.ambientFactor = 0.25f;
+    const std::string userModel = meshes.add(args["model"].as<std::string>());
     meshes.add("resources/models/teapot.obj");
-    meshes.add("resources/models/yoda/yoda.obj");
-    meshes.add("resources/models/suzanne.obj");
-    meshes.add("resources/models/sphere.obj");
-    meshes.add("resources/models/cube.obj");
-    meshes.setMaterial("quad", this->fTexMainCopy);
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
+    this->loadingScreen("constructing scene");
     for (size_t i = 0; i < this->objectsToGen; i++) {
         entt::entity e = this->makeModel("teapot");
         auto [model, transform] = this->reg.get<Model, ModelTransform>(e);
@@ -154,20 +153,24 @@ App::App() {
         body.pos = model.pos;
     }
     {
-        entt::entity e = this->makeModel("yoda");
+        entt::entity e = this->makeModel(userModel);
         Model& model = this->reg.get<Model>(e);
         model.scale *= 15.0f;
         model.rot.x() = -tau4;
+        model.pos.z() -= 2.0f;
     }
     {
         entt::entity e = this->makeModel("quad");
         Model& model = this->reg.get<Model>(e);
         model.scale = vec3(this->windowSize.cast<float>() * 0.05f, 1.0f);
+        model.pos.y() = 25.0f;
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
     this->camera.orbitDist(50.0f);
+    this->secondaryCamera.pos.z() = 20.0f;
+    this->secondaryCamera.projection = Camera::Projection::perspective;
 
     // Add lights
     this->makeLight(
@@ -206,6 +209,26 @@ App::~App() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     glfwTerminate();
+}
+
+void App::loadingScreen(const std::string& message) {
+    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+
+    ImGui::NewFrame();
+
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImVec2(this->windowSize.x(), this->windowSize.y()));
+    ImGui::Begin("Loading...", nullptr,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
+    ImGui::Text(message.c_str());
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    glfwSwapBuffers(this->window);
 }
 
 void App::onKey(int key, bool pressed) {
@@ -274,6 +297,7 @@ void App::onClick(int button, bool pressed) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
             this->camera.dragStart();
+            this->secondaryCamera.dragStart();
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
@@ -342,6 +366,7 @@ void App::run() {
         // Draw the scene
         this->simulate(dt);
         this->draw(dt);
+        this->composeUI();
         this->idle();
         glfwSwapBuffers(this->window);
     }
@@ -367,7 +392,11 @@ void App::simulate(float dt) {
         dragDelta = panDelta * 2.0f;
         dragDelta.y() *= -1.0f;
     }
-    this->camera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+    if (this->pressedKeys.count(GLFW_KEY_LEFT_ALT)) {
+        this->secondaryCamera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+    } else {
+        this->camera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+    }
 
     // Physics simulation
     constexpr float dampingFactor = 4.0f;
@@ -415,12 +444,6 @@ void App::draw(float dt) {
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
-    // Set up transformation matrices
-    const Matrix4f tProj = this->camera.getProj(this->windowSize.cast<float>());
-    this->meshProg.SetUniformMatrix4("uTProj", tProj.data());
-    const Matrix4f tView = this->camera.getView();
-    this->meshProg.SetUniformMatrix4("uTView", tView.data());
-
     // Update lights buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights); $gl_err();
     auto& lightsStorage = this->reg.view<uLight>().storage<uLight>(); $gl_err();
@@ -441,24 +464,25 @@ void App::draw(float dt) {
     // Draw models in scene
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
     this->meshes.bind(this->meshProg);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
-        glClearColor(1.0f, 0.0f, 1.0f, 1.0f); $gl_err();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-        glMultiDrawElements(
-            GL_TRIANGLES,
-            this->vCounts.data(),
-            GL_UNSIGNED_INT,
-            (const void**)this->vOffsets.data(),
-            this->vCounts.size()); $gl_err();
-    } else {
-        spdlog::warn("framebuffer not ready");
-    }
+    this->meshProg.SetUniformMatrix4("uTProj", this->secondaryCamera.getProj(this->windowSize.cast<float>()).data());
+    this->meshProg.SetUniformMatrix4("uTView", this->secondaryCamera.getView().data());
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glClearColor(1.0f, 0.0f, 1.0f, 1.0f); $gl_err();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+    glMultiDrawElements(
+        GL_TRIANGLES,
+        this->vCounts.data(),
+        GL_UNSIGNED_INT,
+        (const void**)this->vOffsets.data(),
+        this->vCounts.size()); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
     glCopyImageSubData(
         this->fTexMain, GL_TEXTURE_2D, 0, 0, 0, 0,
         this->fTexMainCopy, GL_TEXTURE_2D, 0, 0, 0, 0,
         this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
     this->meshes.bind(this->meshProg);
+    this->meshProg.SetUniformMatrix4("uTProj", this->camera.getProj(this->windowSize.cast<float>()).data());
+    this->meshProg.SetUniformMatrix4("uTView", this->camera.getView().data());
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f); $gl_err();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
     glMultiDrawElements(
@@ -471,8 +495,8 @@ void App::draw(float dt) {
     // Draw wireframe stuff
     this->wiresProg.Bind();
     glBindVertexArray(this->vaoWires); $gl_err();
-    this->wiresProg.SetUniformMatrix4("uTProj", tProj.data());
-    this->wiresProg.SetUniformMatrix4("uTView", tView.data());
+    this->wiresProg.SetUniformMatrix4("uTProj", this->camera.getProj(this->windowSize.cast<float>()).data());
+    this->wiresProg.SetUniformMatrix4("uTView", this->camera.getView().data());
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
     
     GLuint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
@@ -497,9 +521,6 @@ void App::draw(float dt) {
 
     glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
 
-    this->composeUI();
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void App::composeUI() {
@@ -518,6 +539,8 @@ void App::composeUI() {
     ImGui::Text("F6: Reload shaders");
 
     ImGui::End();
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 entt::entity App::makeParticle() {

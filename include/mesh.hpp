@@ -71,6 +71,10 @@ struct MeshData {
     std::vector<uint32_t> materials;
     // Center of mesh
     Vector3f center;
+    // Offset into vertex data
+    size_t vertOffset;
+    // Number of vertices
+    size_t vertCount;
 };
 
 // Collection of mesh data
@@ -102,8 +106,8 @@ private:
     // Materials SSBO handle
     mutable GLuint ssboMaterials;
 public:
-    // Load and add mesh to the collection. 
-    void add(const std::string& filename, const std::string& meshName="", bool normalize=true);
+    // Load and add mesh to the collection, returns name
+    std::string add(const std::string& filename, const std::string& meshName="", bool normalize=true);
     // Returns the meshdata corresponding to given meshname
     const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built
@@ -111,9 +115,11 @@ public:
     // Binds the VBO and EBO
     void bind(cyGLSLProgram& prog) const;
     // Assigns a custom material to a all vertices in a mesh
-    void setMaterial(const std::string& meshName, const uMaterial& mat);
+    uMaterial& setMaterial(const std::string& meshName, const uMaterial& mat);
     // Assigns a custom material (a named material) to a all vertices in a mesh
-    void setMaterial(const std::string& meshName, const std::string& matName);
+    uMaterial& setMaterial(const std::string& meshName, const std::string& matName);
     // Assigns a custom material (a previously generated texture) to a all vertices in a mesh
-    void setMaterial(const std::string& meshName, GLuint diffuseTexID);
+    uMaterial& setMaterial(const std::string& meshName, GLuint diffuseTexID);
+    // Gets material by name
+    uMaterial& getMaterial(const std::string& meshName);
 };

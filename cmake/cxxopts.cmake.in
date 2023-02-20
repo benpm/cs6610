@@ -1,0 +1,12 @@
+include(FetchContent)
+
+FetchContent_Populate(
+  cxxopts_proj
+  QUIET
+  GIT_REPOSITORY  https://github.com/jarro2783/cxxopts
+  GIT_TAG         v3.1.1
+  SOURCE_DIR      cxxopts
+)
+
+add_subdirectory(${cxxopts_proj_SOURCE_DIR} ${cxxopts_proj_SOURCE_DIR}/build)
+include_directories(${cxxopts_proj_SOURCE_DIR}/include)

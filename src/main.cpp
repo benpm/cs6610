@@ -1,10 +1,14 @@
 #include <csignal>
+#include <filesystem>
+#include <iostream>
 #include <app.hpp>
 #include <gleq.h>
 #include <spdlog/sinks/base_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/pattern_formatter.h>
 #include <spdlog/formatter.h>
+#include <spdlog/fmt/fmt.h>
+#include <cxxopts.hpp>
 
 namespace spdlog::sinks {
     template<typename Mutex>
@@ -51,6 +55,20 @@ namespace spdlog::sinks {
 
 int main(int argc, char const *argv[])
 {
+    assert(std::filesystem::exists("resources"));
+
+    // Parse arguments
+    cxxopts::Options cliOptions("rendertool", "A tool for rendering 3D scenes");
+    cliOptions.add_options()
+        ("m,model", "Path to .obj file to render into the scene",
+            cxxopts::value<std::string>()->default_value("resources/models/yoda/yoda.obj"))
+        ("h,help", "Prints help");
+    cxxopts::ParseResult opts = cliOptions.parse(argc, argv);
+    if (opts.count("help")) {
+        std::cout << cliOptions.help() << std::endl;
+        return 0;
+    }
+
     // Setup logging
     auto stderrSink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
     auto errSink = std::make_shared<spdlog::sinks::error_proxy_sink_mt>(stderrSink);
@@ -72,7 +90,7 @@ int main(int argc, char const *argv[])
 
     gleqInit();
 
-    App app;
+    App app(opts);
 
     // Get and display version information
 	std::string renderer((char*)glGetString(GL_RENDERER));

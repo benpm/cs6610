@@ -21,6 +21,7 @@
 #include <light.hpp>
 #include <entt/entt.hpp>
 #include <texture.hpp>
+#include <cxxopts.hpp>
 
 class App
 {
@@ -47,6 +48,7 @@ class App
 
         Vector2i windowSize = {1280, 720};
         Camera camera;
+        Camera secondaryCamera;
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
         std::shared_ptr<Light> sunlight;
@@ -87,7 +89,7 @@ class App
     public:
         GLFWwindow* window;
 
-        App();
+        App(cxxopts::ParseResult& args);
         ~App();
 
         /**
@@ -132,6 +134,8 @@ class App
         void simulate(float dt);
 
         void composeUI();
+
+        void loadingScreen(const std::string& message);
 
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);
