@@ -7,11 +7,11 @@
 #include "mesh.hpp"
 
 std::string MeshCollection::add(const std::string &filename, const std::string &meshName, bool normalize) {
-    assert(std::filesystem::exists(filename));
+    assert(fs::exists(filename));
 
-    const std::filesystem::path textureDir = {"resources/textures"};
-    const std::filesystem::path modelDir = std::filesystem::path(filename).parent_path();
-    const std::string name = meshName.empty() ? std::filesystem::path(filename).stem().string() : meshName;
+    const fs::path textureDir = {"resources/textures"};
+    const fs::path modelDir = fs::path(filename).parent_path();
+    const std::string name = meshName.empty() ? fs::path(filename).stem().string() : meshName;
 
     if (this->meshDataMap.count(name)) {
         spdlog::warn("MeshCollection: already has model '{}'", name);
@@ -59,10 +59,10 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
         };
 
         if (m.M(i).map_Kd) {
-            mat.diffuseTexID = this->textures.add(textureDir / std::filesystem::path(m.M(i).map_Kd.data));
+            mat.diffuseTexID = this->textures.add(textureDir / fs::path(m.M(i).map_Kd.data));
         }
         if (m.M(i).map_Ks) {
-            mat.specularTexID = this->textures.add(textureDir / std::filesystem::path(m.M(i).map_Ks.data));
+            mat.specularTexID = this->textures.add(textureDir / fs::path(m.M(i).map_Ks.data));
         }
 
         const uint32_t globalMatID = this->materials.size();
@@ -264,4 +264,23 @@ uMaterial& MeshCollection::setMaterial(const std::string& meshName, GLuint diffu
 uMaterial& MeshCollection::getMaterial(const std::string& meshName) {
     this->dirty = true;
     return this->materials.at(this->nameMaterialMap.at(meshName));
+}
+
+uMaterial& MeshCollection::createSkyMaterial(const std::string& dirName) {
+    this->dirty = true;
+
+    assert(fs::exists(dirName));
+
+    uMaterial& mat = this->materials.emplace_back();
+    mat.reflectionTexID = this->textures.addCubemap(
+        fs::path(dirName).root_directory().string(), {
+            fs::path(dirName) / "posx.png",
+            fs::path(dirName) / "negx.png",
+            fs::path(dirName) / "posy.png",
+            fs::path(dirName) / "negy.png",
+            fs::path(dirName) / "posz.png",
+            fs::path(dirName) / "negz.png"
+        });
+    
+    return mat;
 }

@@ -16,7 +16,7 @@ void glCheckError_(const char *file, int line) {
             case GL_OUT_OF_MEMORY:                 error = "OUT_OF_MEMORY"; break;
             case GL_INVALID_FRAMEBUFFER_OPERATION: error = "INVALID_FRAMEBUFFER_OPERATION"; break;
         }
-        spdlog::error("GL_{} - {}:{}", error, std::filesystem::path(file).filename().string(), line);
+        spdlog::error("GL_{} - {}:{}", error, fs::path(file).filename().string(), line);
     }
 }
 

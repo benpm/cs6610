@@ -30,7 +30,7 @@ namespace spdlog::sinks {
                 sink_->log(msg);
             }
             if (spdlog::level::err == msg.level) {
-                std::raise(SIGINT);
+                throw std::runtime_error(msg.payload.data());
             }
         }
 
@@ -55,7 +55,7 @@ namespace spdlog::sinks {
 
 int main(int argc, char const *argv[])
 {
-    assert(std::filesystem::exists("resources"));
+    assert(fs::exists("resources"));
 
     // Parse arguments
     cxxopts::Options cliOptions("rendertool", "A tool for rendering 3D scenes");

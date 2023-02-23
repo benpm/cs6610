@@ -20,6 +20,7 @@ out vec4 fColor;
 
 uniform uint nLights;
 uniform sampler2D uTex[32];
+uniform samplerCube uCubeTex[32];
 
 struct Material {
     vec3 diffuseColor;
@@ -30,6 +31,7 @@ struct Material {
     float ambientFactor;
     int diffuseTexID;
     int specularTexID;
+    int reflectionTexID;
 };
 
 const uint lightPoint = 0;
@@ -94,6 +96,13 @@ void main() {
         }
         
         C += attenuation * (diffuse + specular * mat.specularFactor);
+
+        // Environment mapping / reflection
+        if (mat.reflectionTexID >= 0) {
+            vec3 reflection = reflect(lightDir, n);
+            vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID], reflection).rgb;
+            C = reflectionTex;
+        }
     }
 
     // Debug: color all invalid values as magenta

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <random>
 #include <array>
 #include <Eigen/Dense>
@@ -14,6 +15,8 @@
 using namespace Eigen;
 
 using Transform3f = Transform<float, 3, Affine>;
+
+namespace fs = std::filesystem;
 
 constexpr float tau = 6.283185307179586476925286766559f;
 constexpr float tau2 = tau / 2.0f;

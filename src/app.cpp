@@ -142,6 +142,7 @@ App::App(cxxopts::ParseResult& args) {
     mat.ambientFactor = 0.25f;
     const std::string userModel = meshes.add(args["model"].as<std::string>());
     meshes.add("resources/models/teapot.obj");
+    meshes.createSkyMaterial("resources/textures/cubemap");
     meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 

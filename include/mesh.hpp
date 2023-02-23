@@ -41,6 +41,7 @@ struct uMaterial {
     float ambientFactor = 0.05f;
     int diffuseTexID = -1;
     int specularTexID = -1;
+    int reflectionTexID = -1;
 };
 
 template<> struct fmt::formatter<uMaterial> {
@@ -77,7 +78,7 @@ struct MeshData {
     size_t vertCount;
 };
 
-// Collection of mesh data
+// Collection of mesh and material data
 class MeshCollection
 {
 private:
@@ -122,4 +123,6 @@ public:
     uMaterial& setMaterial(const std::string& meshName, GLuint diffuseTexID);
     // Gets material by name
     uMaterial& getMaterial(const std::string& meshName);
+    // Creates a new sky material (will be named "sky_<dirName>")
+    uMaterial& createSkyMaterial(const std::string& dirName);
 };
