@@ -19,7 +19,7 @@ N/A
 
 > Additional functionalities beyond project requirements
 
-N/A
+- Multiple material / texture models
 
 > How to use your implementation
 

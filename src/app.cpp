@@ -122,7 +122,6 @@ App::App(cxxopts::ParseResult& args) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 4.0f); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
     glGenFramebuffers(1, &this->fboMain); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
