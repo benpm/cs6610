@@ -30,7 +30,7 @@ namespace spdlog::sinks {
                 sink_->log(msg);
             }
             if (spdlog::level::err == msg.level) {
-                throw std::runtime_error(msg.payload.data());
+                std::raise(SIGINT);
             }
         }
 

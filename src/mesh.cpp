@@ -235,7 +235,7 @@ uMaterial& MeshCollection::setMaterial(const std::string& meshName, const uMater
     this->materials.push_back(mat);
     mesh.materials.push_back(matID);
 
-    for (size_t i = mesh.vertOffset; i < mesh.vertCount; i++) {
+    for (size_t i = mesh.vertOffset; i < mesh.vertOffset + mesh.vertCount; i++) {
         this->vertexData[i].matID = matID;
     }
 
@@ -247,9 +247,10 @@ uMaterial& MeshCollection::setMaterial(const std::string& meshName, const std::s
     MeshData& mesh = this->meshDataMap.at(meshName);
     const uint32_t matID = this->nameMaterialMap.at(matName);
 
-    for (size_t i = mesh.vertOffset; i < mesh.vertCount; i++) {
+    for (size_t i = mesh.vertOffset; i < mesh.vertOffset + mesh.vertCount; i++) {
         this->vertexData[i].matID = matID;
     }
+    mesh.materials = {matID};
 
     this->dirty = true;
     return this->materials.at(matID);
@@ -271,9 +272,11 @@ uMaterial& MeshCollection::createSkyMaterial(const std::string& dirName) {
 
     assert(fs::exists(dirName));
 
+    const std::string name = fmt::format("sky_{}", fs::path(dirName).stem().string());
+    const uint32_t matID = this->materials.size();
     uMaterial& mat = this->materials.emplace_back();
     mat.reflectionTexID = this->textures.addCubemap(
-        fs::path(dirName).root_directory().string(), {
+        name, {
             fs::path(dirName) / "posx.png",
             fs::path(dirName) / "negx.png",
             fs::path(dirName) / "posy.png",
@@ -282,5 +285,7 @@ uMaterial& MeshCollection::createSkyMaterial(const std::string& dirName) {
             fs::path(dirName) / "negz.png"
         });
     
+    this->nameMaterialMap[name] = matID;
+    this->materialNameMap[matID] = name;
     return mat;
 }

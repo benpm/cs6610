@@ -11,7 +11,7 @@ struct TextureData
     // OpenGL texture name
     GLuint bindID;
     // Index in texture collection (will be split in the future)
-    uint32_t colID;
+    uint32_t texUnitID;
     // Type of texture
     GLenum type;
 };
@@ -19,11 +19,8 @@ struct TextureData
 class TextureCollection
 {
 private:
-    // Map from sampler array name -> next available ID
-    std::unordered_map<std::string, uint32_t> samplerIDMap {
-        {"uTex", 0u},
-        {"uCubeTex", 0u}
-    };
+    // Next available texture unit ID
+    uint32_t nextTexUnitID = 0u;
     std::unordered_map<std::string, TextureData> map;
 public:
     // Add texture to collection and return its ID (same as texture unit for now)

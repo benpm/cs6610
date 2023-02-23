@@ -15,6 +15,64 @@
 #include <spdlog/formatter.h>
 #include <physics.hpp>
 
+void APIENTRY GLDebugMessageCallback(
+    GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+    const GLchar *msg, const void *data)
+{
+    std::string _source;
+    switch (source) {
+        case GL_DEBUG_SOURCE_API:               _source = "api"; break;
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:     _source = "window"; break;
+        case GL_DEBUG_SOURCE_SHADER_COMPILER:   _source = "shader"; break;
+        case GL_DEBUG_SOURCE_THIRD_PARTY:       _source = "3rd party"; break;
+        case GL_DEBUG_SOURCE_APPLICATION:       _source = "app"; break;
+        case GL_DEBUG_SOURCE_OTHER:             _source = "UNKNOWN"; break;
+        default: _source = "UNKNOWN"; break;
+    }
+
+    std::string _type;
+    switch (type) {
+        case GL_DEBUG_TYPE_ERROR:               _type = "error"; break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: _type = "deprecated"; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  _type = "undefined"; break;
+        case GL_DEBUG_TYPE_PORTABILITY:         _type = "portability"; break;
+        case GL_DEBUG_TYPE_PERFORMANCE:         _type = "performance"; break;
+        case GL_DEBUG_TYPE_OTHER:               _type = "other"; break;
+        case GL_DEBUG_TYPE_MARKER:              _type = "marker"; break;
+        default: _type = "UNKNOWN"; break;
+    }
+
+    std::string _severity;
+    spdlog::level::level_enum lvl;
+    switch (severity) {
+        case GL_DEBUG_SEVERITY_HIGH:
+            _severity = "high";
+            lvl = spdlog::level::warn;
+            break;
+        case GL_DEBUG_SEVERITY_MEDIUM:
+            _severity = "med";
+            lvl = spdlog::level::warn;
+            break;
+        case GL_DEBUG_SEVERITY_LOW:
+            _severity = "low";
+            lvl = spdlog::level::debug;
+            break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            _severity = "notif";
+            lvl = spdlog::level::trace;
+            break;
+        default:
+            _severity = "UNKNOWN";
+            lvl = spdlog::level::debug;
+            break;
+    }
+
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
+        spdlog::log(lvl, "GL[{}|{}|{}] {}", _type, _severity, _source, msg);
+    }
+}
+
+
 App::App(cxxopts::ParseResult& args) {
     // Initialize GLFW and Gleq
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -24,7 +82,6 @@ App::App(cxxopts::ParseResult& args) {
         this->windowSize.y(), "CS6610", NULL, NULL);
     if (!this->window) {
         spdlog::error("Could not open GLFW window");
-        exit(-1);
     }
     gleqTrackWindow(this->window);
     glfwMakeContextCurrent(this->window);
@@ -48,8 +105,6 @@ App::App(cxxopts::ParseResult& args) {
     this->loadingScreen("building shader programs, creating buffers");
 
     // OpenGL config
-    // glEnable(GL_PROGRAM_POINT_SIZE);
-    // glEnable(GL_POINT_SPRITE);
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_MULTISAMPLE);
@@ -58,6 +113,9 @@ App::App(cxxopts::ParseResult& args) {
     glLineWidth(2.0f);
     glEnable(GL_LINE_SMOOTH);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(GLDebugMessageCallback, NULL);
 
     // Build and bind meshes shader program
     bool built = this->wiresProg.BuildFiles(
@@ -107,71 +165,35 @@ App::App(cxxopts::ParseResult& args) {
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
-    // Create framebuffer and framebuffer textures
-    glGenTextures(1, &this->fTexMainCopy); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, this->fTexMainCopy); $gl_err();
-    std::vector<uint8_t> data(this->windowSize.x() * this->windowSize.y() * 3, 0u);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 4.0f); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
-
-    glGenTextures(1, &this->fTexMain); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, this->fTexMain); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
-    glGenFramebuffers(1, &this->fboMain); $gl_err();
-    glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->fTexMain, 0); $gl_err();
-
-    glGenRenderbuffers(1, &this->fDepthBuffer); $gl_err();
-    glBindRenderbuffer(GL_RENDERBUFFER, this->fDepthBuffer); $gl_err();
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->fDepthBuffer); $gl_err();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
-
     // Load and construct models
     this->loadingScreen("loading meshes");
-    meshes.add("resources/models/quad.obj", "", false);
-    uMaterial& mat = meshes.setMaterial("quad", this->fTexMainCopy);
-    mat.ambientColor = {1.0f, 1.0f, 1.0f};
-    mat.ambientFactor = 0.25f;
-    const std::string userModel = meshes.add(args["model"].as<std::string>());
-    meshes.add("resources/models/teapot.obj");
-    meshes.createSkyMaterial("resources/textures/cubemap");
-    meshes.build(this->meshProg);
+    this->meshes.add("resources/models/quad.obj", "", false);
+    const std::string userModel = this->meshes.add(args["model"].as<std::string>());
+    this->meshes.add("resources/models/teapot.obj");
+    this->meshes.createSkyMaterial("resources/textures/cubemap");
+    this->meshes.setMaterial("teapot", "sky_cubemap");
+    this->meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
+    // Construct scene
     this->loadingScreen("constructing scene");
     for (size_t i = 0; i < this->objectsToGen; i++) {
         entt::entity e = this->makeModel("teapot");
-        auto [model, transform] = this->reg.get<Model, ModelTransform>(e);
+        Model& model = this->reg.get<Model>(e);
 
         model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
         model.pos = this->box.width() * spherePoint(rng.range(-tau2, tau2), rng.range(-tau2, tau2));
         model.rot = rng.rotation();
 
-        transform.transform = model.transform();
-
         PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
         body.pos = model.pos;
     }
     {
-        entt::entity e = this->makeModel(userModel);
+        entt::entity e = this->makeModel("teapot");
         Model& model = this->reg.get<Model>(e);
-        model.scale *= 15.0f;
+
+        model.scale = vec3(25.0f);
         model.rot.x() = -tau4;
-        model.pos.z() -= 2.0f;
-    }
-    {
-        entt::entity e = this->makeModel("quad");
-        Model& model = this->reg.get<Model>(e);
-        model.scale = vec3(this->windowSize.cast<float>() * 0.05f, 1.0f);
-        model.pos.y() = 25.0f;
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -290,13 +312,6 @@ void App::onKey(int key, bool pressed) {
 void App::onResize(int width, int height) {
     glViewport(0, 0, width, height);
     this->windowSize = {width, height};
-
-    // Resize framebuffer target texture and its copy
-    glBindTexture(GL_TEXTURE_2D, this->fTexMain); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, this->fTexMainCopy); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
 
     spdlog::debug("Resized window to {},{}", width, height);
 }
@@ -471,27 +486,6 @@ void App::draw(float dt) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
     // Draw models in scene
-    glGenerateTextureMipmap(this->fTexMain);
-    glGenerateTextureMipmap(this->fTexMainCopy);
-    glBindFramebuffer(GL_FRAMEBUFFER, this->fboMain); $gl_err();
-    this->meshes.bind(this->meshProg);
-    this->meshProg.SetUniformMatrix4("uTProj", this->secondaryCamera.getProj(this->windowSize.cast<float>()).data());
-    this->meshProg.SetUniformMatrix4("uTView", this->secondaryCamera.getView().data());
-    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-    glClearColor(1.0f, 0.0f, 1.0f, 1.0f); $gl_err();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-    glMultiDrawElements(
-        GL_TRIANGLES,
-        this->vCounts.data(),
-        GL_UNSIGNED_INT,
-        (const void**)this->vOffsets.data(),
-        this->vCounts.size()); $gl_err();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
-    glCopyImageSubData(
-        this->fTexMain, GL_TEXTURE_2D, 0, 0, 0, 0,
-        this->fTexMainCopy, GL_TEXTURE_2D, 0, 0, 0, 0,
-        this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
-    glGenerateTextureMipmap(this->fTexMainCopy);
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", this->camera.getProj(this->windowSize.cast<float>()).data());
     this->meshProg.SetUniformMatrix4("uTView", this->camera.getView().data());

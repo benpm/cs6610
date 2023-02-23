@@ -14,6 +14,8 @@ layout(location = 3) flat in uint drawID;
 layout(location = 4) in vec2 uv;
 // Material ID
 layout(location = 5) flat in uint matID;
+// World space normal
+layout(location = 6) in vec3 wnormal;
 
 // Fragment color
 out vec4 fColor;
@@ -96,13 +98,12 @@ void main() {
         }
         
         C += attenuation * (diffuse + specular * mat.specularFactor);
+    }
 
-        // Environment mapping / reflection
-        if (mat.reflectionTexID >= 0) {
-            vec3 reflection = reflect(lightDir, n);
-            vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID], reflection).rgb;
-            C = reflectionTex;
-        }
+    // Environment mapping / reflection
+    if (mat.reflectionTexID >= 0) {
+        vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID], wnormal).rgb;
+        C = reflectionTex;
     }
 
     // Debug: color all invalid values as magenta

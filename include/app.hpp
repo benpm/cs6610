@@ -28,7 +28,7 @@ class App
     private:
         ColliderInteriorBox box{vec3(-25.0f), vec3(25.0f)};
         // const size_t objectsToGen = this->box.volume() * 0.01f;
-        const size_t objectsToGen = 1000u;
+        const size_t objectsToGen = 25u;
         const float frameRate = 60.0f;
         const float framePeriod = 1.0f / this->frameRate;
 
@@ -74,15 +74,6 @@ class App
         GLuint ssboArrows;
         // ID of arrow colors SSBO
         GLuint ssboArrowColors;
-
-        // ID of main framebuffer
-        GLuint fboMain;
-        // ID of main framebuffer texture
-        GLuint fTexMain;
-        // ID of main framebuffer texture copy
-        GLuint fTexMainCopy;
-
-        GLuint fDepthBuffer;
 
         // Element counts
         std::vector<GLsizei> vCounts;

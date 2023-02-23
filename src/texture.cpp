@@ -26,7 +26,7 @@ const std::tuple<std::vector<uint8_t>, uint32_t, uint32_t> getImageData(const st
 }
 
 uint32_t TextureCollection::add(const std::string& path) {
-    uint32_t colID = this->samplerIDMap["uTex"]++;
+    const uint32_t texUnitID = this->nextTexUnitID++;
 
     const auto [data, width, height] = getImageData(path);
 
@@ -39,31 +39,43 @@ uint32_t TextureCollection::add(const std::string& path) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); $gl_err();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
 
     const std::string name = fs::path(path).stem().string();
 
     this->map.emplace(name, TextureData {
-        .bindID = bindID, .colID = colID, .type = GL_TEXTURE_2D});
-    return colID;
+        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_2D});
+    return texUnitID;
 }
 
 uint32_t TextureCollection::add(const std::string& name, GLuint bindID) {
-    const uint32_t colID = this->samplerIDMap["uTex"]++;
+    const uint32_t texUnitID = this->nextTexUnitID++;
     this->map.emplace(name, TextureData {
-        .bindID = bindID, .colID = colID, .type = GL_TEXTURE_2D});
-    return colID;
+        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_2D});
+    return texUnitID;
 }
 
 void TextureCollection::bind(cyGLSLProgram& prog) const {
     // Bind textures to texture units
-    for (const auto [samplerUniform, usedIDs] : this->samplerIDMap) {
-        std::vector<GLint> texUnits(usedIDs, 0u);
-        for (const auto& [name, texData] : this->map) {
-            glActiveTexture(GL_TEXTURE0 + (GLenum)texData.colID); $gl_err();
-            glBindTexture(texData.type, texData.bindID); $gl_err();
+    std::vector<GLint> texUnits2D(32u, 0);
+    std::vector<GLint> texUnitsCube(32u, 0);
+    for (const auto& [name, texData] : this->map) {
+        glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
+        glBindTexture(texData.type, texData.bindID); $gl_err();
+        switch (texData.type) {
+            case GL_TEXTURE_2D:
+                texUnits2D[texData.texUnitID] = texData.texUnitID;
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                texUnitsCube[texData.texUnitID] = texData.texUnitID;
+                break;
+            default:
+                spdlog::error("Unknown texture type");
+                break;
         }
-        prog.SetUniform1(samplerUniform.c_str(), texUnits.data(), usedIDs); $gl_err();
     }
+    prog.SetUniform1("uTex", texUnits2D.data(), texUnits2D.size()); $gl_err();
+    prog.SetUniform1("uCubeTex", texUnitsCube.data(), texUnitsCube.size()); $gl_err();
 }
 
 constexpr std::array<GLenum, 6> cubeMapFaces = {
@@ -76,7 +88,7 @@ constexpr std::array<GLenum, 6> cubeMapFaces = {
 };
 
 uint32_t TextureCollection::addCubemap(const std::string& name, const std::array<std::string, 6u>& paths) {
-    uint32_t colID = this->samplerIDMap["uCubeTex"]++;
+    const uint32_t texUnitID = this->nextTexUnitID++;
 
     GLuint bindID;
     glGenTextures(1, &bindID); $gl_err();
@@ -87,13 +99,16 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::array
         glTexImage2D(cubeMapFaces[i], 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data()); $gl_err();
     }
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); $gl_err();
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); $gl_err();
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); $gl_err();
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP); $gl_err();
+    
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 
     this->map.emplace(name, TextureData {
-        .bindID = bindID, .colID = colID, .type = GL_TEXTURE_CUBE_MAP});
-    return colID;
+        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
+    return texUnitID;
 }
