@@ -51,6 +51,7 @@ class App
         Camera secondaryCamera;
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
+        cyGLSLProgram skyProg;
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
@@ -66,6 +67,9 @@ class App
         GLuint vaoMeshes;
         MeshCollection meshes;
 
+        GLuint vaoSky;
+        GLuint vboSky;
+
         GLuint vaoWires;
         GLuint vboWires;
         GLuint vboPath;
@@ -74,6 +78,8 @@ class App
         GLuint ssboArrows;
         // ID of arrow colors SSBO
         GLuint ssboArrowColors;
+
+        TextureCollection skyTextures;
 
         // Element counts
         std::vector<GLsizei> vCounts;

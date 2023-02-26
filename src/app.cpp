@@ -117,8 +117,38 @@ App::App(cxxopts::ParseResult& args) {
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(GLDebugMessageCallback, NULL);
 
-    // Build and bind meshes shader program
-    bool built = this->wiresProg.BuildFiles(
+    // Build and bind sky shader program
+    bool built = this->skyProg.BuildFiles(
+        "resources/shaders/sky.vert",
+        "resources/shaders/sky.frag");
+    if (!built) {
+        spdlog::error("Failed to build sky shader program");
+    } else {
+        this->skyProg.Bind();
+    }
+    glGenVertexArrays(1, &this->vaoSky); $gl_err();
+    glBindVertexArray(this->vaoSky); $gl_err();
+    glCreateBuffers(1, &this->vboSky); $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
+    std::vector<Vector3f> quadVerts = {
+        {-1.0f, -1.0f, 0.5f},
+        { 1.0f, -1.0f, 0.5f},
+        { 1.0f,  1.0f, 0.5f},
+
+        { 1.0f,  1.0f, 0.5f},
+        {-1.0f,  1.0f, 0.5f},
+        {-1.0f, -1.0f, 0.5f},
+    };
+    glBufferData(GL_ARRAY_BUFFER, quadVerts.size() * sizeof(Vector3f),
+        quadVerts.data(), GL_STATIC_DRAW); $gl_err();
+    GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    this->skyTextures.addCubemap("sky", "resources/textures/cubemap");
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+
+    // Build and bind wires shader program
+    built = this->wiresProg.BuildFiles(
         "resources/shaders/wires.vert",
         "resources/shaders/wires.frag");
     if (!built) {
@@ -170,8 +200,8 @@ App::App(cxxopts::ParseResult& args) {
     // this->meshes.add("resources/models/quad.obj", "", false);
     // const std::string userModel = this->meshes.add(args["model"].as<std::string>());
     this->meshes.add("resources/models/teapot.obj");
-    // this->meshes.createSkyMaterial("resources/textures/cubemap");
-    // this->meshes.setMaterial("teapot", "sky_cubemap");
+    this->meshes.createSkyMaterial("resources/textures/cubemap");
+    this->meshes.setMaterial("teapot", "sky_cubemap");
     this->meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
@@ -274,10 +304,19 @@ void App::onKey(int key, bool pressed) {
                     "resources/shaders/basic.vert",
                     "resources/shaders/basic.frag");
                 if (!built) {
-                    spdlog::error("Failed to build shader program");
+                    spdlog::error("Failed to build mesh shader program");
                 } else {
                     this->meshProg.Bind();
-                    spdlog::info("Rebuilt shader program");
+                    spdlog::info("Rebuilt mesh shader program");
+                }
+                built = this->skyProg.BuildFiles(
+                    "resources/shaders/sky.vert",
+                    "resources/shaders/sky.frag");
+                if (!built) {
+                    spdlog::error("Failed to build sky shader program");
+                } else {
+                    this->skyProg.Bind();
+                    spdlog::info("Rebuilt sky shader program");
                 }
             } break;
             case GLFW_KEY_P: {
@@ -465,6 +504,28 @@ void App::simulate(float dt) {
 }
 
 void App::draw(float dt) {
+    const Matrix4f view = this->camera.getView();
+    const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
+
+    // Draw sky
+    this->skyProg.Bind();
+    glBindVertexArray(this->vaoSky); $gl_err();
+    this->skyProg.SetUniformMatrix4("uTInvViewProj", Transform3f(proj * view).inverse().matrix().data());
+    this->skyTextures.bind(this->skyProg, "sky", "uSkyTex");
+    glClearColor(0.08f, 0.08f, 0.08f, 1.0f); $gl_err();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
+    GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    glDepthMask(GL_FALSE);
+    glDrawArrays(GL_TRIANGLES, 0, 6); $gl_err();
+    glDepthMask(GL_TRUE);
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+
+    // Draw meshes
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
@@ -487,10 +548,10 @@ void App::draw(float dt) {
     
     // Draw models in scene
     this->meshes.bind(this->meshProg);
-    this->meshProg.SetUniformMatrix4("uTProj", this->camera.getProj(this->windowSize.cast<float>()).data());
-    this->meshProg.SetUniformMatrix4("uTView", this->camera.getView().data());
-    glClearColor(0.08f, 0.08f, 0.08f, 1.0f); $gl_err();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+    this->meshProg.SetUniformMatrix4("uTProj", proj.data());
+    this->meshProg.SetUniformMatrix4("uTView", view.data());
+    this->meshProg.SetUniform("uCamPos",
+        (float)this->camera.pos.x(), (float)this->camera.pos.y(), (float)this->camera.pos.z());
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
@@ -501,11 +562,11 @@ void App::draw(float dt) {
     // Draw wireframe stuff
     this->wiresProg.Bind();
     glBindVertexArray(this->vaoWires); $gl_err();
-    this->wiresProg.SetUniformMatrix4("uTProj", this->camera.getProj(this->windowSize.cast<float>()).data());
-    this->wiresProg.SetUniformMatrix4("uTView", this->camera.getView().data());
+    this->wiresProg.SetUniformMatrix4("uTProj", proj.data());
+    this->wiresProg.SetUniformMatrix4("uTView", view.data());
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
     
-    GLuint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
+    attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
     glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
 

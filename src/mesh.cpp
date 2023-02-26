@@ -269,15 +269,7 @@ uMaterial& MeshCollection::createSkyMaterial(const std::string& dirName) {
     const std::string name = fmt::format("sky_{}", fs::path(dirName).stem().string());
     const uint32_t matID = this->materials.size();
     uMaterial& mat = this->materials.emplace_back();
-    mat.reflectionTexID = this->textures.addCubemap(
-        name, {
-            fs::path(dirName) / "posx.png",
-            fs::path(dirName) / "negx.png",
-            fs::path(dirName) / "posy.png",
-            fs::path(dirName) / "negy.png",
-            fs::path(dirName) / "posz.png",
-            fs::path(dirName) / "negz.png"
-        });
+    mat.reflectionTexID = this->textures.addCubemap(name, dirName);
     
     this->nameMaterialMap[name] = matID;
     this->materialNameMap[matID] = name;

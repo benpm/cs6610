@@ -17,6 +17,8 @@ layout(location = 3) out vec2 uv;
 layout(location = 4) flat out uint matID;
 // World space normal
 layout(location = 5) out vec3 wnormal;
+// World space position
+layout(location = 6) out vec3 wposition;
 
 uniform mat4 uTProj;
 uniform mat4 uTView;
@@ -34,6 +36,7 @@ void main()
     normal = (tViewModel * vec4(vNormal, 0.0)).xyz;
     wnormal = (tModel[gl_DrawID] * vec4(vNormal, 0.0)).xyz;
     position = (tViewModel * vec4(vPos, 1.0)).xyz;
+    wposition = (tModel[gl_DrawID] * vec4(vPos, 1.0)).xyz;
     uv = vUV.xy;
     drawID = gl_DrawID;
     matID = vMatID;

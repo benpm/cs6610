@@ -78,6 +78,13 @@ void TextureCollection::bind(cyGLSLProgram& prog) const {
     prog.SetUniform1("uCubeTex", texUnitsCube.data(), texUnitsCube.size()); $gl_err();
 }
 
+void TextureCollection::bind(cyGLSLProgram& prog, const std::string& name, const std::string& uniform) const {
+    const TextureData& texData = this->map.at(name);
+    glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
+    glBindTexture(texData.type, texData.bindID); $gl_err();
+    prog.SetUniform(uniform.c_str(), (GLint)texData.texUnitID); $gl_err();
+}
+
 constexpr std::array<GLenum, 6> cubeMapFaces = {
     GL_TEXTURE_CUBE_MAP_POSITIVE_X,
     GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
@@ -87,12 +94,23 @@ constexpr std::array<GLenum, 6> cubeMapFaces = {
     GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
 };
 
-uint32_t TextureCollection::addCubemap(const std::string& name, const std::array<std::string, 6u>& paths) {
+uint32_t TextureCollection::addCubemap(const std::string& name, const std::string& dirName) {
     const uint32_t texUnitID = this->nextTexUnitID++;
 
     GLuint bindID;
     glGenTextures(1, &bindID); $gl_err();
     glBindTexture(GL_TEXTURE_CUBE_MAP, bindID); $gl_err();
+
+    assert(fs::exists(dirName));
+
+    const std::array<std::string, 6u> paths {
+        fs::path(dirName) / "posx.png",
+        fs::path(dirName) / "negx.png",
+        fs::path(dirName) / "posy.png",
+        fs::path(dirName) / "negy.png",
+        fs::path(dirName) / "posz.png",
+        fs::path(dirName) / "negz.png"
+    };
 
     for (size_t i = 0; i < 6u; i++) {
         const auto [data, width, height] = getImageData(paths[i]);

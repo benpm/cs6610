@@ -14,6 +14,8 @@ layout(location = 3) in vec2 uv;
 layout(location = 4) flat in uint matID;
 // World space normal
 layout(location = 5) in vec3 wnormal;
+// World space position
+layout(location = 6) in vec3 wposition;
 
 // Fragment color
 out vec4 fColor;
@@ -56,6 +58,7 @@ layout(std430, binding = 2) buffer Lights
     Light uLight[];
 };
 
+uniform vec3 uCamPos;
 
 void main() {
     Material mat = uMaterial[matID];
@@ -100,7 +103,8 @@ void main() {
 
     // Environment mapping / reflection
     if (mat.reflectionTexID >= 0) {
-        vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID], reflect(-position, n)).rgb;
+        vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID],
+            reflect(wposition - uCamPos, normalize(wnormal))).rgb;
         C = reflectionTex;
     }
     
