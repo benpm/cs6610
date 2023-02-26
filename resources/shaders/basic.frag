@@ -2,27 +2,25 @@
 
 const float pi = 3.1415926535897932384626433832795;
 
-// Vertex color
-layout(location = 0) in vec4 color;
 // View space normal
-layout(location = 1) in vec3 normal;
+layout(location = 0) in vec3 normal;
 // View space position
-layout(location = 2) in vec3 position;
+layout(location = 1) in vec3 position;
 // Draw ID
-layout(location = 3) flat in uint drawID;
+layout(location = 2) flat in uint drawID;
 // UV coordinates for texture sampling
-layout(location = 4) in vec2 uv;
+layout(location = 3) in vec2 uv;
 // Material ID
-layout(location = 5) flat in uint matID;
+layout(location = 4) flat in uint matID;
 // World space normal
-layout(location = 6) in vec3 wnormal;
+layout(location = 5) in vec3 wnormal;
 
 // Fragment color
 out vec4 fColor;
 
 uniform uint nLights;
-uniform sampler2D uTex[32];
-uniform samplerCube uCubeTex[32];
+uniform sampler2D uTex[16];
+uniform samplerCube uCubeTex[16];
 
 struct Material {
     vec3 diffuseColor;
@@ -102,13 +100,8 @@ void main() {
 
     // Environment mapping / reflection
     if (mat.reflectionTexID >= 0) {
-        vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID], wnormal).rgb;
+        vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID], reflect(-position, n)).rgb;
         C = reflectionTex;
-    }
-
-    // Debug: color all invalid values as magenta
-    if (any(isnan(C) || isinf(C))) {
-        C = vec3(1.0, 0.0, 1.0);
     }
     
     fColor = vec4(C, 1.0);

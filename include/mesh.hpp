@@ -14,18 +14,16 @@
 
 struct VertexData {
     // Number of vertex attributes
-    static constexpr uint32_t attributes = 5u;
+    static constexpr uint32_t attributes = 4u;
     // Names of vertex attributes
     static constexpr std::array<const char*, attributes> attributeNames {
         "vPos",
-        "vColor",
         "vNormal",
         "vUV",
         "vMatID"
     };
     
     Vector3f pos;
-    Vector3f color;
     Vector3f normal;
     Vector3f uv;
     uint32_t matID;

@@ -167,11 +167,11 @@ App::App(cxxopts::ParseResult& args) {
 
     // Load and construct models
     this->loadingScreen("loading meshes");
-    this->meshes.add("resources/models/quad.obj", "", false);
-    const std::string userModel = this->meshes.add(args["model"].as<std::string>());
+    // this->meshes.add("resources/models/quad.obj", "", false);
+    // const std::string userModel = this->meshes.add(args["model"].as<std::string>());
     this->meshes.add("resources/models/teapot.obj");
-    this->meshes.createSkyMaterial("resources/textures/cubemap");
-    this->meshes.setMaterial("teapot", "sky_cubemap");
+    // this->meshes.createSkyMaterial("resources/textures/cubemap");
+    // this->meshes.setMaterial("teapot", "sky_cubemap");
     this->meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 

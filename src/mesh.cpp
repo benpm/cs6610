@@ -111,7 +111,6 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
                     // Vertex either hasn't been stored, or hasn't been remapped
                     const VertexData vertData = {
                         .pos    = toEigen(m.V(vertIdx)),
-                        .color  = {1.0f, 1.0f, 1.0f},
                         .normal = toEigen(m.VN(inNormalIdx)),
                         .uv     = toEigen(m.VT(inTexIdx)),
                         .matID  = matID
@@ -169,7 +168,6 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
 
     // Specify vertex attributes
     GLuint attrib_vPos    = prog.AttribLocation("vPos"); $gl_err();
-    GLuint attrib_vColor  = prog.AttribLocation("vColor"); $gl_err();
     GLuint attrib_vNormal = prog.AttribLocation("vNormal"); $gl_err();
     GLuint attrib_vUV     = prog.AttribLocation("vUV"); $gl_err();
     GLuint attrib_vMatID  = prog.AttribLocation("vMatID"); $gl_err();
@@ -179,10 +177,6 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(offset)); $gl_err();
     offset += sizeof(VertexData::pos);
-
-    glEnableVertexAttribArray(attrib_vColor); $gl_err();
-    glVertexAttribPointer(attrib_vColor, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(offset)); $gl_err();
-    offset += sizeof(VertexData::color);
 
     glEnableVertexAttribArray(attrib_vNormal); $gl_err();
     glVertexAttribPointer(attrib_vNormal, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)(offset)); $gl_err();
