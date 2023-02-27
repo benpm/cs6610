@@ -27,8 +27,10 @@ public:
     uint32_t add(const std::string& path);
     // Adds an already created texture to this collection
     uint32_t add(const std::string& name, GLuint bindID);
-    // Adds a cubemap texture
+    // Adds a cubemap texture, loading texture images from the given directory
     uint32_t addCubemap(const std::string& name, const std::string& dirName);
+    // Adds an empty cubemap texture
+    uint32_t addCubemap(const std::string& name, uint32_t width, uint32_t height);
     // Bind current texture set to texture units
     void bind(cyGLSLProgram& prog) const;
     // Bind a single texture to a texture unit and a uniform

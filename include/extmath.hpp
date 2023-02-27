@@ -205,6 +205,8 @@ Vector3f rotate(const Vector3f& v, const Vector3f& axisAngles);
 Vector3f towards(const Vector3f& a, const Vector3f& b);
 // Perspective projection matrix
 Matrix4f perspective(float fov, float aspect, float near, float far);
+// Perspective projection matrix
+Matrix4f perspective(const Vector4f& view, float near, float far);
 // Orthographic projection matrix
 Matrix4f orthographic(const Vector2f& size, float near, float far);
 

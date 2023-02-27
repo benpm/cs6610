@@ -130,3 +130,27 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
     return texUnitID;
 }
+
+uint32_t TextureCollection::addCubemap(const std::string& name, uint32_t width, uint32_t height) {
+    const uint32_t texUnitID = this->nextTexUnitID++;
+
+    GLuint bindID;
+    glGenTextures(1, &bindID); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, bindID); $gl_err();
+
+    for (size_t i = 0; i < 6u; i++) {
+        glTexImage2D(cubeMapFaces[i], 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr); $gl_err();
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); $gl_err();
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); $gl_err();
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); $gl_err();
+    
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+
+    this->map.emplace(name, TextureData {
+        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
+    return texUnitID;
+}

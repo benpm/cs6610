@@ -131,13 +131,13 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->vboSky); $gl_err();
     glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
     std::vector<Vector3f> quadVerts = {
-        {-1.0f, -1.0f, 0.5f},
-        { 1.0f, -1.0f, 0.5f},
-        { 1.0f,  1.0f, 0.5f},
+        {-1.0f, -1.0f, 1.0f - 1e-4f},
+        { 1.0f, -1.0f, 1.0f - 1e-4f},
+        { 1.0f,  1.0f, 1.0f - 1e-4f},
 
-        { 1.0f,  1.0f, 0.5f},
-        {-1.0f,  1.0f, 0.5f},
-        {-1.0f, -1.0f, 0.5f},
+        { 1.0f,  1.0f, 1.0f - 1e-4f},
+        {-1.0f,  1.0f, 1.0f - 1e-4f},
+        {-1.0f, -1.0f, 1.0f - 1e-4f},
     };
     glBufferData(GL_ARRAY_BUFFER, quadVerts.size() * sizeof(Vector3f),
         quadVerts.data(), GL_STATIC_DRAW); $gl_err();
@@ -195,12 +195,16 @@ App::App(cxxopts::ParseResult& args) {
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
+    // Reflection framebuffer
+    // this->skyTextures.addCubemap("reflection", 256u, 256u);
+    glGenFramebuffers(1, &this->fboReflections); $gl_err();
+
     // Load and construct models
     this->loadingScreen("loading meshes");
-    // this->meshes.add("resources/models/quad.obj", "", false);
-    // const std::string userModel = this->meshes.add(args["model"].as<std::string>());
+    this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/teapot.obj");
     this->meshes.createSkyMaterial("resources/textures/cubemap");
+    this->meshes.setMaterial("quad", "sky_cubemap");
     this->meshes.setMaterial("teapot", "sky_cubemap");
     this->meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
@@ -222,13 +226,20 @@ App::App(cxxopts::ParseResult& args) {
         entt::entity e = this->makeModel("teapot");
         Model& model = this->reg.get<Model>(e);
 
-        model.scale = vec3(25.0f);
         model.rot.x() = -tau4;
+    }
+    {
+        entt::entity e = this->makeModel("quad");
+        Model& model = this->reg.get<Model>(e);
+
+        model.scale = vec3(10.0f);
+        model.rot.x() = -tau4;
+        model.pos.y() = -0.25f;
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
-    this->camera.orbitDist(50.0f);
+    this->camera.orbitDist(3.0f);
     this->secondaryCamera.pos.z() = 20.0f;
     this->secondaryCamera.projection = Camera::Projection::perspective;
 
@@ -573,21 +584,26 @@ void App::draw(float dt) {
     // Update arrows buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows); $gl_err();
     auto& arrowsStorage = this->reg.view<RayTransform>().storage<RayTransform>(); $gl_err();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        arrowsStorage.size() * sizeof(RayTransform), *arrowsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows); $gl_err();
+    if (arrowsStorage.size() > 0) {
+        glBufferData(GL_SHADER_STORAGE_BUFFER,
+            arrowsStorage.size() * sizeof(RayTransform), *arrowsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows); $gl_err();
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
     // Update arrow colors buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrowColors); $gl_err();
     auto& colorsStorage = this->reg.view<DebugColor>().storage<DebugColor>(); $gl_err();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        colorsStorage.size() * sizeof(DebugColor), *colorsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
+    if (colorsStorage.size() > 0) {
+        glBufferData(GL_SHADER_STORAGE_BUFFER,
+            colorsStorage.size() * sizeof(DebugColor), *colorsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
-    glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
-
+    if (arrowsStorage.size() > 0) {
+        glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
+    }
 }
 
 void App::composeUI() {
@@ -648,15 +664,15 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
 
     this->reg.emplace<uLight>(e);
 
-    DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
-    debugRay.pos = pos;
-    debugRay.rot = towards(pos, {0.0f, 0.0f, 0.0f});
+    // DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
+    // debugRay.pos = pos;
+    // debugRay.rot = towards(pos, {0.0f, 0.0f, 0.0f});
 
-    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-    rayTransform.transform = debugRay.transform();
+    // RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+    // rayTransform.transform = debugRay.transform();
 
-    DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-    debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
+    // DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+    // debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
 
     return e;
 }

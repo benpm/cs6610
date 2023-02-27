@@ -141,6 +141,16 @@ Matrix4f perspective(float fov, float aspect, float near, float far) {
     return m;
 }
 
+Matrix4f perspective(const Vector4f& view, float near, float far) {
+    Matrix4f m = Matrix4f::Zero();
+    m(0, 0) = 2.0f * near / (view.z() - view.x());
+    m(1, 1) = 2.0f * near / (view.w() - view.y());
+    m(2, 2) = -(far + near) / (far - near);
+    m(2, 3) = -2.0f * far * near / (far - near);
+    m(3, 2) = -1.0f;
+    return m;
+}
+
 Matrix4f orthographic(const Vector2f& size, float near, float far) {
     Matrix4f m = Matrix4f::Identity();
     m(0, 0) = 2.0f / size.x();
