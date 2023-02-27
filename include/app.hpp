@@ -23,6 +23,11 @@
 #include <texture.hpp>
 #include <cxxopts.hpp>
 
+// Index into element counts and offsets arrays
+struct ObjRef {
+    size_t objID;
+};
+
 class App
 {
     private:
@@ -55,6 +60,8 @@ class App
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
+        entt::entity ePlane;
+        
         RNG rng{0u};
 
         // ID of model transform matrices SSBO
@@ -83,6 +90,7 @@ class App
 
         GLuint fboReflections;
         GLuint rboDepth;
+        GLuint texReflections;
 
         // Element counts
         std::vector<GLsizei> vCounts;
@@ -137,7 +145,7 @@ class App
         void drawSky(const Matrix4f& view, const Matrix4f& proj);
 
         // Draws the meshes shader program to the current framebuffer
-        void drawMeshes(const Matrix4f& view, const Matrix4f& proj);
+        void drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f& camPos);
 
         // Draws the debugging shader program to the current framebuffer
         void drawDebug(const Matrix4f& view, const Matrix4f& proj);
@@ -150,6 +158,9 @@ class App
         void composeUI();
 
         void loadingScreen(const std::string& message);
+
+        // Hides given object from rendering
+        void hidden(entt::entity e, bool hidden);
 
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);

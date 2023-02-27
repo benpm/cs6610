@@ -108,8 +108,8 @@ App::App(cxxopts::ParseResult& args) {
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_MULTISAMPLE);
-    // glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     glLineWidth(2.0f);
     glEnable(GL_LINE_SMOOTH);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -200,22 +200,29 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/teapot.obj");
     this->meshes.createSkyMaterial("resources/textures/cubemap");
-    this->meshes.setMaterial("quad", "sky_cubemap");
     this->meshes.setMaterial("teapot", "sky_cubemap");
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
+    glGenTextures(1, &this->texReflections); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, this->texReflections); $gl_err();
+    std::vector<GLubyte> data(this->windowSize.x() * this->windowSize.y() * 3, 0u);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+
     glGenFramebuffers(1, &this->fboReflections); $gl_err();
-    uMaterial& planeReflectionMaterial = this->meshes.createBufferMaterial(
-        "plane_reflection", this->windowSize.x(), this->windowSize.y());
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-        GL_TEXTURE_2D, this->meshes.getTextureData(planeReflectionMaterial.flatReflectionTexID).bindID, 0); $gl_err();
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->texReflections, 0); $gl_err();
+
     glGenRenderbuffers(1, &this->rboDepth); $gl_err();
     glBindRenderbuffer(GL_RENDERBUFFER, this->rboDepth); $gl_err();
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboDepth); $gl_err();
+
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+
+    this->meshes.createBufferMaterial("plane_reflection", this->windowSize.x(), this->windowSize.y());
+    this->meshes.setMaterial("quad", "plane_reflection");
 
     // Build meshes / materials
     this->meshes.build(this->meshProg);
@@ -239,14 +246,15 @@ App::App(cxxopts::ParseResult& args) {
         Model& model = this->reg.get<Model>(e);
 
         model.rot.x() = -tau4;
+        model.pos.y() = 0.25f;
     }
     {
         entt::entity e = this->makeModel("quad");
         Model& model = this->reg.get<Model>(e);
 
         model.scale = vec3(10.0f);
-        model.rot.x() = -tau4;
-        model.pos.y() = -0.25f;
+
+        this->ePlane = e;
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -533,13 +541,7 @@ void App::drawSky(const Matrix4f& view, const Matrix4f& proj) {
     this->skyProg.SetUniformMatrix4("uTInvViewProj", Transform3f(proj * view).inverse().matrix().data());
     this->skyTextures.bind(this->skyProg, "sky", "uSkyTex");
 
-    glClearColor(0.08f, 0.08f, 0.08f, 1.0f); $gl_err();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-
     glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
-    // GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
-    // glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    // glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
 
     glDepthMask(GL_FALSE);
     glDrawArrays(GL_TRIANGLES, 0, 6); $gl_err();
@@ -550,7 +552,7 @@ void App::drawSky(const Matrix4f& view, const Matrix4f& proj) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
-void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj) {
+void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f& camPos) {
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
@@ -558,7 +560,6 @@ void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj) {
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
-    const Vector3f camPos = this->camera.pos;
     this->meshProg.SetUniform("uCamPos", (float)camPos.x(), (float)camPos.y(), (float)camPos.z());
     glMultiDrawElements(
         GL_TRIANGLES,
@@ -595,6 +596,7 @@ void App::updateBuffers() {
     // Meshes shader program
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
+    this->meshProg.SetUniform("uViewport", (float)this->windowSize.x(), (float)this->windowSize.y());
     // Update lights buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights); $gl_err();
     auto& lightsStorage = this->reg.view<uLight>().storage<uLight>();
@@ -637,12 +639,45 @@ void App::updateBuffers() {
 void App::draw(float dt) {
     this->updateBuffers();
 
-    const Matrix4f view = this->camera.getView();
-    const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
+    {
+        // Reflect camera by plane
+        const Model& planeModel = this->reg.get<Model>(this->ePlane);
+        const Ray camRay(this->camera.pos, spherePoint(this->camera.rot.x(), this->camera.rot.y()));
+        // const Vector3f lookPoint = camRay.intersect({
+        //     planeModel.pos,
+        //     identityTransform().rotate(euler(planeModel.rot)) * Vector3f::UnitY()});
+        const Vector3f lookPoint = Vector3f::Zero();
+        const Vector3f reflPos(this->camera.pos.x(), -this->camera.pos.y(), this->camera.pos.z());
+        const Matrix4f view = identityTransform()
+            .rotate(euler({-this->camera.rot.x(), this->camera.rot.y(), 0.0f}))
+            .translate(-reflPos)
+            .matrix();
+        const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
 
-    this->drawSky(view, proj);
-    this->drawMeshes(view, proj);
-    this->drawDebug(view, proj);
+        this->hidden(this->ePlane, true);
+        glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+        this->drawSky(view, proj);
+        this->drawMeshes(view, proj, reflPos);
+    }
+    {
+        this->hidden(this->ePlane, false);
+        const Matrix4f view = this->camera.getView();
+        const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+        const GLuint targetTexID = this->meshes.getTextureData(this->meshes.getMaterial("plane_reflection").flatReflectionTexID).bindID;
+        glGenerateTextureMipmap(this->texReflections); $gl_err();
+        glGenerateTextureMipmap(targetTexID); $gl_err();
+        glCopyImageSubData(
+            this->texReflections, GL_TEXTURE_2D, 0, 0, 0, 0,
+            targetTexID, GL_TEXTURE_2D, 0, 0, 0, 0,
+            this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+        this->drawSky(view, proj);
+        this->drawMeshes(view, proj, this->camera.pos);
+
+        this->drawDebug(view, proj);
+    }
 }
 
 void App::composeUI() {
@@ -652,17 +687,29 @@ void App::composeUI() {
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(200, 500));
+    ImGui::SetNextWindowSize(ImVec2(300, this->windowSize.y()));
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::Text("Left Click: Pan");
     ImGui::Text("Wheel / Right Click: Zoom");
     ImGui::Text("1: Orbit camera");
     ImGui::Text("2: Fly camera");
     ImGui::Text("F6: Reload shaders");
+    ImGui::Text(fmt::format("camera pos: {}", this->camera.pos).c_str());
+    ImGui::Text(fmt::format("camera rot: {}", this->camera.rot).c_str());
 
     ImGui::End();
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void App::hidden(entt::entity e, bool hidden) {
+    auto [meshRef, objRef] = this->reg.get<MeshRef, ObjRef>(e);
+
+    if (hidden) {
+        this->vCounts.at(objRef.objID) = 0;
+    } else {
+        this->vCounts.at(objRef.objID) = meshRef.elemCount;
+    }
 }
 
 entt::entity App::makeParticle() {
@@ -685,6 +732,9 @@ entt::entity App::makeModel(const std::string& name) {
     Model& model = this->reg.emplace<Model>(e);
     MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
     model.pivot = meshData.center;
+
+    ObjRef& objRef = this->reg.emplace<ObjRef>(e);
+    objRef.objID = this->vCounts.size();
     this->vCounts.push_back(meshRef.elemCount);
     this->vOffsets.push_back(meshRef.elemOffset);
     

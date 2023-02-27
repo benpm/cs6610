@@ -60,6 +60,7 @@ layout(std430, binding = 2) buffer Lights
 };
 
 uniform vec3 uCamPos;
+uniform vec2 uViewport;
 
 void main() {
     Material mat = uMaterial[matID];
@@ -109,7 +110,9 @@ void main() {
         C = reflectionTex;
     }
     if (mat.flatReflectionTexID >= 0) {
-        vec3 reflectionTex = texture(uTex[mat.reflectionTexID], gl_FragCoord.xy).rgb;
+        vec2 ts = (gl_FragCoord.xy / uViewport);
+        vec3 reflectionTex = texture(uTex[mat.flatReflectionTexID],
+            vec2(ts.x, 1.0 - ts.y)).rgb;
         C = reflectionTex;
     }
     

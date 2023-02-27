@@ -56,7 +56,7 @@ template<> struct fmt::formatter<Vector3f> {
 
     template <typename FormatContext>
     auto format(const Vector3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "[{:.1f}, {:.1f}, {:.1f}]", input.x(), input.y(), input.z());
+        return format_to(ctx.out(), "[{:.3f}, {:.3f}, {:.3f}]", input.x(), input.y(), input.z());
     }
 };
 
@@ -68,7 +68,7 @@ template<> struct fmt::formatter<Vector2f> {
 
     template <typename FormatContext>
     auto format(const Vector2f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "[{:.1f}, {:.1f}]", input.x(), input.y());
+        return format_to(ctx.out(), "[{:.3f}, {:.3f}]", input.x(), input.y());
     }
 };
 
@@ -122,6 +122,28 @@ public:
     void place(const Vector2f& center, const Vector2f& size);
     // Returns 3D volume of AABB
     float volume() const;
+};
+
+// Plane
+class Plane
+{
+public:
+    Vector3f origin;
+    Vector3f normal;
+
+    Plane(const Vector3f& origin, const Vector3f& normal);
+};
+
+// Ray
+class Ray
+{
+public:
+    Vector3f origin;
+    Vector3f direction;
+
+    Ray(const Vector3f& origin, const Vector3f& direction);
+
+    Vector3f intersect(const Plane& plane) const;
 };
 
 // Random number generation helper class
@@ -201,6 +223,8 @@ Vector3f spherePoint(const Vector2f& point);
 Vector2f pointSphere(const Vector3f& point);
 // Rotates a vector by given euler angles
 Vector3f rotate(const Vector3f& v, const Vector3f& axisAngles);
+// Gets direction corresponding to given euler angles
+Vector3f direction(const Vector3f& axisAngles);
 // Angle from a to b
 Vector3f towards(const Vector3f& a, const Vector3f& b);
 // Perspective projection matrix

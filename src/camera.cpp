@@ -105,6 +105,14 @@ const Matrix4f Camera::getView() const {
         .matrix();
 }
 
+const Matrix4f Camera::getViewReflected() const {
+    return identityTransform()
+        .rotate(euler(rot))
+        .scale(Vector3f(1.0f, -1.0f, 1.0f))
+        .translate(-pos)
+        .matrix();
+}
+
 const Matrix4f Camera::getProj(Vector2f viewsize) const {
     switch (this->projection) {
         case Projection::perspective:

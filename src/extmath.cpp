@@ -122,6 +122,10 @@ Vector3f rotate(const Vector3f &v, const Vector3f &axisAngles) {
     return euler(axisAngles) * v;
 }
 
+Vector3f direction(const Vector3f& axisAngles) {
+    return spherePoint(vec2(axisAngles));
+}
+
 Vector3f towards(const Vector3f &a, const Vector3f &b) {
     // Euler angles of the rotation from a to b
     return {
@@ -248,6 +252,21 @@ void AABB::place(const Vector2f& center, const Vector2f& size) {
 
 float AABB::volume() const {
     return this->width() * this->height() * this->depth();
+}
+
+Plane::Plane(const Vector3f& origin, const Vector3f& normal)
+    : origin(origin), normal(normal) {}
+
+Ray::Ray(const Vector3f& origin, const Vector3f& direction)
+    : origin(origin), direction(direction) {}
+
+Vector3f Ray::intersect(const Plane& plane) const {
+    const float d = plane.normal.dot(this->direction);
+    if (d < 1e-6f) {
+        return this->origin;
+    }
+    const float t = (plane.origin - this->origin).dot(plane.normal) / d;
+    return this->origin + this->direction * t;
 }
 
 uint64_t cantor(uint32_t x, uint32_t y) {

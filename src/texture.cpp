@@ -143,7 +143,7 @@ uint32_t TextureCollection::addCubemap(const std::string& name, uint32_t width, 
     glBindTexture(GL_TEXTURE_CUBE_MAP, bindID); $gl_err();
 
     for (size_t i = 0; i < 6u; i++) {
-        glTexImage2D(cubeMapFaces[i], 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr); $gl_err();
+        glTexImage2D(cubeMapFaces[i], 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
     }
 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
