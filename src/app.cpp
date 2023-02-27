@@ -195,10 +195,6 @@ App::App(cxxopts::ParseResult& args) {
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
-    // Reflection framebuffer
-    // this->skyTextures.addCubemap("reflection", 256u, 256u);
-    glGenFramebuffers(1, &this->fboReflections); $gl_err();
-
     // Load and construct models
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
@@ -206,6 +202,22 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.createSkyMaterial("resources/textures/cubemap");
     this->meshes.setMaterial("quad", "sky_cubemap");
     this->meshes.setMaterial("teapot", "sky_cubemap");
+
+    // Plane reflection framebuffer, depth renderbuffer, and color texture
+    glGenFramebuffers(1, &this->fboReflections); $gl_err();
+    uMaterial& planeReflectionMaterial = this->meshes.createBufferMaterial(
+        "plane_reflection", this->windowSize.x(), this->windowSize.y());
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+        GL_TEXTURE_2D, this->meshes.getTextureData(planeReflectionMaterial.flatReflectionTexID).bindID, 0); $gl_err();
+    glGenRenderbuffers(1, &this->rboDepth); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+
+    // Build meshes / materials
     this->meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
@@ -514,96 +526,123 @@ void App::simulate(float dt) {
     }
 }
 
-void App::draw(float dt) {
-    const Matrix4f view = this->camera.getView();
-    const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
-
-    // Draw sky
+void App::drawSky(const Matrix4f& view, const Matrix4f& proj) {
     this->skyProg.Bind();
     glBindVertexArray(this->vaoSky); $gl_err();
+
     this->skyProg.SetUniformMatrix4("uTInvViewProj", Transform3f(proj * view).inverse().matrix().data());
     this->skyTextures.bind(this->skyProg, "sky", "uSkyTex");
+
     glClearColor(0.08f, 0.08f, 0.08f, 1.0f); $gl_err();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+
     glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
-    GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    // GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
+    // glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    // glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+
     glDepthMask(GL_FALSE);
     glDrawArrays(GL_TRIANGLES, 0, 6); $gl_err();
     glDepthMask(GL_TRUE);
+
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+}
 
-    // Draw meshes
+void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj) {
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
-
-    // Update lights buffer
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights); $gl_err();
-    auto& lightsStorage = this->reg.view<uLight>().storage<uLight>(); $gl_err();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        lightsStorage.size() * sizeof(uLight), *lightsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
-    this->meshProg.SetUniform("nLights", (GLuint)lightsStorage.size());
-
-    // Update model transforms buffer
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels); $gl_err();
-    auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>(); $gl_err();
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER,
-        0, transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw()); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
     // Draw models in scene
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
-    this->meshProg.SetUniform("uCamPos",
-        (float)this->camera.pos.x(), (float)this->camera.pos.y(), (float)this->camera.pos.z());
+    const Vector3f camPos = this->camera.pos;
+    this->meshProg.SetUniform("uCamPos", (float)camPos.x(), (float)camPos.y(), (float)camPos.z());
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
-    
-    // Draw wireframe stuff
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+}
+
+void App::drawDebug(const Matrix4f& view, const Matrix4f& proj) {
     this->wiresProg.Bind();
     glBindVertexArray(this->vaoWires); $gl_err();
     this->wiresProg.SetUniformMatrix4("uTProj", proj.data());
     this->wiresProg.SetUniformMatrix4("uTView", view.data());
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
     
-    attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
+    GLint attrib_vPos = this->wiresProg.AttribLocation("vPos"); $gl_err();
     glEnableVertexAttribArray(attrib_vPos); $gl_err();
     glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
 
+    auto& arrowsStorage = this->reg.view<RayTransform>().storage<RayTransform>();
+    if (arrowsStorage.size() > 0) {
+        glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+}
+
+void App::updateBuffers() {
+    // Meshes shader program
+    this->meshProg.Bind();
+    glBindVertexArray(this->vaoMeshes); $gl_err();
+    // Update lights buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights); $gl_err();
+    auto& lightsStorage = this->reg.view<uLight>().storage<uLight>();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        lightsStorage.size() * sizeof(uLight), *lightsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this->ssboLights); $gl_err();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+    this->meshProg.SetUniform("nLights", (GLuint)lightsStorage.size());
+    // Update model transforms buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels); $gl_err();
+    auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>();
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER,
+        0, transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw()); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+    
+    // Wires shader program
+    this->wiresProg.Bind();
+    glBindVertexArray(this->vaoWires); $gl_err();
     // Update arrows buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrows); $gl_err();
-    auto& arrowsStorage = this->reg.view<RayTransform>().storage<RayTransform>(); $gl_err();
+    auto& arrowsStorage = this->reg.view<RayTransform>().storage<RayTransform>();
     if (arrowsStorage.size() > 0) {
         glBufferData(GL_SHADER_STORAGE_BUFFER,
             arrowsStorage.size() * sizeof(RayTransform), *arrowsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows); $gl_err();
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
-
     // Update arrow colors buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboArrowColors); $gl_err();
-    auto& colorsStorage = this->reg.view<DebugColor>().storage<DebugColor>(); $gl_err();
+    auto& colorsStorage = this->reg.view<DebugColor>().storage<DebugColor>();
     if (colorsStorage.size() > 0) {
         glBufferData(GL_SHADER_STORAGE_BUFFER,
             colorsStorage.size() * sizeof(DebugColor), *colorsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+}
 
-    if (arrowsStorage.size() > 0) {
-        glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
-    }
+void App::draw(float dt) {
+    this->updateBuffers();
+
+    const Matrix4f view = this->camera.getView();
+    const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
+
+    this->drawSky(view, proj);
+    this->drawMeshes(view, proj);
+    this->drawDebug(view, proj);
 }
 
 void App::composeUI() {

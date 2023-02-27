@@ -21,7 +21,8 @@ class TextureCollection
 private:
     // Next available texture unit ID
     uint32_t nextTexUnitID = 0u;
-    std::unordered_map<std::string, TextureData> map;
+    std::unordered_map<std::string, uint32_t> map;
+    std::unordered_map<uint32_t, TextureData> idMap;
 public:
     // Add texture to collection and return its ID (same as texture unit for now)
     uint32_t add(const std::string& path);
@@ -35,4 +36,8 @@ public:
     void bind(cyGLSLProgram& prog) const;
     // Bind a single texture to a texture unit and a uniform
     void bind(cyGLSLProgram& prog, const std::string& name, const std::string& uniform) const;
+    // Gets the texture data associated with the given unit ID
+    const TextureData& get(uint32_t texUnitID) const;
+    // Gets the texture data associated with the given texture name
+    const TextureData& get(const std::string& name) const;
 };

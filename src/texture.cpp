@@ -43,15 +43,17 @@ uint32_t TextureCollection::add(const std::string& path) {
 
     const std::string name = fs::path(path).stem().string();
 
-    this->map.emplace(name, TextureData {
+    this->idMap.emplace(texUnitID, TextureData {
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_2D});
+    this->map.emplace(name, texUnitID);
     return texUnitID;
 }
 
 uint32_t TextureCollection::add(const std::string& name, GLuint bindID) {
     const uint32_t texUnitID = this->nextTexUnitID++;
-    this->map.emplace(name, TextureData {
+    this->idMap.emplace(texUnitID, TextureData {
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_2D});
+    this->map.emplace(name, texUnitID);
     return texUnitID;
 }
 
@@ -59,7 +61,8 @@ void TextureCollection::bind(cyGLSLProgram& prog) const {
     // Bind textures to texture units
     std::vector<GLint> texUnits2D(16u, 0);
     std::vector<GLint> texUnitsCube(16u, 0);
-    for (const auto& [name, texData] : this->map) {
+    for (const auto& [name, texUnitID] : this->map) {
+        const TextureData& texData = this->idMap.at(texUnitID);
         glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
         glBindTexture(texData.type, texData.bindID); $gl_err();
         switch (texData.type) {
@@ -79,7 +82,7 @@ void TextureCollection::bind(cyGLSLProgram& prog) const {
 }
 
 void TextureCollection::bind(cyGLSLProgram& prog, const std::string& name, const std::string& uniform) const {
-    const TextureData& texData = this->map.at(name);
+    const TextureData& texData = this->get(name);
     glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
     glBindTexture(texData.type, texData.bindID); $gl_err();
     prog.SetUniform(uniform.c_str(), (GLint)texData.texUnitID); $gl_err();
@@ -126,8 +129,9 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
     
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 
-    this->map.emplace(name, TextureData {
+    this->idMap.emplace(texUnitID, TextureData {
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
+    this->map.emplace(name, texUnitID);
     return texUnitID;
 }
 
@@ -150,7 +154,16 @@ uint32_t TextureCollection::addCubemap(const std::string& name, uint32_t width, 
     
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 
-    this->map.emplace(name, TextureData {
+    this->idMap.emplace(texUnitID, TextureData {
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
+    this->map.emplace(name, texUnitID);
     return texUnitID;
+}
+
+const TextureData& TextureCollection::get(uint32_t texUnitID) const {
+    return this->idMap.at(texUnitID);
+}
+
+const TextureData& TextureCollection::get(const std::string& name) const {
+    return this->get(this->map.at(name));
 }

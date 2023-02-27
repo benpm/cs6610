@@ -40,6 +40,7 @@ struct uMaterial {
     int diffuseTexID = -1;
     int specularTexID = -1;
     int reflectionTexID = -1;
+    int flatReflectionTexID = -1;
 };
 
 template<> struct fmt::formatter<uMaterial> {
@@ -123,4 +124,8 @@ public:
     uMaterial& getMaterial(const std::string& meshName);
     // Creates a new sky material (will be named "sky_<dirName>")
     uMaterial& createSkyMaterial(const std::string& dirName);
+    // Creates a new buffer material (material which is meant to be used as a framebuffer target)
+    uMaterial& createBufferMaterial(const std::string& name, uint32_t width, uint32_t height);
+    // Gets the texturedata with given ID (the IDs from the materials)
+    const TextureData& getTextureData(int texID);
 };

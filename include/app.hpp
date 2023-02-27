@@ -82,6 +82,7 @@ class App
         TextureCollection skyTextures;
 
         GLuint fboReflections;
+        GLuint rboDepth;
 
         // Element counts
         std::vector<GLsizei> vCounts;
@@ -131,6 +132,18 @@ class App
          * @brief Draw the scene
          */
         void draw(float dt);
+
+        // Draws the sky shader program to the current framebuffer
+        void drawSky(const Matrix4f& view, const Matrix4f& proj);
+
+        // Draws the meshes shader program to the current framebuffer
+        void drawMeshes(const Matrix4f& view, const Matrix4f& proj);
+
+        // Draws the debugging shader program to the current framebuffer
+        void drawDebug(const Matrix4f& view, const Matrix4f& proj);
+
+        // Updates SSBOs for all shader programs
+        void updateBuffers();
 
         void simulate(float dt);
 

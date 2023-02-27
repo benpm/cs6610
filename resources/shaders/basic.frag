@@ -34,6 +34,7 @@ struct Material {
     int diffuseTexID;
     int specularTexID;
     int reflectionTexID;
+    int flatReflectionTexID;
 };
 
 const uint lightPoint = 0;
@@ -105,6 +106,10 @@ void main() {
     if (mat.reflectionTexID >= 0) {
         vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID],
             reflect(wposition - uCamPos, normalize(wnormal))).rgb;
+        C = reflectionTex;
+    }
+    if (mat.flatReflectionTexID >= 0) {
+        vec3 reflectionTex = texture(uTex[mat.reflectionTexID], gl_FragCoord.xy).rgb;
         C = reflectionTex;
     }
     
