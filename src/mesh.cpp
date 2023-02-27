@@ -281,8 +281,7 @@ uMaterial& MeshCollection::createBufferMaterial(const std::string& name, uint32_
     GLuint texBindID;
     glGenTextures(1, &texBindID); $gl_err();
     glBindTexture(GL_TEXTURE_2D, texBindID); $gl_err();
-    std::vector<GLubyte> data(width * height * 3, 0u);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
 
     const uint32_t matID = this->materials.size();

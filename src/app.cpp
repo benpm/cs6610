@@ -199,14 +199,15 @@ App::App(cxxopts::ParseResult& args) {
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/teapot.obj");
+    this->meshes.add("resources/models/sphere.obj");
     this->meshes.createSkyMaterial("resources/textures/cubemap");
     this->meshes.setMaterial("teapot", "sky_cubemap");
+    this->meshes.setMaterial("sphere", "sky_cubemap");
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
     glGenTextures(1, &this->texReflections); $gl_err();
     glBindTexture(GL_TEXTURE_2D, this->texReflections); $gl_err();
-    std::vector<GLubyte> data(this->windowSize.x() * this->windowSize.y() * 3, 0u);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, data.data()); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
 
     glGenFramebuffers(1, &this->fboReflections); $gl_err();
@@ -221,8 +222,14 @@ App::App(cxxopts::ParseResult& args) {
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
 
-    this->meshes.createBufferMaterial("plane_reflection", this->windowSize.x(), this->windowSize.y());
+    uMaterial& planeRefl = this->meshes.createBufferMaterial("plane_reflection", this->windowSize.x(), this->windowSize.y());
+    planeRefl.shininess = 1000.0f;
+    planeRefl.diffuseColor = Vector3f::Zero();
     this->meshes.setMaterial("quad", "plane_reflection");
+
+    uMaterial& skyRefl = this->meshes.getMaterial("sky_cubemap");
+    skyRefl.shininess = 1000.0f;
+    skyRefl.diffuseColor = Vector3f::Zero();
 
     // Build meshes / materials
     this->meshes.build(this->meshProg);
@@ -231,12 +238,11 @@ App::App(cxxopts::ParseResult& args) {
     // Construct scene
     this->loadingScreen("constructing scene");
     for (size_t i = 0; i < this->objectsToGen; i++) {
-        entt::entity e = this->makeModel("teapot");
+        entt::entity e = this->makeModel("sphere");
         Model& model = this->reg.get<Model>(e);
 
-        model.scale = Vector3f::Ones() * rng.range(1.0f, 5.0f);
-        model.pos = this->box.width() * spherePoint(rng.range(-tau2, tau2), rng.range(-tau2, tau2));
-        model.rot = rng.rotation();
+        model.scale = Vector3f::Ones() * rng.range(0.2f, 1.0f);
+        model.pos = rng.vec(this->box);
 
         PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
         body.pos = model.pos;
@@ -252,7 +258,7 @@ App::App(cxxopts::ParseResult& args) {
         entt::entity e = this->makeModel("quad");
         Model& model = this->reg.get<Model>(e);
 
-        model.scale = vec3(10.0f);
+        model.scale = vec3(100.0f);
 
         this->ePlane = e;
     }
@@ -274,13 +280,16 @@ App::App(cxxopts::ParseResult& args) {
         Vector3f(1.0f, 1.0f, 0.9f),
         0.05f,
         LightType::directional);
-    for (size_t i = 0; i < 16; i++) {
-        this->makeLight(
-            rng.vec(this->box),
-            hsvToRgb({rng.range(0.0, 360.0f), 1.0f, 1.0f}),
-            2.0f,
-            LightType::point);
-    }
+    this->makeLight(
+        {0.2f, 0.5f, -0.2f},
+        {1.0f, 1.0f, 1.0f},
+        8.0f,
+        LightType::point);
+    this->makeLight(
+        {0.4f, 0.9f, 0.4f},
+        {1.0f, 1.0f, 1.0f},
+        8.0f,
+        LightType::point);
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels); $gl_err();
@@ -470,8 +479,9 @@ void App::idle() {
 }
 
 void App::simulate(float dt) {
-    constexpr auto F = [](const Vector3f& v) -> Vector3f {
-        return v.cross(Vector3f(0.0f, 0.0f, 4.0f));
+    const auto F = [&](const Vector3f& v) -> Vector3f {
+        return v.cross(Vector3f(0.0f, 1.0f, 0.0f)) * v.norm() * 0.1f
+            + Vector3f(sinf(v.y() + this->t), cosf(v.x() + this->t), cosf(this->t * 2.0f + v.x())) * 0.2f;
     };
 
     // Camera controls
@@ -493,7 +503,7 @@ void App::simulate(float dt) {
     }
 
     // Physics simulation
-    constexpr float dampingFactor = 4.0f;
+    constexpr float dampingFactor = 0.25f;
     for (auto e : this->reg.view<PhysicsBody>()) {
         PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
@@ -502,7 +512,7 @@ void App::simulate(float dt) {
         body.acc = F(body.pos);
         body.vel += body.acc * dt;
         body.pos += body.vel * dt;
-        body.vel *= 1.0f - (dampingFactor * dt);
+        body.vel *= 1.0f - (dampingFactor);
     }
 
     // Update model transforms
@@ -640,13 +650,7 @@ void App::draw(float dt) {
     this->updateBuffers();
 
     {
-        // Reflect camera by plane
-        const Model& planeModel = this->reg.get<Model>(this->ePlane);
-        const Ray camRay(this->camera.pos, spherePoint(this->camera.rot.x(), this->camera.rot.y()));
-        // const Vector3f lookPoint = camRay.intersect({
-        //     planeModel.pos,
-        //     identityTransform().rotate(euler(planeModel.rot)) * Vector3f::UnitY()});
-        const Vector3f lookPoint = Vector3f::Zero();
+        // Reflect camera by plane (assumes plane is at origin and not rotated)
         const Vector3f reflPos(this->camera.pos.x(), -this->camera.pos.y(), this->camera.pos.z());
         const Matrix4f view = identityTransform()
             .rotate(euler({-this->camera.rot.x(), this->camera.rot.y(), 0.0f}))

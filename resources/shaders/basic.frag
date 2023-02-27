@@ -62,6 +62,10 @@ layout(std430, binding = 2) buffer Lights
 uniform vec3 uCamPos;
 uniform vec2 uViewport;
 
+vec3 dampLight(vec3 v) {
+    return 1.0 - 1.0 / (v*v + 1.0);
+}
+
 void main() {
     Material mat = uMaterial[matID];
     // Fragment normal
@@ -104,17 +108,19 @@ void main() {
     }
 
     // Environment mapping / reflection
+    vec3 reflection = vec3(0.0, 0.0, 0.0);
     if (mat.reflectionTexID >= 0) {
         vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID],
             reflect(wposition - uCamPos, normalize(wnormal))).rgb;
-        C = reflectionTex;
+        reflection = reflectionTex;
     }
     if (mat.flatReflectionTexID >= 0) {
         vec2 ts = (gl_FragCoord.xy / uViewport);
         vec3 reflectionTex = texture(uTex[mat.flatReflectionTexID],
             vec2(ts.x, 1.0 - ts.y)).rgb;
-        C = reflectionTex;
+        reflection = reflectionTex;
     }
+    C = dampLight(C + reflection);
     
     fColor = vec4(C, 1.0);
 }
