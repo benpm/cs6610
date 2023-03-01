@@ -12,8 +12,11 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui_internal.h>
 #include <spdlog/formatter.h>
 #include <physics.hpp>
+
+constexpr float uiScale = 2.0f;
 
 App::App() {
     // Initialize GLFW and Gleq
@@ -40,6 +43,8 @@ App::App() {
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForOpenGL(this->window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
+    ImGui::GetStyle().ScaleAllSizes(uiScale);
+    ImGui::GetIO().FontGlobalScale = uiScale;
 
     // OpenGL config
     // glEnable(GL_PROGRAM_POINT_SIZE);
@@ -557,7 +562,7 @@ void App::composeUI() {
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(200, 500));
+    ImGui::SetNextWindowSize(ImVec2(350 * uiScale, 500 * uiScale));
     ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::TextWrapped(
         "Particle simulation! Use left mouse to add a force, right mouse to pan camera."
