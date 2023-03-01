@@ -85,8 +85,6 @@ private:
     std::vector<VertexData> vertexData;
     // Flat element array data (vertex indices for triangles: v0,v1,v2)
     std::vector<uint32_t> arrElems;
-    // All textures for all stored materials
-    TextureCollection textures;
     // Map from mesh name to its data offsets
     std::unordered_map<std::string, MeshData> meshDataMap;
     // All materials for all stored meshes, referenced by MeshData::materials
@@ -106,6 +104,9 @@ private:
     // Materials SSBO handle
     mutable GLuint ssboMaterials;
 public:
+    // All textures for all stored materials
+    TextureCollection textures;
+    
     // Load and add mesh to the collection, returns name
     std::string add(const std::string& filename, const std::string& meshName="", bool normalize=true);
     // Returns the meshdata corresponding to given meshname

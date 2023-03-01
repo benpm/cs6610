@@ -60,17 +60,16 @@ uint32_t TextureCollection::add(const std::string& name, GLuint bindID) {
 void TextureCollection::bind(cyGLSLProgram& prog) const {
     // Bind textures to texture units
     std::vector<GLint> texUnits2D(16u, 0);
-    std::vector<GLint> texUnitsCube(16u, 0);
     for (const auto& [name, texUnitID] : this->map) {
         const TextureData& texData = this->idMap.at(texUnitID);
-        glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
-        glBindTexture(texData.type, texData.bindID); $gl_err();
         switch (texData.type) {
             case GL_TEXTURE_2D:
+                glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
+                glBindTexture(texData.type, texData.bindID); $gl_err();
                 texUnits2D[texData.texUnitID] = texData.texUnitID;
                 break;
             case GL_TEXTURE_CUBE_MAP:
-                texUnitsCube[texData.texUnitID] = texData.texUnitID;
+                // texUnitsCube[texData.texUnitID] = texData.texUnitID;
                 break;
             default:
                 spdlog::error("Unknown texture type");
@@ -78,7 +77,6 @@ void TextureCollection::bind(cyGLSLProgram& prog) const {
         }
     }
     prog.SetUniform1("uTex", texUnits2D.data(), texUnits2D.size()); $gl_err();
-    prog.SetUniform1("uCubeTex", texUnitsCube.data(), texUnitsCube.size()); $gl_err();
 }
 
 void TextureCollection::bind(cyGLSLProgram& prog, const std::string& name, const std::string& uniform) const {

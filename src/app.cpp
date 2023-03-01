@@ -199,10 +199,12 @@ App::App(cxxopts::ParseResult& args) {
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/teapot.obj");
+    this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
     this->meshes.createSkyMaterial("resources/textures/cubemap");
     this->meshes.setMaterial("teapot", "sky_cubemap");
     this->meshes.setMaterial("sphere", "sky_cubemap");
+    this->meshes.setMaterial("suzanne", "teapot.default");
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
     glGenTextures(1, &this->texReflections); $gl_err();
@@ -227,9 +229,9 @@ App::App(cxxopts::ParseResult& args) {
     planeRefl.diffuseColor = Vector3f::Zero();
     this->meshes.setMaterial("quad", "plane_reflection");
 
-    uMaterial& skyRefl = this->meshes.getMaterial("sky_cubemap");
-    skyRefl.shininess = 1000.0f;
-    skyRefl.diffuseColor = Vector3f::Zero();
+    // uMaterial& skyRefl = this->meshes.getMaterial("sky_cubemap");
+    // skyRefl.shininess = 1000.0f;
+    // skyRefl.diffuseColor = Vector3f::Zero();
 
     // Build meshes / materials
     this->meshes.build(this->meshProg);
@@ -253,6 +255,16 @@ App::App(cxxopts::ParseResult& args) {
 
         model.rot.x() = -tau4;
         model.pos.y() = 0.25f;
+    }
+    {
+        entt::entity e = this->makeModel("suzanne");
+        Model& model = this->reg.get<Model>(e);
+
+        model.rot.x() = -tau4;
+
+        model.pos.y() = 0.25f;
+        model.pos.z() = 1.25f;
+        model.pos.x() = 1.25f;
     }
     {
         entt::entity e = this->makeModel("quad");
@@ -283,12 +295,12 @@ App::App(cxxopts::ParseResult& args) {
     this->makeLight(
         {0.2f, 0.5f, -0.2f},
         {1.0f, 1.0f, 1.0f},
-        8.0f,
+        2.0f,
         LightType::point);
     this->makeLight(
         {0.4f, 0.9f, 0.4f},
         {1.0f, 1.0f, 1.0f},
-        8.0f,
+        2.0f,
         LightType::point);
 
     // Create and bind model transforms SSBO
@@ -567,6 +579,7 @@ void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f&
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Draw models in scene
+    this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());

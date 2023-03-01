@@ -22,7 +22,7 @@ out vec4 fColor;
 
 uniform uint nLights;
 uniform sampler2D uTex[16];
-uniform samplerCube uCubeTex[16];
+uniform samplerCube uEnvTex;
 
 struct Material {
     vec3 diffuseColor;
@@ -110,7 +110,7 @@ void main() {
     // Environment mapping / reflection
     vec3 reflection = vec3(0.0, 0.0, 0.0);
     if (mat.reflectionTexID >= 0) {
-        vec3 reflectionTex = texture(uCubeTex[mat.reflectionTexID],
+        vec3 reflectionTex = texture(uEnvTex,
             reflect(wposition - uCamPos, normalize(wnormal))).rgb;
         reflection = reflectionTex;
     }
