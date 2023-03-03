@@ -33,7 +33,7 @@ class App
     private:
         ColliderInteriorBox box{Vector3f(-6.0f, 0.0f, -6.0f), vec3(6.0f)};
         // const size_t objectsToGen = this->box.volume() * 0.01f;
-        const size_t objectsToGen = 500u;
+        const size_t objectsToGen = 5u;
         const float frameRate = 60.0f;
         const float framePeriod = 1.0f / this->frameRate;
 

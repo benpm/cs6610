@@ -108,19 +108,17 @@ void main() {
     }
 
     // Environment mapping / reflection
-    vec3 reflection = vec3(0.0, 0.0, 0.0);
     if (mat.reflectionTexID >= 0) {
         vec3 reflectionTex = texture(uEnvTex,
             reflect(wposition - uCamPos, normalize(wnormal))).rgb;
-        reflection = reflectionTex;
+        C = reflectionTex;
     }
     if (mat.flatReflectionTexID >= 0) {
         vec2 ts = (gl_FragCoord.xy / uViewport);
         vec3 reflectionTex = texture(uTex[mat.flatReflectionTexID],
             vec2(ts.x, 1.0 - ts.y)).rgb;
-        reflection = reflectionTex;
+        C = reflectionTex;
     }
-    C = dampLight(C + reflection);
     
     fColor = vec4(C, 1.0);
 }
