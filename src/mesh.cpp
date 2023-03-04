@@ -223,18 +223,15 @@ void MeshCollection::bind(cyGLSLProgram& prog) const {
     this->textures.bind(prog);
 }
 
-uMaterial& MeshCollection::setMaterial(const std::string& meshName, const uMaterial& mat) {
+uMaterial& MeshCollection::setMaterial(const std::string& meshName, size_t matID) {
     MeshData& mesh = this->meshDataMap.at(meshName);
-    const uint32_t matID = this->materials.size();
-    this->materials.push_back(mat);
-    mesh.materials.push_back(matID);
 
     for (size_t i = mesh.vertOffset; i < mesh.vertOffset + mesh.vertCount; i++) {
         this->vertexData[i].matID = matID;
     }
 
     this->dirty = true;
-    return this->materials.back();
+    return this->materials.at(matID);
 }
 
 uMaterial& MeshCollection::setMaterial(const std::string& meshName, const std::string& matName) {
@@ -250,17 +247,15 @@ uMaterial& MeshCollection::setMaterial(const std::string& meshName, const std::s
     return this->materials.at(matID);
 }
 
-uMaterial& MeshCollection::setMaterial(const std::string& meshName, GLuint diffuseTexID) {
-    uMaterial mat;
-    mat.diffuseTexID = this->textures.add(fmt::format("{}_custom_diffuse", meshName), diffuseTexID);
-    return this->setMaterial(meshName, mat);
-}
-
 uMaterial& MeshCollection::getMaterial(const std::string& meshName) {
     return this->materials.at(this->nameMaterialMap.at(meshName));
 }
 
-uMaterial& MeshCollection::createSkyMaterial(const std::string& dirName) {
+uMaterial& MeshCollection::getMaterial(size_t matID) {
+    return this->materials.at(matID);
+}
+
+size_t MeshCollection::createSkyMaterial(const std::string& dirName) {
     this->dirty = true;
 
     assert(fs::exists(dirName));
@@ -272,7 +267,7 @@ uMaterial& MeshCollection::createSkyMaterial(const std::string& dirName) {
     
     this->nameMaterialMap[name] = matID;
     this->materialNameMap[matID] = name;
-    return mat;
+    return matID;
 }
 
 uMaterial& MeshCollection::createBufferMaterial(const std::string& name, uint32_t width, uint32_t height) {
@@ -291,6 +286,31 @@ uMaterial& MeshCollection::createBufferMaterial(const std::string& name, uint32_
     this->nameMaterialMap[name] = matID;
     this->materialNameMap[matID] = name;
     return mat;
+}
+
+size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
+    this->dirty = true;
+
+    const uint32_t matID = this->materials.size();
+
+    if (mat.diffuseTexID > -1) {
+        mat.diffuseTexID = this->textures.add(name + "_diffuse", mat.diffuseTexID);
+    }
+    if (mat.specularTexID > -1) {
+        mat.specularTexID = this->textures.add(name + "_specular", mat.specularTexID);
+    }
+    if (mat.reflectionTexID > -1) {
+        mat.reflectionTexID = this->textures.add(name + "_reflection", mat.reflectionTexID);
+    }
+    if (mat.flatReflectionTexID > -1) {
+        mat.flatReflectionTexID = this->textures.add(name + "_normal", mat.flatReflectionTexID);
+    }
+
+    this->materials.push_back(mat);
+
+    this->nameMaterialMap[name] = matID;
+    this->materialNameMap[matID] = name;
+    return matID;
 }
 
 const TextureData& MeshCollection::getTextureData(int texID) {

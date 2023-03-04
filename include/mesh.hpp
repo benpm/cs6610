@@ -115,18 +115,20 @@ public:
     void build(const cyGLSLProgram& prog) const;
     // Binds the VBO and EBO
     void bind(cyGLSLProgram& prog) const;
-    // Assigns a custom material to a all vertices in a mesh
-    uMaterial& setMaterial(const std::string& meshName, const uMaterial& mat);
+    // Assigns a given material ID to all vertices in a mesh, returns material
+    uMaterial& setMaterial(const std::string& meshName, size_t matID);
     // Assigns a custom material (a named material) to a all vertices in a mesh
     uMaterial& setMaterial(const std::string& meshName, const std::string& matName);
-    // Assigns a custom material (a previously generated texture) to a all vertices in a mesh
-    uMaterial& setMaterial(const std::string& meshName, GLuint diffuseTexID);
     // Gets material by name
     uMaterial& getMaterial(const std::string& meshName);
+    // Gets material by ID
+    uMaterial& getMaterial(size_t matID);
     // Creates a new sky material (will be named "sky_<dirName>")
-    uMaterial& createSkyMaterial(const std::string& dirName);
+    size_t createSkyMaterial(const std::string& dirName);
     // Creates a new buffer material (material which is meant to be used as a framebuffer target)
     uMaterial& createBufferMaterial(const std::string& name, uint32_t width, uint32_t height);
+    // Creates a new material, inferring from given, returns ID
+    size_t createMaterial(const std::string& name, uMaterial mat);
     // Gets the texturedata with given ID (the IDs from the materials)
     const TextureData& getTextureData(int texID);
 };

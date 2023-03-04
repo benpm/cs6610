@@ -212,9 +212,9 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.add("resources/models/teapot.obj");
     this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
-    this->meshes.createSkyMaterial("resources/textures/cubemap");
-    this->meshes.setMaterial("teapot", "sky_cubemap");
-    this->meshes.setMaterial("sphere", "sky_cubemap");
+    size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
+    this->meshes.setMaterial("teapot", skyMatID);
+    this->meshes.setMaterial("sphere", skyMatID);
     this->meshes.setMaterial("suzanne", "teapot.default");
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
@@ -235,12 +235,15 @@ App::App(cxxopts::ParseResult& args) {
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
 
-    uMaterial& planeRefl = this->meshes.createBufferMaterial("plane_reflection", this->windowSize.x(), this->windowSize.y());
-    planeRefl.shininess = 1000.0f;
-    planeRefl.diffuseColor = Vector3f::Zero();
+    uMaterial planeRefl {
+        .diffuseColor = Vector3f::Zero(),
+        .shininess = 1000.0f,
+        .flatReflectionTexID = (int)this->texReflections,
+    };
+    this->meshes.createMaterial("plane_reflection", planeRefl);
     this->meshes.setMaterial("quad", "plane_reflection");
 
-    uMaterial& skyRefl = this->meshes.getMaterial("sky_cubemap");
+    uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
     skyRefl.shininess = 1000.0f;
     skyRefl.diffuseColor = Vector3f::Zero();
 
@@ -430,6 +433,19 @@ void App::onKey(int key, bool pressed) {
 void App::onResize(int width, int height) {
     glViewport(0, 0, width, height);
     this->windowSize = {width, height};
+
+    glBindTexture(GL_TEXTURE_2D, this->texReflections); $gl_err();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
+
+    glBindRenderbuffer(GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height); $gl_err();
+    // glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
 
     spdlog::debug("Resized window to {},{}", width, height);
 }
@@ -689,14 +705,6 @@ void App::draw(float dt) {
     this->reflCamera->pos = this->camera->pos.cwiseProduct(Vector3f(1.0f, -1.0f, 1.0f));
     this->reflCamera->rot = this->camera->rot.cwiseProduct(Vector3f(-1.0f, 1.0f, 0.0f));
 
-    glGenerateTextureMipmap(this->texReflections); $gl_err();
-    const GLuint targetTexID = this->meshes.getTextureData(this->meshes.getMaterial("plane_reflection").flatReflectionTexID).bindID;
-    glGenerateTextureMipmap(targetTexID); $gl_err();
-    glCopyImageSubData(
-        this->texReflections, GL_TEXTURE_2D, 0, 0, 0, 0,
-        targetTexID, GL_TEXTURE_2D, 0, 0, 0, 0,
-        this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
-
     for (const RenderPass& pass : this->renderPasses) {
         const Matrix4f view = pass.camera->getView();
         const Matrix4f proj = pass.camera->getProj(this->windowSize.cast<float>());
@@ -704,6 +712,9 @@ void App::draw(float dt) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
         this->drawSky(view, proj);
         this->drawMeshes(view, proj, this->camera->pos);
+        if (pass.fbo != 0u) {
+            glGenerateTextureMipmap(pass.tex); $gl_err();
+        }
     }
     const Matrix4f view = this->camera->getView();
     const Matrix4f proj = this->camera->getProj(this->windowSize.cast<float>());
