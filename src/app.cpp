@@ -9,9 +9,6 @@
 #include <app.hpp>
 #define GLEQ_IMPLEMENTATION
 #include <gleq.h>
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
 #include <spdlog/formatter.h>
 #include <physics.hpp>
 
@@ -102,6 +99,20 @@ App::App(cxxopts::ParseResult& args) {
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForOpenGL(this->window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
+
+    int dpiScale = 2;
+    float monScaleX, monScaleY;
+    glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &monScaleX, &monScaleY);
+    dpiScale = std::max((int)monScaleX, (int)monScaleY);
+    ImGui::GetStyle().ScaleAllSizes((float)dpiScale);
+    ImGui::GetIO().FontGlobalScale = (float)dpiScale;
+    ImFontConfig fontConfig;
+    fontConfig.OversampleH = 2;
+    fontConfig.OversampleV = 2;
+    fontConfig.SizePixels = 16.0f * dpiScale;
+    this->ui.font = ImGui::GetIO().Fonts->AddFontFromFileTTF(
+        "resources/fonts/RobotoMono-Medium.ttf", 16.0f, &fontConfig);
+
     this->loadingScreen("building shader programs, creating buffers");
 
     // OpenGL config
@@ -705,6 +716,8 @@ void App::composeUI() {
 
     ImGui::NewFrame();
 
+    ImGui::PushFont(this->ui.font);
+
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(300, this->windowSize.y()));
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
@@ -716,9 +729,11 @@ void App::composeUI() {
     ImGui::Text(fmt::format("camera pos: {}", this->camera->pos).c_str());
     ImGui::Text(fmt::format("camera rot: {}", this->camera->rot).c_str());
 
+    ImGui::PopFont();
     ImGui::End();
     ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImDrawData* drawData = ImGui::GetDrawData();
+    ImGui_ImplOpenGL3_RenderDrawData(drawData);
 }
 
 void App::hidden(entt::entity e, bool hidden) {

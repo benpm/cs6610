@@ -22,6 +22,9 @@
 #include <entt/entt.hpp>
 #include <texture.hpp>
 #include <cxxopts.hpp>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 // Index into element counts and offsets arrays
 struct ObjRef {
@@ -108,6 +111,10 @@ class App
         std::vector<GLsizei> vCounts;
         // Element offsets
         std::vector<size_t> vOffsets;
+
+        struct UI {
+            ImFont* font = nullptr;
+        } ui;
     public:
         GLFWwindow* window;
 
