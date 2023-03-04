@@ -28,6 +28,16 @@ struct ObjRef {
     size_t objID;
 };
 
+// Represents a render pass with a target framebuffer
+struct RenderPass {
+    std::shared_ptr<Camera> camera;
+    GLuint fbo;
+    GLuint tex;
+    GLenum texTarget = GL_TEXTURE_2D;
+    GLuint rbo;
+    std::vector<ObjRef> objMask = {};
+};
+
 class App
 {
     private:
@@ -52,8 +62,8 @@ class App
 
 
         Vector2i windowSize = {1280, 720};
-        Camera camera;
-        Camera secondaryCamera;
+        std::shared_ptr<Camera> camera = std::make_shared<Camera>();
+        std::shared_ptr<Camera> reflCamera = std::make_shared<Camera>();
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
         cyGLSLProgram skyProg;
@@ -91,6 +101,8 @@ class App
         GLuint fboReflections;
         GLuint rboDepth;
         GLuint texReflections;
+
+        std::vector<RenderPass> renderPasses;
 
         // Element counts
         std::vector<GLsizei> vCounts;
@@ -164,5 +176,6 @@ class App
 
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);
+        entt::entity makeReflectiveModel(const std::string& name);
         entt::entity makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type);
 };

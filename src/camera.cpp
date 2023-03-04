@@ -105,18 +105,10 @@ const Matrix4f Camera::getView() const {
         .matrix();
 }
 
-const Matrix4f Camera::getViewReflected() const {
-    return identityTransform()
-        .rotate(euler(rot))
-        .scale(Vector3f(1.0f, -1.0f, 1.0f))
-        .translate(-pos)
-        .matrix();
-}
-
 const Matrix4f Camera::getProj(Vector2f viewsize) const {
     switch (this->projection) {
         case Projection::perspective:
-            return perspective(fov, viewsize.x() / viewsize.y(), this->near, this->far);
+            return perspective(this->fov, viewsize.x() / viewsize.y(), this->near, this->far);
         case Projection::orthographic:
             return orthographic(viewsize / this->zoom, this->near, this->far);
         default:
@@ -126,4 +118,15 @@ const Matrix4f Camera::getProj(Vector2f viewsize) const {
 
 Vector3f Camera::toView(const Vector3f &point) const {
     return (this->getView() * Vector4f(point.x(), point.y(), point.z(), 1.0f)).head<3>();
+}
+
+void Camera::from(const Camera& other) {
+    this->pos = other.pos;
+    this->rot = other.rot;
+    this->fov = other.fov;
+    this->zoom = other.zoom;
+    this->projection = other.projection;
+    this->near = other.near;
+    this->far = other.far;
+    this->mode = other.mode;
 }

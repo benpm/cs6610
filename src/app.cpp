@@ -229,9 +229,9 @@ App::App(cxxopts::ParseResult& args) {
     planeRefl.diffuseColor = Vector3f::Zero();
     this->meshes.setMaterial("quad", "plane_reflection");
 
-    // uMaterial& skyRefl = this->meshes.getMaterial("sky_cubemap");
-    // skyRefl.shininess = 1000.0f;
-    // skyRefl.diffuseColor = Vector3f::Zero();
+    uMaterial& skyRefl = this->meshes.getMaterial("sky_cubemap");
+    skyRefl.shininess = 1000.0f;
+    skyRefl.diffuseColor = Vector3f::Zero();
 
     // Build meshes / materials
     this->meshes.build(this->meshProg);
@@ -277,9 +277,25 @@ App::App(cxxopts::ParseResult& args) {
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
-    this->camera.orbitDist(3.0f);
-    this->secondaryCamera.pos.z() = 20.0f;
-    this->secondaryCamera.projection = Camera::Projection::perspective;
+    this->camera->orbitDist(3.0f);
+
+    // Setup render passes
+    this->renderPasses.push_back(RenderPass{ // Reflection pass
+        .camera = this->reflCamera,
+        .fbo = this->fboReflections,
+        .tex = this->texReflections,
+        .texTarget = GL_TEXTURE_2D,
+        .rbo = this->rboDepth,
+        .objMask = { this->reg.get<ObjRef>(this->ePlane) }
+    });
+    this->renderPasses.push_back(RenderPass{ // Final pass
+        .camera = this->camera,
+        .fbo = GL_NONE,
+        .tex = GL_NONE,
+        .texTarget = GL_NONE,
+        .rbo = GL_NONE,
+        .objMask = {}
+    });
 
     // Add lights
     this->makeLight(
@@ -372,20 +388,20 @@ void App::onKey(int key, bool pressed) {
                 }
             } break;
             case GLFW_KEY_P: {
-                if (this->camera.projection == Camera::Projection::perspective) {
-                    this->camera.projection = Camera::Projection::orthographic;
-                    this->camera.zoom = 2000.0f;
+                if (this->camera->projection == Camera::Projection::perspective) {
+                    this->camera->projection = Camera::Projection::orthographic;
+                    this->camera->zoom = 2000.0f;
                 } else {
-                    this->camera.projection = Camera::Projection::perspective;
-                    this->camera.orbitDist(2.0f);
+                    this->camera->projection = Camera::Projection::perspective;
+                    this->camera->orbitDist(2.0f);
                 }
             } break;
             case GLFW_KEY_1: {
-                this->camera.mode = Camera::Mode::orbit;
+                this->camera->mode = Camera::Mode::orbit;
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             } break;
             case GLFW_KEY_2: {
-                this->camera.mode = Camera::Mode::fly;
+                this->camera->mode = Camera::Mode::fly;
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             } break;
             default:
@@ -411,8 +427,7 @@ void App::onClick(int button, bool pressed) {
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
-            this->camera.dragStart();
-            this->secondaryCamera.dragStart();
+            this->camera->dragStart();
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
@@ -462,7 +477,7 @@ void App::run() {
                     this->onClick(event.mouse.button, false);
                     break;
                 case GLEQ_SCROLLED: 
-                    this->camera.universalZoom(-event.scroll.y * 0.1f);
+                    this->camera->universalZoom(-event.scroll.y * 0.1f);
                     break;
                 default:
                     break;
@@ -508,11 +523,7 @@ void App::simulate(float dt) {
         dragDelta = panDelta * 2.0f;
         dragDelta.y() *= -1.0f;
     }
-    if (this->pressedKeys.count(GLFW_KEY_LEFT_ALT)) {
-        this->secondaryCamera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
-    } else {
-        this->camera.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
-    }
+    this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
 
     // Physics simulation
     constexpr float dampingFactor = 0.25f;
@@ -552,7 +563,7 @@ void App::simulate(float dt) {
     // Update lights
     for (auto e : this->reg.view<Light, uLight>()) {
         auto [light, ulight] = this->reg.get<Light, uLight>(e);
-        ulight = light.toStruct(this->camera);
+        ulight = light.toStruct(*this->camera.get());
     }
 }
 
@@ -662,39 +673,30 @@ void App::updateBuffers() {
 void App::draw(float dt) {
     this->updateBuffers();
 
-    {
-        // Reflect camera by plane (assumes plane is at origin and not rotated)
-        const Vector3f reflPos(this->camera.pos.x(), -this->camera.pos.y(), this->camera.pos.z());
-        const Matrix4f view = identityTransform()
-            .rotate(euler({-this->camera.rot.x(), this->camera.rot.y(), 0.0f}))
-            .translate(-reflPos)
-            .matrix();
-        const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
+    // Reflect camera by plane
+    this->reflCamera->from(*this->camera);
+    this->reflCamera->pos = this->camera->pos.cwiseProduct(Vector3f(1.0f, -1.0f, 1.0f));
+    this->reflCamera->rot = this->camera->rot.cwiseProduct(Vector3f(-1.0f, 1.0f, 0.0f));
 
-        this->hidden(this->ePlane, true);
-        glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
+    glGenerateTextureMipmap(this->texReflections); $gl_err();
+    const GLuint targetTexID = this->meshes.getTextureData(this->meshes.getMaterial("plane_reflection").flatReflectionTexID).bindID;
+    glGenerateTextureMipmap(targetTexID); $gl_err();
+    glCopyImageSubData(
+        this->texReflections, GL_TEXTURE_2D, 0, 0, 0, 0,
+        targetTexID, GL_TEXTURE_2D, 0, 0, 0, 0,
+        this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
+
+    for (const RenderPass& pass : this->renderPasses) {
+        const Matrix4f view = pass.camera->getView();
+        const Matrix4f proj = pass.camera->getProj(this->windowSize.cast<float>());
+        glBindFramebuffer(GL_FRAMEBUFFER, pass.fbo); $gl_err();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
         this->drawSky(view, proj);
-        this->drawMeshes(view, proj, reflPos);
+        this->drawMeshes(view, proj, this->camera->pos);
     }
-    {
-        this->hidden(this->ePlane, false);
-        const Matrix4f view = this->camera.getView();
-        const Matrix4f proj = this->camera.getProj(this->windowSize.cast<float>());
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
-        const GLuint targetTexID = this->meshes.getTextureData(this->meshes.getMaterial("plane_reflection").flatReflectionTexID).bindID;
-        glGenerateTextureMipmap(this->texReflections); $gl_err();
-        glGenerateTextureMipmap(targetTexID); $gl_err();
-        glCopyImageSubData(
-            this->texReflections, GL_TEXTURE_2D, 0, 0, 0, 0,
-            targetTexID, GL_TEXTURE_2D, 0, 0, 0, 0,
-            this->windowSize.x(), this->windowSize.y(), 1); $gl_err();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-        this->drawSky(view, proj);
-        this->drawMeshes(view, proj, this->camera.pos);
-
-        this->drawDebug(view, proj);
-    }
+    const Matrix4f view = this->camera->getView();
+    const Matrix4f proj = this->camera->getProj(this->windowSize.cast<float>());
+    this->drawDebug(view, proj);
 }
 
 void App::composeUI() {
@@ -711,8 +713,8 @@ void App::composeUI() {
     ImGui::Text("1: Orbit camera");
     ImGui::Text("2: Fly camera");
     ImGui::Text("F6: Reload shaders");
-    ImGui::Text(fmt::format("camera pos: {}", this->camera.pos).c_str());
-    ImGui::Text(fmt::format("camera rot: {}", this->camera.rot).c_str());
+    ImGui::Text(fmt::format("camera pos: {}", this->camera->pos).c_str());
+    ImGui::Text(fmt::format("camera rot: {}", this->camera->rot).c_str());
 
     ImGui::End();
     ImGui::Render();
@@ -756,6 +758,14 @@ entt::entity App::makeModel(const std::string& name) {
     this->vOffsets.push_back(meshRef.elemOffset);
     
     this->reg.emplace<ModelTransform>(e);
+    return e;
+}
+
+entt::entity App::makeReflectiveModel(const std::string& name) {
+    entt::entity e = this->makeModel(name);
+
+    this->reg.emplace<RenderPass>(e);
+
     return e;
 }
 
