@@ -48,6 +48,23 @@ template<> struct fmt::formatter<Matrix4f> {
     }
 };
 
+// fmt overload for Matrix4f
+template<> struct fmt::formatter<Matrix3f> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const Matrix3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
+        return format_to(ctx.out(),
+            "[{}, {}, {}]\n[{}, {}, {}]\n[{}, {}, {}]",
+            input(0, 0), input(0, 1), input(0, 2),
+            input(1, 0), input(1, 1), input(1, 2),
+            input(2, 0), input(2, 1), input(2, 2)
+            );
+    }
+};
+
 // fmt overload for Vector3f
 template<> struct fmt::formatter<Vector3f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
@@ -221,6 +238,8 @@ Vector3f spherePoint(float phi, float theta);
 Vector3f spherePoint(const Vector2f& point);
 // Convert cartesian to spherical coordinates (+Y up)
 Vector2f pointSphere(const Vector3f& point);
+// Returns a 3x3 skew-symmetric matrix from given vec3
+Matrix3f skew(const Vector3f& v);
 // Rotates a vector by given euler angles
 Vector3f rotate(const Vector3f& v, const Vector3f& axisAngles);
 // Gets direction corresponding to given euler angles

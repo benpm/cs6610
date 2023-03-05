@@ -210,6 +210,7 @@ App::App(cxxopts::ParseResult& args) {
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/teapot.obj");
+    this->meshes.add("resources/models/cube.obj");
     this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
     size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
@@ -287,6 +288,11 @@ App::App(cxxopts::ParseResult& args) {
         model.scale = vec3(100.0f);
 
         this->ePlane = e;
+    }
+    {
+        entt::entity e = this->makeRigidBody({0.2f, 0.3f, 0.4f}, rng.vec(this->box));
+        RigidBody& body = this->reg.get<RigidBody>(e);
+        body.angMomentum = {-0.01f, -0.01f, 0.0f};
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -366,6 +372,10 @@ void App::loadingScreen(const std::string& message) {
     ImGui::Begin("Loading...", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground
         | ImGuiWindowFlags_NoDecoration);
+    auto textSize = ImGui::CalcTextSize(message.c_str());
+    ImGui::SetCursorPos(ImVec2(
+        this->windowSize.x() / 2.0f - textSize.x / 2.0f,
+        this->windowSize.y() / 2.0f - textSize.y / 2.0f));
     ImGui::Text(message.c_str());
     ImGui::End();
 
@@ -553,16 +563,26 @@ void App::simulate(float dt) {
     this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
 
     // Physics simulation
-    constexpr float dampingFactor = 0.25f;
-    for (auto e : this->reg.view<PhysicsBody>()) {
-        PhysicsBody& body = this->reg.get<PhysicsBody>(e);
+    // constexpr float dampingFactor = 0.25f;
+    // for (auto e : this->reg.view<PhysicsBody>()) {
+    //     PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
-        this->box.collide(body);
+    //     this->box.collide(body);
 
-        body.acc = F(body.pos);
-        body.vel += body.acc * dt;
-        body.pos += body.vel * dt;
-        body.vel *= 1.0f - (dampingFactor);
+    //     body.acc = F(body.pos);
+    //     body.vel += body.acc * dt;
+    //     body.pos += body.vel * dt;
+    //     body.vel *= 1.0f - (dampingFactor);
+    // }
+
+    for (auto e : this->reg.view<PhysicsBody, RigidBody>()) {
+        auto [body, rigid] = this->reg.get<PhysicsBody, RigidBody>(e);
+        Physics::simulate(dt, rigid, body);
+    }
+
+    for (auto e : this->reg.view<RigidBody, Model>()) {
+        auto [body, model] = this->reg.get<RigidBody, Model>(e);
+        model.rot = body.rot.eulerAngles(0, 1, 2);
     }
 
     // Update model transforms
@@ -757,6 +777,14 @@ void App::hidden(entt::entity e, bool hidden) {
     }
 }
 
+ObjRef App::makeObj(const MeshRef& mesh) {
+    ObjRef objRef;
+    objRef.objID = this->vCounts.size();
+    this->vCounts.push_back(mesh.elemCount);
+    this->vOffsets.push_back(mesh.elemOffset);
+    return objRef;
+}
+
 entt::entity App::makeParticle() {
     entt::entity e = this->makeModel("sphere");
 
@@ -778,10 +806,7 @@ entt::entity App::makeModel(const std::string& name) {
     MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
     model.pivot = meshData.center;
 
-    ObjRef& objRef = this->reg.emplace<ObjRef>(e);
-    objRef.objID = this->vCounts.size();
-    this->vCounts.push_back(meshRef.elemCount);
-    this->vOffsets.push_back(meshRef.elemOffset);
+    this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
     
     this->reg.emplace<ModelTransform>(e);
     return e;
@@ -791,6 +816,29 @@ entt::entity App::makeReflectiveModel(const std::string& name) {
     entt::entity e = this->makeModel(name);
 
     this->reg.emplace<RenderPass>(e);
+
+    return e;
+}
+
+entt::entity App::makeRigidBody(const Vector3f &halfExtents, const Vector3f& pos, const Vector3f& rot) {
+    entt::entity e = this->reg.create();
+
+    this->reg.emplace<PhysicsBody>(e);
+    ColliderBox& collider = this->reg.emplace<ColliderBox>(e, ColliderBox{
+        .halfExtents = halfExtents
+    });
+    this->reg.emplace<RigidBody>(e, collider);
+
+    const MeshData& meshData = this->meshes.get("cube");
+
+    Model& model = this->reg.emplace<Model>(e);
+    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
+    model.pivot = meshData.center;
+    model.scale = 2.0f * halfExtents;
+
+    this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
+    
+    this->reg.emplace<ModelTransform>(e);
 
     return e;
 }

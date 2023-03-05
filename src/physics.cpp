@@ -1,4 +1,5 @@
 #include <physics.hpp>
+#include <spdlog/spdlog.h>
 
 const Matrix4f DebugRay::transform() const {
     return identityTransform()
@@ -22,4 +23,26 @@ bool ColliderInteriorBox::collide(PhysicsBody &body) const {
         }
     }
     return collided;
+}
+
+RigidBody::RigidBody(const ColliderBox& collider) {
+    // Calculate rest inertial tensor
+    const float x = collider.halfExtents.x();
+    const float y = collider.halfExtents.y();
+    const float z = collider.halfExtents.z();
+    this->J <<
+        (y*y + z*z) / 12.0f, 0.0f, 0.0f,
+        0.0f, (x*x + z*z) / 12.0f, 0.0f,
+        0.0f, 0.0f, (x*x + y*y) / 12.0f;
+    this->invJ = this->J.inverse();
+}
+
+void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {
+    Matrix3f deltaRot = skew(rb.rot * rb.invJ * rb.rot.transpose() * rb.angMomentum) * (rb.rot);
+
+    spdlog::trace("\n{}", deltaRot);
+
+    b.vel += b.mass * b.acc * dt;
+    b.pos += b.vel * dt;
+    rb.rot += deltaRot * dt;
 }

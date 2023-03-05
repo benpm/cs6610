@@ -181,8 +181,11 @@ class App
         // Hides given object from rendering
         void hidden(entt::entity e, bool hidden);
 
+        ObjRef makeObj(const MeshRef& mesh);
+
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);
         entt::entity makeReflectiveModel(const std::string& name);
+        entt::entity makeRigidBody(const Vector3f& halfExtents, const Vector3f& pos, const Vector3f& rot = {0.0f, 0.0f, 0.0f});
         entt::entity makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type);
 };

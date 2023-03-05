@@ -118,6 +118,14 @@ Vector2f pointSphere(const Vector3f& point) {
     };
 }
 
+Matrix3f skew(const Vector3f& v) {
+    Matrix3f m; m <<
+        0.0f, -v.z(), v.y(),
+        v.z(), 0.0f, -v.x(),
+        -v.y(), v.x(), 0.0f;
+    return m;
+}
+
 Vector3f rotate(const Vector3f &v, const Vector3f &axisAngles) {
     return euler(axisAngles) * v;
 }
