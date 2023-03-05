@@ -244,6 +244,10 @@ void AABB::size(float size) {
     this->place(this->center(), Vector3f(size, size, size));
 }
 
+Vector3f AABB::extents() const {
+    return (max - min) / 2.0f;
+}
+
 Vector3f AABB::center() const {
     return (min + max) / 2.0f;
 }
@@ -260,6 +264,10 @@ void AABB::place(const Vector2f& center, const Vector2f& size) {
 
 float AABB::volume() const {
     return this->width() * this->height() * this->depth();
+}
+
+AABB AABB::operator*(const Vector3f& v) const {
+    return AABB(Vector3f(this->min.cwiseProduct(v)), Vector3f(this->max.cwiseProduct(v)));
 }
 
 Plane::Plane(const Vector3f& origin, const Vector3f& normal)

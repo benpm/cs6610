@@ -60,7 +60,7 @@ template<> struct fmt::formatter<uMaterial> {
 // References data inside mesh collection
 struct MeshRef {
     GLsizei elemCount; // Number of elements
-    size_t elemOffset; // Byte offset into arrElems
+    size_t elemByteOffset; // Byte offset into arrElems
 };
 
 // Mesh data
@@ -71,6 +71,8 @@ struct MeshData {
     std::vector<uint32_t> materials;
     // Center of mesh
     Vector3f center;
+    // Bounding box of mesh
+    AABB bbox;
     // Offset into vertex data
     size_t vertOffset;
     // Number of vertices
@@ -81,6 +83,8 @@ struct MeshData {
 class MeshCollection
 {
 private:
+    // Counter for naming clones
+    uint32_t cloneCount = 0u;
     // Flat, strided vertex array data (pos, color, normal, uv)
     std::vector<VertexData> vertexData;
     // Flat element array data (vertex indices for triangles: v0,v1,v2)
@@ -109,6 +113,10 @@ public:
     
     // Load and add mesh to the collection, returns name
     std::string add(const std::string& filename, const std::string& meshName="", bool normalize=true, bool computeNormals=true);
+    // Clones mesh with given name, returns new name
+    std::string clone(const std::string& meshName, const std::string& newName="");
+    // Clones mesh with given name, assigning to a new material, returns new name
+    std::string clone(const std::string& meshName, const uMaterial& mat, const std::string& newName="");
     // Returns the meshdata corresponding to given meshname
     const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built
@@ -129,6 +137,8 @@ public:
     uMaterial& createBufferMaterial(const std::string& name, uint32_t width, uint32_t height);
     // Creates a new material, inferring from given, returns ID
     size_t createMaterial(const std::string& name, uMaterial mat);
+    // Creates a new material as a copy of the given material, returns ID
+    size_t createMaterial(const std::string& name, size_t matID);
     // Gets the texturedata with given ID (the IDs from the materials)
     const TextureData& getTextureData(int texID);
 };

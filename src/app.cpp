@@ -216,7 +216,6 @@ App::App(cxxopts::ParseResult& args) {
     size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
     this->meshes.setMaterial("teapot", skyMatID);
     this->meshes.setMaterial("sphere", skyMatID);
-    this->meshes.setMaterial("suzanne", "teapot.default");
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
     glGenTextures(1, &this->texReflections); $gl_err();
@@ -248,8 +247,6 @@ App::App(cxxopts::ParseResult& args) {
     skyRefl.shininess = 1000.0f;
     skyRefl.diffuseColor = Vector3f::Zero();
 
-    // Build meshes / materials
-    this->meshes.build(this->meshProg);
     spdlog::info("Loaded meshes");
 
     // Construct scene
@@ -268,18 +265,10 @@ App::App(cxxopts::ParseResult& args) {
         entt::entity e = this->makeModel("teapot");
         Model& model = this->reg.get<Model>(e);
 
+        model.pivot.z() = 0.0f;
         model.rot.x() = -tau4;
         model.pos.y() = 0.25f;
-    }
-    {
-        entt::entity e = this->makeModel("suzanne");
-        Model& model = this->reg.get<Model>(e);
-
-        model.rot.x() = -tau4;
-
-        model.pos.y() = 0.25f;
-        model.pos.z() = 1.25f;
-        model.pos.x() = 1.25f;
+        model.scale *= 3.0f;
     }
     {
         entt::entity e = this->makeModel("quad");
@@ -289,12 +278,31 @@ App::App(cxxopts::ParseResult& args) {
 
         this->ePlane = e;
     }
-    for (size_t i = 0; i < 50; i++) {
+    // Create lots of colorful boxes
+    for (size_t i = 0; i < 20; i++) {
         entt::entity e = this->makeRigidBody(
-            rng.vec({0.05f, 0.05f, 0.05f}, {0.25f, 0.25f, 0.25f}),
-            Vector3f(0.0f, 5.0f, 0.0f) + rng.vec(this->box));
+            this->meshes.clone("cube", uMaterial {
+                .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
+                .shininess = 1000.0f,
+                .diffuseTexID = -1,
+                .specularTexID = -1,
+                .reflectionTexID = -1,
+                .flatReflectionTexID = -1
+            }),
+            rng.vec({0.2f, 0.2f, 0.2f}, {1.0f, 1.0f, 1.0f}),
+            rng.vec(this->box));
         RigidBody& body = this->reg.get<RigidBody>(e);
-        body.angMomentum = rng.vec({-0.05f, -0.05f, -0.05f}, {0.05f, 0.05f, 0.05f});
+        body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
+        PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
+        pbody.vel = rng.vec({-0.25f, -0.25f, -0.25f}, {0.25f, 0.25f, 0.25f});
+    }
+    // Create lots of random models
+    for (size_t i = 0; i < 20; i++) {
+        entt::entity e = this->makeRigidBody("suzanne",
+            {1.0f, 1.0f, 1.0f},
+            rng.vec(this->box));
+        RigidBody& body = this->reg.get<RigidBody>(e);
+        body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
         PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
         pbody.vel = rng.vec({-0.25f, -0.25f, -0.25f}, {0.25f, 0.25f, 0.25f});
     }
@@ -355,6 +363,8 @@ App::App(cxxopts::ParseResult& args) {
 
     // Create and bind lights SSBO
     glGenBuffers(1, &this->ssboLights); $gl_err();
+
+    this->meshes.build(this->meshProg);
 }
 
 App::~App() {
@@ -567,17 +577,17 @@ void App::simulate(float dt) {
     this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
 
     // Physics simulation
-    // constexpr float dampingFactor = 0.25f;
-    // for (auto e : this->reg.view<PhysicsBody>()) {
-    //     PhysicsBody& body = this->reg.get<PhysicsBody>(e);
+    constexpr float dampingFactor = 0.25f;
+    for (auto e : this->reg.view<PhysicsBody>()) {
+        PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
-    //     this->box.collide(body);
+        this->box.collide(body);
 
-    //     body.acc = F(body.pos);
-    //     body.vel += body.acc * dt;
-    //     body.pos += body.vel * dt;
-    //     body.vel *= 1.0f - (dampingFactor);
-    // }
+        body.acc = F(body.pos);
+        body.vel += body.acc * dt;
+        body.pos += body.vel * dt;
+        body.vel *= 1.0f - (dampingFactor);
+    }
 
     for (auto e : this->reg.view<PhysicsBody, RigidBody>()) {
         auto [body, rigid] = this->reg.get<PhysicsBody, RigidBody>(e);
@@ -785,7 +795,7 @@ ObjRef App::makeObj(const MeshRef& mesh) {
     ObjRef objRef;
     objRef.objID = this->vCounts.size();
     this->vCounts.push_back(mesh.elemCount);
-    this->vOffsets.push_back(mesh.elemOffset);
+    this->vOffsets.push_back(mesh.elemByteOffset);
     return objRef;
 }
 
@@ -824,21 +834,25 @@ entt::entity App::makeReflectiveModel(const std::string& name) {
     return e;
 }
 
-entt::entity App::makeRigidBody(const Vector3f &halfExtents, const Vector3f& pos, const Vector3f& rot) {
+entt::entity App::makeRigidBody(const std::string& name, const Vector3f &scale, const Vector3f& pos, const Vector3f& rot) {
     entt::entity e = this->reg.create();
 
-    this->reg.emplace<PhysicsBody>(e);
+    const MeshData& meshData = this->meshes.get(name);
+
+    const Vector3f halfExtents = meshData.bbox.extents().cwiseProduct(scale);
+
+    Model& model = this->reg.emplace<Model>(e);
+    model.pos = pos;
+    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
+    model.pivot = meshData.center;
+    model.scale = 2.0f * halfExtents;
+
+    PhysicsBody& physicsBody = this->reg.emplace<PhysicsBody>(e);
+    physicsBody.pos = pos;
     ColliderBox& collider = this->reg.emplace<ColliderBox>(e, ColliderBox{
         .halfExtents = halfExtents
     });
     this->reg.emplace<RigidBody>(e, collider);
-
-    const MeshData& meshData = this->meshes.get("cube");
-
-    Model& model = this->reg.emplace<Model>(e);
-    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
-    model.pivot = meshData.center;
-    model.scale = 2.0f * halfExtents;
 
     this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
     

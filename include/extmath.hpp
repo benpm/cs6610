@@ -132,6 +132,8 @@ public:
     void depth(float depth);
     // Makes AABB a square with given width / heighy, using current center
     void size(float size);
+    // Returns extents
+    Vector3f extents() const;
     // Returns center of AABB
     Vector3f center() const;
     // Places AABB by given center and size
@@ -139,6 +141,8 @@ public:
     void place(const Vector2f& center, const Vector2f& size);
     // Returns 3D volume of AABB
     float volume() const;
+
+    AABB operator*(const Vector3f& v) const;
 };
 
 // Plane

@@ -44,7 +44,7 @@ struct RenderPass {
 class App
 {
     private:
-        ColliderInteriorBox box{Vector3f(-6.0f, 0.0f, -6.0f), vec3(6.0f)};
+        ColliderInteriorBox box{Vector3f(-6.0f, 1.0f, -6.0f), vec3(6.0f)};
         // const size_t objectsToGen = this->box.volume() * 0.01f;
         const size_t objectsToGen = 5u;
         const float frameRate = 60.0f;
@@ -186,6 +186,6 @@ class App
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);
         entt::entity makeReflectiveModel(const std::string& name);
-        entt::entity makeRigidBody(const Vector3f& halfExtents, const Vector3f& pos, const Vector3f& rot = {0.0f, 0.0f, 0.0f});
+        entt::entity makeRigidBody(const std::string& name, const Vector3f& scale, const Vector3f& pos, const Vector3f& rot = {0.0f, 0.0f, 0.0f});
         entt::entity makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type);
 };

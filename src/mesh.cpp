@@ -28,17 +28,15 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
         filename, m.NV(), m.NF(), m.NVN(), m.NVT(), m.NM());
 
     // Normalize mesh to fit in a unit cube
-    Vector3f pivot = toEigen(m.GetBoundMax() + m.GetBoundMin()) / 2.0f;
+    AABB bbox(toEigen(m.GetBoundMin()), toEigen(m.GetBoundMax()));
     if (normalize) {
-        const Vector3f boundMin = toEigen(m.GetBoundMin());
-        const Vector3f boundMax = toEigen(m.GetBoundMax());
-        const Vector3f boundSize = boundMax - boundMin;
+        const Vector3f boundSize = bbox.max - bbox.min;
         const float maxBoundSize = std::max(std::max(boundSize.x(), boundSize.y()), boundSize.z());
         const float scale = 1.0f / maxBoundSize;
         for (size_t i = 0; i < m.NV(); i++) {
             m.V(i) *= scale;
         }
-        pivot *= scale;
+        bbox = bbox * vec3(scale);
     }
 
     const size_t vertOffset = this->vertexData.size();
@@ -139,15 +137,62 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
     this->meshDataMap.emplace(name, MeshData{
         .ref = MeshRef{
             .elemCount = (int)nElems,
-            .elemOffset = elemOffset * sizeof(uint32_t)},
+            .elemByteOffset = elemOffset * sizeof(uint32_t)},
         .materials = meshMaterialIDs,
-        .center = pivot,
+        .center = bbox.center(),
+        .bbox = bbox,
         .vertOffset = vertOffset,
         .vertCount = nVerts
     });
 
     this->dirty = true;
 
+    return name;
+}
+
+std::string MeshCollection::clone(const std::string &meshName, const std::string &newName) {
+    const MeshData& meshData = this->meshDataMap.at(meshName);
+    const size_t dstVertOffset = this->vertexData.size();
+    const size_t srcVertOffset = meshData.vertOffset;
+    const size_t dstElemOffset = this->arrElems.size();
+    const size_t srcElemOffset = meshData.ref.elemByteOffset / sizeof(uint32_t);
+
+    // Copy vertex and element data, adding new offsets
+    this->vertexData.resize(dstVertOffset + meshData.vertCount);
+    for (size_t i = 0; i < meshData.vertCount; i++) {
+        this->vertexData[i + dstVertOffset] = this->vertexData[i + srcVertOffset];
+    }
+    this->arrElems.resize(dstElemOffset + meshData.ref.elemCount);
+    for (size_t i = 0; i < meshData.ref.elemCount; i++) {
+        this->arrElems[i + dstElemOffset] = this->arrElems[i + srcElemOffset] - srcVertOffset + dstVertOffset;
+    }
+
+    std::string name = newName;
+    if (newName.empty()) {
+        name = fmt::format("{}_{}", meshName, this->cloneCount++);
+    }
+
+    this->meshDataMap.emplace(name, MeshData{
+        .ref = MeshRef{
+            .elemCount = meshData.ref.elemCount,
+            .elemByteOffset = dstElemOffset * sizeof(uint32_t)},
+        .materials = meshData.materials,
+        .center = meshData.center,
+        .bbox = meshData.bbox,
+        .vertOffset = dstVertOffset,
+        .vertCount = meshData.vertCount
+    });
+
+        this->dirty = true;
+
+    return name;
+}
+
+std::string MeshCollection::clone(const std::string &meshName, const uMaterial &mat, const std::string &newName) {
+    std::string name = this->clone(meshName, newName);
+    size_t newMatID = this->createMaterial(fmt::format("{}.mat_{}", name, this->cloneCount++), mat);
+    this->setMaterial(name, newMatID);
+    this->dirty = true;
     return name;
 }
 
@@ -231,6 +276,7 @@ uMaterial& MeshCollection::setMaterial(const std::string& meshName, size_t matID
     for (size_t i = mesh.vertOffset; i < mesh.vertOffset + mesh.vertCount; i++) {
         this->vertexData[i].matID = matID;
     }
+    mesh.materials = {(uint32_t)matID};
 
     this->dirty = true;
     return this->materials.at(matID);
@@ -313,6 +359,10 @@ size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
     this->nameMaterialMap[name] = matID;
     this->materialNameMap[matID] = name;
     return matID;
+}
+
+size_t MeshCollection::createMaterial(const std::string &name, size_t matID) {
+    return this->createMaterial(name, this->materials.at(matID));
 }
 
 const TextureData& MeshCollection::getTextureData(int texID) {
