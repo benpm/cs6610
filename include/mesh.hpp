@@ -108,7 +108,7 @@ public:
     TextureCollection textures;
     
     // Load and add mesh to the collection, returns name
-    std::string add(const std::string& filename, const std::string& meshName="", bool normalize=true);
+    std::string add(const std::string& filename, const std::string& meshName="", bool normalize=true, bool computeNormals=true);
     // Returns the meshdata corresponding to given meshname
     const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built

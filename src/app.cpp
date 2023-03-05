@@ -210,7 +210,7 @@ App::App(cxxopts::ParseResult& args) {
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/teapot.obj");
-    this->meshes.add("resources/models/cube.obj");
+    this->meshes.add("resources/models/cube.obj", "", true, false);
     this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
     size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
@@ -289,10 +289,14 @@ App::App(cxxopts::ParseResult& args) {
 
         this->ePlane = e;
     }
-    {
-        entt::entity e = this->makeRigidBody({0.2f, 0.3f, 0.4f}, rng.vec(this->box));
+    for (size_t i = 0; i < 50; i++) {
+        entt::entity e = this->makeRigidBody(
+            rng.vec({0.05f, 0.05f, 0.05f}, {0.25f, 0.25f, 0.25f}),
+            Vector3f(0.0f, 5.0f, 0.0f) + rng.vec(this->box));
         RigidBody& body = this->reg.get<RigidBody>(e);
-        body.angMomentum = {-0.01f, -0.01f, 0.0f};
+        body.angMomentum = rng.vec({-0.05f, -0.05f, -0.05f}, {0.05f, 0.05f, 0.05f});
+        PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
+        pbody.vel = rng.vec({-0.25f, -0.25f, -0.25f}, {0.25f, 0.25f, 0.25f});
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());

@@ -6,7 +6,7 @@
 #include <spdlog/fmt/fmt.h>
 #include "mesh.hpp"
 
-std::string MeshCollection::add(const std::string &filename, const std::string &meshName, bool normalize) {
+std::string MeshCollection::add(const std::string &filename, const std::string &meshName, bool normalize, bool computeNormals) {
     assert(fs::exists(filename));
 
     const fs::path textureDir = {"resources/textures"};
@@ -21,7 +21,9 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
     cyTriMesh m;
     m.LoadFromFileObj(filename.c_str());
     m.ComputeBoundingBox();
-    m.ComputeNormals();
+    if (computeNormals) {
+        m.ComputeNormals();
+    }
     spdlog::debug("loading '{}' vertices:{}, faces:{}, vertex normals:{}, texture verts:{}, materials:{}",
         filename, m.NV(), m.NF(), m.NVN(), m.NVT(), m.NM());
 
