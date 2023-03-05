@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <random>
 #include <array>
+#include <sstream>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #ifdef PLATFORM_WINDOWS
@@ -30,62 +31,61 @@ void glCheckError_(const char *file, int line);
     #define $gl_err() glCheckError_(__FILE__, __LINE__) 
 #endif
 
+template<typename T> struct EigenFormatter {
+    std::string strFormat(const T& input) {
+        IOFormat fmt(3, 0, ", ", ", ", "[", "]", "[", "]");
+        auto wf = input.format(fmt);
+        std::stringstream ss;
+        ss << wf;
+        return ss.str();
+    }
+};
+
 // fmt overload for Matrix4f
-template<> struct fmt::formatter<Matrix4f> {
+template<> struct fmt::formatter<Matrix4f> : EigenFormatter<Matrix4f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
     auto format(const Matrix4f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(),
-            "[{}, {}, {}, {}]\n[{}, {}, {}, {}]\n[{}, {}, {}, {}]\n[{}, {}, {}, {}]",
-            input(0, 0), input(0, 1), input(0, 2), input(0, 3),
-            input(1, 0), input(1, 1), input(1, 2), input(1, 3),
-            input(2, 0), input(2, 1), input(2, 2), input(2, 3),
-            input(3, 0), input(3, 1), input(3, 2), input(3, 3)
-            );
+        return format_to(ctx.out(), "{}", this->strFormat(input));
     }
 };
 
 // fmt overload for Matrix4f
-template<> struct fmt::formatter<Matrix3f> {
+template<> struct fmt::formatter<Matrix3f> : EigenFormatter<Matrix3f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
     auto format(const Matrix3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(),
-            "[{}, {}, {}]\n[{}, {}, {}]\n[{}, {}, {}]",
-            input(0, 0), input(0, 1), input(0, 2),
-            input(1, 0), input(1, 1), input(1, 2),
-            input(2, 0), input(2, 1), input(2, 2)
-            );
+        return format_to(ctx.out(), "{}", this->strFormat(input));
     }
 };
 
 // fmt overload for Vector3f
-template<> struct fmt::formatter<Vector3f> {
+template<> struct fmt::formatter<Vector3f> : EigenFormatter<Vector3f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
     auto format(const Vector3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "[{:.3f}, {:.3f}, {:.3f}]", input.x(), input.y(), input.z());
+        return format_to(ctx.out(), "{}", this->strFormat(input));
     }
 };
 
 // fmt overload for Vector2f
-template<> struct fmt::formatter<Vector2f> {
+template<> struct fmt::formatter<Vector2f> : EigenFormatter<Vector2f> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         return ctx.end();
     }
 
     template <typename FormatContext>
     auto format(const Vector2f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "[{:.3f}, {:.3f}]", input.x(), input.y());
+        return format_to(ctx.out(), "{}", this->strFormat(input));
     }
 };
 
