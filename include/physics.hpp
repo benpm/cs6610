@@ -1,6 +1,7 @@
 #pragma once
 
 #include <extmath.hpp>
+#include <entt/entt.hpp>
 
 // COMPONENT: Physics body
 //  - controls: Model
@@ -45,14 +46,6 @@ struct DebugColor
     Vector4f color;
 };
 
-class ColliderInteriorBox : public AABB
-{
-public:
-    using AABB::AABB;
-
-    bool collide(PhysicsBody& body) const;
-};
-
 // COMPONENT: Rigid body
 //  - controls: PhysicsBody
 //  - sibling: DebugColor, BoxCollider
@@ -60,7 +53,6 @@ struct RigidBody
 {
     static constexpr std::size_t page_size = 65536u;
 
-    RigidBody(const ColliderBox& collider);
 
     Vector3f angMomentum = Vector3f::Zero();
     Matrix3f rot = euler(Vector3f::Zero()).toRotationMatrix();
@@ -68,8 +60,23 @@ struct RigidBody
     Matrix3f J;
     // Inverse of rest inertial tensor
     Matrix3f invJ;
+    float elasticity = 0.99f;
+
+    RigidBody(const ColliderBox& collider);
+    // Apply impulse given sibling physics body, penetration vector, and collision normal
+    void collidePoint(PhysicsBody& pb, float penetration, const Vector3f& cnorm);
+};
+
+class ColliderInteriorBox : public AABB
+{
+public:
+    using AABB::AABB;
+
+    bool collide(PhysicsBody& body) const;
+    bool collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& collider) const;
 };
 
 namespace Physics {
     void simulate(float dt, RigidBody& rb, PhysicsBody& b);
+    void collide(float dt, entt::registry& reg);
 };

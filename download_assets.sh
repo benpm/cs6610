@@ -5,6 +5,6 @@ set -x
 
 cd $( dirname "${BASH_SOURCE[0]}" )
 
-ftp ftp://ftp.cs.utah.edu/users/benpm/assets.zip
+wget https://cs.utah.edu/~benpm/assets.zip
 unzip assets.zip
 rm assets.zip

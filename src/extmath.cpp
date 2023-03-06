@@ -172,6 +172,10 @@ Matrix4f orthographic(const Vector2f& size, float near, float far) {
     return m;
 }
 
+Vector3f project(const Vector3f& a, const Vector3f& b) {
+    return a.dot(b) / a.dot(a) * a;
+}
+
 Vector3f vec3(float v[3]) {
     return {v[0], v[1], v[2]};
 }
@@ -264,6 +268,15 @@ void AABB::place(const Vector2f& center, const Vector2f& size) {
 
 float AABB::volume() const {
     return this->width() * this->height() * this->depth();
+}
+
+std::array<Vector3f, 8> AABB::vertices() const {
+    std::array<Vector3f, 8> arr;
+    std::array<Vector3f, 2> e {min, max};
+    for (int i = 0; i < 8; i++) {
+        arr[i] = {e[(i >> 0) & 1].x(), e[(i >> 1) & 1].y(), e[(i >> 2) & 1].z()};
+    }
+    return arr;
 }
 
 AABB AABB::operator*(const Vector3f& v) const {

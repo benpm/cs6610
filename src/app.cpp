@@ -279,7 +279,7 @@ App::App(cxxopts::ParseResult& args) {
         this->ePlane = e;
     }
     // Create lots of colorful boxes
-    for (size_t i = 0; i < 20; i++) {
+    for (size_t i = 0; i < 30; i++) {
         entt::entity e = this->makeRigidBody(
             this->meshes.clone("cube", uMaterial {
                 .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
@@ -294,17 +294,17 @@ App::App(cxxopts::ParseResult& args) {
         RigidBody& body = this->reg.get<RigidBody>(e);
         body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
         PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
-        pbody.vel = rng.vec({-0.25f, -0.25f, -0.25f}, {0.25f, 0.25f, 0.25f});
+        pbody.vel = rng.vec({-4.0f, -4.0f, -4.0f}, {4.0f, 4.0f, 4.0f});
     }
     // Create lots of random models
-    for (size_t i = 0; i < 20; i++) {
-        entt::entity e = this->makeRigidBody("suzanne",
+    for (size_t i = 0; i < 0; i++) {
+        entt::entity e = this->makeRigidBody(rng.choose({"suzanne", "teapot"}),
             {1.0f, 1.0f, 1.0f},
             rng.vec(this->box));
         RigidBody& body = this->reg.get<RigidBody>(e);
         body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
         PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
-        pbody.vel = rng.vec({-0.25f, -0.25f, -0.25f}, {0.25f, 0.25f, 0.25f});
+        pbody.vel = rng.vec({-2.0f, -2.0f, -2.0f}, {2.0f, 2.0f, 2.0f});
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -577,21 +577,22 @@ void App::simulate(float dt) {
     this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
 
     // Physics simulation
-    constexpr float dampingFactor = 0.25f;
-    for (auto e : this->reg.view<PhysicsBody>()) {
-        PhysicsBody& body = this->reg.get<PhysicsBody>(e);
+    // constexpr float dampingFactor = 0.25f;
+    // for (auto e : this->reg.view<PhysicsBody>()) {
+    //     PhysicsBody& body = this->reg.get<PhysicsBody>(e);
 
-        this->box.collide(body);
+    //     this->box.collide(body);
 
-        body.acc = F(body.pos);
-        body.vel += body.acc * dt;
-        body.pos += body.vel * dt;
-        body.vel *= 1.0f - (dampingFactor);
-    }
+    //     body.acc = {0.0f, -10.0f, 0.0f};
+    //     body.vel += body.acc * dt;
+    //     body.pos += body.vel * dt;
+    //     body.vel *= 1.0f - (dampingFactor);
+    // }
 
-    for (auto e : this->reg.view<PhysicsBody, RigidBody>()) {
-        auto [body, rigid] = this->reg.get<PhysicsBody, RigidBody>(e);
-        Physics::simulate(dt, rigid, body);
+    for (auto e : this->reg.view<PhysicsBody, RigidBody, ColliderBox>()) {
+        auto [pb, rb, collider] = this->reg.get<PhysicsBody, RigidBody, ColliderBox>(e);
+        this->box.collide(rb, pb, collider);
+        Physics::simulate(dt, rb, pb);
     }
 
     for (auto e : this->reg.view<RigidBody, Model>()) {

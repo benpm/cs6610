@@ -141,6 +141,8 @@ public:
     void place(const Vector2f& center, const Vector2f& size);
     // Returns 3D volume of AABB
     float volume() const;
+    // Returns vertices of AABB
+    std::array<Vector3f, 8> vertices() const;
 
     AABB operator*(const Vector3f& v) const;
 };
@@ -256,6 +258,8 @@ Matrix4f perspective(float fov, float aspect, float near, float far);
 Matrix4f perspective(const Vector4f& view, float near, float far);
 // Orthographic projection matrix
 Matrix4f orthographic(const Vector2f& size, float near, float far);
+// Project vector a onto b
+Vector3f project(const Vector3f& a, const Vector3f& b);
 
 Vector3f vec3(float v[3]);
 Vector3f vec3(const Vector2f& v, float z=0.0f);
