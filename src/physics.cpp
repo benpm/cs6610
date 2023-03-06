@@ -44,6 +44,7 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
         Vector3f(0.0f, 0.0f, this->min.z())
     };
     bool collided = false;
+    // Create transform matrix to translate and rotate collider vertices
     const Matrix4f m = (Model {
         .pos = pb.pos,
         .rot = rb.rot.eulerAngles(0,1,2)
@@ -55,10 +56,11 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
             // Project vertex onto inverted face normal
             const float penetration = -(v - facePositions[i]).dot(faceNormals[i]);
             if (penetration > 0.0f) {
-                rb.collidePoint(pb, penetration, faceNormals[i]);
+                rb.collidePoint(pb, penetration, -faceNormals[i], v - pb.pos);
                 collided = true;
             }
         }
+        if (collided) break;
     }
     return collided;
 }
@@ -75,18 +77,50 @@ RigidBody::RigidBody(const ColliderBox& collider) {
     this->invJ = this->J.inverse();
 }
 
-void RigidBody::collidePoint(PhysicsBody& pb, float penetration, const Vector3f& cnorm) {
-    // Impulse vector
-    const Vector3f j = (-(1.0f + this->elasticity) * (pb.vel.dot(cnorm)) / (pb.mass + cnorm.dot(this->invJ * cnorm))) * cnorm;
+void RigidBody::collidePoint(PhysicsBody& pb, float penetration, const Vector3f& cnorm, const Vector3f& contact) {
+    const Vector3f velIn = pb.vel;
+    const Matrix3f invInertialTensor = this->inertialTensor().inverse();
+
+    // Reaction impulse magnitude
+    const float impulseMagnitude =
+        -(((1.0f + this->elasticity) * pb.vel).dot(cnorm))
+        / (1.0f / pb.mass + ((invInertialTensor * contact.cross(cnorm)).cross(contact)).dot(cnorm));
     // Update linear velocity
-    pb.vel += j / pb.mass;
+    pb.vel += ((impulseMagnitude / pb.mass) * cnorm);
     // Update angular momentum
-    const Vector3f r = penetration * -cnorm;
-    const Vector3f angVel = (this->invJ * this->angMomentum) + (this->invJ * (r.cross(j)));
-    this->angMomentum = this->J * angVel;
+    const Vector3f deltaAngVel = impulseMagnitude * invInertialTensor * contact.cross(cnorm);
+    this->angMomentum = this->inertialTensor() * (this->angVel() + deltaAngVel);
 
     // Resolve penetration, update position
-    pb.pos += (penetration / 2.0f) * cnorm;
+    pb.pos -= penetration * cnorm;
+    spdlog::trace("contact\nin vel={}\nout vel={}\nimpulse={}\npos res={}",
+        velIn, pb.vel, Vector3f(impulseMagnitude * cnorm), Vector3f(penetration * cnorm));
+}
+
+void RigidBody::collide(
+    PhysicsBody& pb, RigidBody& rb2, PhysicsBody& pb2,
+    float penetration, const Vector3f& cnorm, const Vector3f& r1, const Vector3f& r2)
+{
+    const float impulseMagnitude = 
+        -(((1.0f + this->elasticity) * (pb.vel - pb2.vel)).dot(cnorm))
+        / (1.0f / pb.mass + 1.0f / pb2.mass + ((this->invJ * r1.cross(cnorm)).cross(r1) + (rb2.invJ * r2.cross(cnorm)).cross(r2)).dot(cnorm));
+    
+    pb.vel -= (impulseMagnitude / pb.mass) * cnorm;
+    pb2.vel += (impulseMagnitude / pb2.mass) * cnorm;
+
+    this->angMomentum -= impulseMagnitude * r1.cross(cnorm);
+    rb2.angMomentum += impulseMagnitude * r2.cross(cnorm);
+
+    pb.pos -= penetration * cnorm;
+    pb2.pos += penetration * cnorm;
+}
+
+Matrix3f RigidBody::inertialTensor() const {
+    return this->rot * this->J * this->rot.transpose();
+}
+
+Vector3f RigidBody::angVel() const {
+    return this->inertialTensor().inverse() * this->angMomentum;
 }
 
 void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {
@@ -94,8 +128,7 @@ void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {
 
     b.vel += b.mass * b.acc * dt;
     b.pos += b.vel * dt;
-    rb.rot += deltaRot * dt;
-    rb.rot = Quaternionf(rb.rot).normalized().toRotationMatrix();
+    rb.rot = Quaternionf(rb.rot + deltaRot * dt).normalized().toRotationMatrix();
 }
 
 void Physics::collide(float dt, entt::registry& reg) {

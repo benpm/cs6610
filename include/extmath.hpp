@@ -33,7 +33,7 @@ void glCheckError_(const char *file, int line);
 
 template<typename T> struct EigenFormatter {
     std::string strFormat(const T& input) {
-        IOFormat fmt(3, 0, ", ", ", ", "[", "]", "[", "]");
+        IOFormat fmt(4, 0, ",", ",");
         auto wf = input.format(fmt);
         std::stringstream ss;
         ss << wf;

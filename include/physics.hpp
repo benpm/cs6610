@@ -63,8 +63,24 @@ struct RigidBody
     float elasticity = 0.99f;
 
     RigidBody(const ColliderBox& collider);
-    // Apply impulse given sibling physics body, penetration vector, and collision normal
-    void collidePoint(PhysicsBody& pb, float penetration, const Vector3f& cnorm);
+    /**
+     * @brief Resolve a collision given necessary values
+     * 
+     * @param pb The sibling physics body
+     * @param penetration Amount of penetration into other object
+     * @param cnorm Normal vector of collision (points out from collision point)
+     * @param contact Vector from center of mass to contact point
+     */
+    void collidePoint(PhysicsBody& pb, float penetration, const Vector3f& cnorm, const Vector3f& contact);
+
+    void collide(
+        PhysicsBody& pb, RigidBody& rb2, PhysicsBody& pb2,
+        float penetration, const Vector3f& cnorm, const Vector3f& r1, const Vector3f& r2);
+    
+    // Returns current inertial tensor computed from rest intertial tensor and rotation matrix
+    Matrix3f inertialTensor() const;
+    // Returns current angular velocity computed from angular momentum and inertial tensor
+    Vector3f angVel() const;
 };
 
 class ColliderInteriorBox : public AABB

@@ -291,10 +291,8 @@ App::App(cxxopts::ParseResult& args) {
             }),
             rng.vec({0.2f, 0.2f, 0.2f}, {1.0f, 1.0f, 1.0f}),
             rng.vec(this->box));
-        RigidBody& body = this->reg.get<RigidBody>(e);
-        body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
         PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
-        pbody.vel = rng.vec({-4.0f, -4.0f, -4.0f}, {4.0f, 4.0f, 4.0f});
+        pbody.vel = rng.vec({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f});
     }
     // Create lots of random models
     for (size_t i = 0; i < 0; i++) {

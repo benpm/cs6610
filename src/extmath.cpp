@@ -276,9 +276,9 @@ float AABB::volume() const {
 
 std::array<Vector3f, 8> AABB::vertices() const {
     std::array<Vector3f, 8> arr;
-    std::array<Vector3f, 2> e {min, max};
+    const std::array<const Vector3f*, 2> e {&this->min, &this->max};
     for (int i = 0; i < 8; i++) {
-        arr[i] = {e[(i >> 0) & 1].x(), e[(i >> 1) & 1].y(), e[(i >> 2) & 1].z()};
+        arr[i] = {e[(i >> 0) & 1]->x(), e[(i >> 1) & 1]->y(), e[(i >> 2) & 1]->z()};
     }
     return arr;
 }
