@@ -1,4 +1,5 @@
 #include <physics.hpp>
+#include <model.hpp>
 #include <spdlog/spdlog.h>
 
 const Matrix4f DebugRay::transform() const {
@@ -43,9 +44,13 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
         Vector3f(0.0f, 0.0f, this->min.z())
     };
     bool collided = false;
+    const Matrix4f m = (Model {
+        .pos = pb.pos,
+        .rot = rb.rot.eulerAngles(0,1,2)
+    }).transform();
     std::array<Vector3f, 8> verts = AABB(-collider.halfExtents, collider.halfExtents).vertices();
     for (Vector3f& v : verts) {
-        v = rb.rot * v + pb.pos;
+        v = (m * vec4(v)).head<3>();
         for (size_t i = 0; i < 6; i++) {
             // Project vertex onto inverted face normal
             const float penetration = -(v - facePositions[i]).dot(faceNormals[i]);

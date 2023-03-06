@@ -192,6 +192,10 @@ Vector2f vec2(const Vector3f &v) {
     return {v.x(), v.y()};
 }
 
+Vector4f vec4(const Vector3f &v, float w) {
+    return {v.x(), v.y(), v.z(), w};
+}
+
 AABB::AABB(const Vector3f& min, const Vector3f& max)
     : min(min), max(max) {}
 
