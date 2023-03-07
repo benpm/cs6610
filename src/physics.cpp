@@ -130,6 +130,7 @@ Vector3f RigidBody::angVel() const {
 void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {
     Matrix3f deltaRot = skew(rb.rot * rb.invJ * rb.rot.transpose() * rb.angMomentum) * (rb.rot);
 
+    b.acc = {0.0f, -9.81f, 0.0f};
     b.vel += b.mass * b.acc * dt;
     b.pos += b.vel * dt;
     rb.rot = Quaternionf(rb.rot + deltaRot * dt).normalized().toRotationMatrix();

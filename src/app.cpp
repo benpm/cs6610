@@ -289,7 +289,7 @@ App::App(cxxopts::ParseResult& args) {
                 .reflectionTexID = -1,
                 .flatReflectionTexID = -1
             }),
-            rng.vec({0.2f, 0.2f, 0.2f}, {1.0f, 1.0f, 1.0f}),
+            rng.vec({1.6f, 0.2f, 1.6f}, {1.8f, 0.4f, 1.8f}),
             rng.vec(this->box));
         RigidBody& body = this->reg.get<RigidBody>(e);
         body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
