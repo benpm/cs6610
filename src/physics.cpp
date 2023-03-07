@@ -43,7 +43,6 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
         Vector3f(0.0f, 0.0f, this->max.z()),
         Vector3f(0.0f, 0.0f, this->min.z())
     };
-    bool collided = false;
     // Create transform matrix to translate and rotate collider vertices
     const Matrix4f m = (Model {
         .pos = pb.pos,
@@ -52,17 +51,25 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
     std::array<Vector3f, 8> verts = AABB(-collider.halfExtents, collider.halfExtents).vertices();
     for (Vector3f& v : verts) {
         v = (m * vec4(v)).head<3>();
-        for (size_t i = 0; i < 6; i++) {
+    }
+    for (size_t i = 0; i < 6; i++) {
+        Vector3f contact = Vector3f::Zero();
+        int contacts = 0;
+        for (const Vector3f& v : verts) {
             // Project vertex onto inverted face normal
             const float penetration = -(v - facePositions[i]).dot(faceNormals[i]);
             if (penetration > 0.0f) {
-                rb.collidePoint(pb, penetration, -faceNormals[i], v - pb.pos);
-                collided = true;
+                contact += v;
+                contacts++;
             }
         }
-        if (collided) break;
+        if (contacts > 0) {
+            contact /= (float)contacts;
+            rb.collidePoint(pb, -(contact - facePositions[i]).dot(faceNormals[i]), -faceNormals[i], contact - pb.pos);
+            return true;
+        }
     }
-    return collided;
+    return false;
 }
 
 RigidBody::RigidBody(const ColliderBox& collider) {
@@ -88,13 +95,10 @@ void RigidBody::collidePoint(PhysicsBody& pb, float penetration, const Vector3f&
     // Update linear velocity
     pb.vel += ((impulseMagnitude / pb.mass) * cnorm);
     // Update angular momentum
-    const Vector3f deltaAngVel = impulseMagnitude * invInertialTensor * contact.cross(cnorm);
-    this->angMomentum = this->inertialTensor() * (this->angVel() + deltaAngVel);
+    this->angMomentum += impulseMagnitude * contact.cross(cnorm);
 
     // Resolve penetration, update position
     pb.pos -= penetration * cnorm;
-    spdlog::trace("contact\nin vel={}\nout vel={}\nimpulse={}\npos res={}",
-        velIn, pb.vel, Vector3f(impulseMagnitude * cnorm), Vector3f(penetration * cnorm));
 }
 
 void RigidBody::collide(
