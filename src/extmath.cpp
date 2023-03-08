@@ -176,6 +176,22 @@ Vector3f project(const Vector3f& a, const Vector3f& b) {
     return a.dot(b) / a.dot(a) * a;
 }
 
+Matrix4f transform(const Vector3f& translation, const Vector3f& axisAngles, const Vector3f& scale) {
+    return identityTransform()
+        .rotate(euler(axisAngles))
+        .scale(scale)
+        .translate(translation)
+        .matrix();
+}
+
+Matrix4f transform(const Vector3f& translation, const Matrix3f& rotMatrix, const Vector3f& scale) {
+    return identityTransform()
+        .rotate(rotMatrix)
+        .scale(scale)
+        .translate(translation)
+        .matrix();
+}
+
 Vector3f vec3(float v[3]) {
     return {v[0], v[1], v[2]};
 }
@@ -283,6 +299,43 @@ std::array<Vector3f, 8> AABB::vertices() const {
     return arr;
 }
 
+std::optional<Vector3f> AABB::intersect(const Ray &ray) const {
+    float tmin = (this->min.x() - ray.origin.x()) / ray.direction.x();
+    float tmax = (this->max.x() - ray.origin.x()) / ray.direction.x();
+    if (tmin > tmax) {
+        std::swap(tmin, tmax);
+    }
+    float tymin = (this->min.y() - ray.origin.y()) / ray.direction.y();
+    float tymax = (this->max.y() - ray.origin.y()) / ray.direction.y();
+    if (tymin > tymax) {
+        std::swap(tymin, tymax);
+    }
+    if ((tmin > tymax) || (tymin > tmax)) {
+        return std::nullopt;
+    }
+    if (tymin > tmin) {
+        tmin = tymin;
+    }
+    if (tymax < tmax) {
+        tmax = tymax;
+    }
+    float tzmin = (this->min.z() - ray.origin.z()) / ray.direction.z();
+    float tzmax = (this->max.z() - ray.origin.z()) / ray.direction.z();
+    if (tzmin > tzmax) {
+        std::swap(tzmin, tzmax);
+    }
+    if ((tmin > tzmax) || (tzmin > tmax)) {
+        return std::nullopt;
+    }
+    if (tzmin > tmin) {
+        tmin = tzmin;
+    }
+    if (tzmax < tmax) {
+        tmax = tzmax;
+    }
+    return ray.origin + ray.direction * tmin;
+}
+
 AABB AABB::operator*(const Vector3f& v) const {
     return AABB(Vector3f(this->min.cwiseProduct(v)), Vector3f(this->max.cwiseProduct(v)));
 }
@@ -300,6 +353,12 @@ Vector3f Ray::intersect(const Plane& plane) const {
     }
     const float t = (plane.origin - this->origin).dot(plane.normal) / d;
     return this->origin + this->direction * t;
+}
+
+Ray Ray::transformed(const Matrix4f &transform) const {
+    return Ray(
+        (transform * vec4(this->origin, 1.0f)).head<3>(),
+        (transform * vec4(this->direction, 0.0f)).head<3>().normalized());
 }
 
 uint64_t cantor(uint32_t x, uint32_t y) {

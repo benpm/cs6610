@@ -77,4 +77,6 @@ public:
     Vector3f toView(const Vector3f& point) const;
     // Copy import settings from another camera
     void from(const Camera& other);
+    // Produces a ray in world space from the camera through the given screen point
+    Ray getRay(const Vector2f& screenPoint, const Vector2f& viewSize) const;
 };

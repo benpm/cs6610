@@ -4,6 +4,7 @@
 #include <random>
 #include <array>
 #include <sstream>
+#include <optional>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #ifdef PLATFORM_WINDOWS
@@ -107,6 +108,30 @@ template <typename T> struct fmt::formatter<std::vector<T>> {
     }
 };
 
+// Plane
+class Plane
+{
+public:
+    Vector3f origin;
+    Vector3f normal;
+
+    Plane(const Vector3f& origin, const Vector3f& normal);
+};
+
+// Ray
+class Ray
+{
+public:
+    Vector3f origin;
+    Vector3f direction;
+
+    Ray(const Vector3f& origin, const Vector3f& direction);
+
+    Vector3f intersect(const Plane& plane) const;
+    // Returns transformed ray
+    Ray transformed(const Matrix4f& transform) const;
+};
+
 // Axis aligned bounding box
 class AABB
 {
@@ -143,30 +168,10 @@ public:
     float volume() const;
     // Returns vertices of AABB
     std::array<Vector3f, 8> vertices() const;
+    // Returns the intersection point between this AABB and a ray
+    std::optional<Vector3f> intersect(const Ray& ray) const;
 
     AABB operator*(const Vector3f& v) const;
-};
-
-// Plane
-class Plane
-{
-public:
-    Vector3f origin;
-    Vector3f normal;
-
-    Plane(const Vector3f& origin, const Vector3f& normal);
-};
-
-// Ray
-class Ray
-{
-public:
-    Vector3f origin;
-    Vector3f direction;
-
-    Ray(const Vector3f& origin, const Vector3f& direction);
-
-    Vector3f intersect(const Plane& plane) const;
 };
 
 // Random number generation helper class
@@ -260,6 +265,9 @@ Matrix4f perspective(const Vector4f& view, float near, float far);
 Matrix4f orthographic(const Vector2f& size, float near, float far);
 // Project vector a onto b
 Vector3f project(const Vector3f& a, const Vector3f& b);
+// Creates a transformation matrix from given translation, rotation, and scale
+Matrix4f transform(const Vector3f& translation, const Vector3f& axisAngles, const Vector3f& scale={1.0f, 1.0f, 1.0f});
+Matrix4f transform(const Vector3f& translation, const Matrix3f& rotMatrix, const Vector3f& scale={1.0f, 1.0f, 1.0f});
 
 Vector3f vec3(float v[3]);
 Vector3f vec3(const Vector2f& v, float z=0.0f);

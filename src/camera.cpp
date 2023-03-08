@@ -130,3 +130,8 @@ void Camera::from(const Camera& other) {
     this->far = other.far;
     this->mode = other.mode;
 }
+
+Ray Camera::getRay(const Vector2f& screenPoint, const Vector2f& viewSize) const {
+    const Ray ray(vec3(Vector2f(screenPoint.cwiseProduct(viewSize.cwiseInverse()))), {0.0f, 0.0f, -1.0f});
+    return ray.transformed((this->getProj(viewSize) * this->getView()).inverse());
+}

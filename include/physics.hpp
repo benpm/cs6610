@@ -81,6 +81,8 @@ struct RigidBody
     Matrix3f inertialTensor() const;
     // Returns current angular velocity computed from angular momentum and inertial tensor
     Vector3f angVel() const;
+    // Returns the intersection point for given ray
+    std::optional<Vector3f> intersect(const PhysicsBody& pb, const ColliderBox& collider, const Ray& ray) const;
 };
 
 class ColliderInteriorBox : public AABB

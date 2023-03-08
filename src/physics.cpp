@@ -26,15 +26,16 @@ bool ColliderInteriorBox::collide(PhysicsBody &body) const {
     return collided;
 }
 
+const std::array<Vector3f, 6u> faceNormals = {
+    Vector3f(-1.0f,  0.0f,  0.0f),
+    Vector3f( 1.0f,  0.0f,  0.0f),
+    Vector3f( 0.0f, -1.0f,  0.0f),
+    Vector3f( 0.0f,  1.0f,  0.0f),
+    Vector3f( 0.0f,  0.0f, -1.0f),
+    Vector3f( 0.0f,  0.0f,  1.0f)
+};
+
 bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& collider) const {
-    const std::array<Vector3f, 6u> faceNormals = {
-        Vector3f(-1.0f,  0.0f,  0.0f),
-        Vector3f( 1.0f,  0.0f,  0.0f),
-        Vector3f( 0.0f, -1.0f,  0.0f),
-        Vector3f( 0.0f,  1.0f,  0.0f),
-        Vector3f( 0.0f,  0.0f, -1.0f),
-        Vector3f( 0.0f,  0.0f,  1.0f)
-    };
     const std::array<Vector3f, 6u> facePositions = {
         Vector3f(this->max.x(), 0.0f, 0.0f),
         Vector3f(this->min.x(), 0.0f, 0.0f),
@@ -127,6 +128,12 @@ Vector3f RigidBody::angVel() const {
     return this->inertialTensor().inverse() * this->angMomentum;
 }
 
+std::optional<Vector3f> RigidBody::intersect(const PhysicsBody& pb, const ColliderBox& collider, const Ray& ray) const {
+    const AABB box(-collider.halfExtents, collider.halfExtents);
+    const Ray transformedRay(ray.transformed(transform(pb.pos, this->rot).inverse()));
+    return box.intersect(transformedRay);
+}
+
 void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {
     Matrix3f deltaRot = skew(rb.rot * rb.invJ * rb.rot.transpose() * rb.angMomentum) * (rb.rot);
 
@@ -145,8 +152,18 @@ void Physics::collide(float dt, entt::registry& reg) {
             if (entityA == entityB) continue;
             auto [rigidBodyB, physicsBodyB, colliderB] = view.get<RigidBody, PhysicsBody, ColliderBox>(entityB);
 
-            // Determine if the rotated 3d boxes are intersecting
-
+            // Look for intersections between A's vertices and B's faces
+            const AABB box(-colliderA.halfExtents, colliderA.halfExtents);
+            
+            // const std::array<Vector3f, 6u> facePositions = {
+            //     Vector3f(colliderB.max.x(), 0.0f, 0.0f),
+            //     Vector3f(colliderB.min.x(), 0.0f, 0.0f),
+            //     Vector3f(0.0f, colliderB.max.y(), 0.0f),
+            //     Vector3f(0.0f, colliderB.min.y(), 0.0f),
+            //     Vector3f(0.0f, 0.0f, colliderB.max.z()),
+            //     Vector3f(0.0f, 0.0f, colliderB.min.z())
+            // };
+            
         }
     }
 }

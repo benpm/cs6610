@@ -278,6 +278,10 @@ App::App(cxxopts::ParseResult& args) {
 
         this->ePlane = e;
     }
+    {
+        entt::entity e = this->makeModel("sphere");
+        this->eSelectPoint = e;
+    }
     // Create lots of colorful boxes
     for (size_t i = 0; i < 30; i++) {
         entt::entity e = this->makeRigidBody(
@@ -557,6 +561,23 @@ void App::idle() {
 }
 
 void App::simulate(float dt) {
+    // Update select point
+    Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
+    const Ray camRay = this->camera->getRay(this->mousePos, this->windowSize.cast<float>());
+    std::optional<Vector3f> nearestHit = std::nullopt;
+    for (const auto& e : this->reg.view<RigidBody, PhysicsBody, ColliderBox>()) {
+        const auto [rigidBody, physicsBody, colliderBox] = this->reg.get<RigidBody, PhysicsBody, ColliderBox>(e);
+        std::optional<Vector3f> hit = rigidBody.intersect(physicsBody, colliderBox, camRay);
+        if (hit && (!nearestHit || (camRay.origin - *hit).norm() < (camRay.origin - *nearestHit).norm())) {
+            nearestHit = hit;
+        }
+    }
+    if (nearestHit) {
+        selectModel.pos = *nearestHit;
+    }
+    spdlog::trace("{} {}", camRay.origin, camRay.direction);
+    selectModel.pos = camRay.origin + camRay.direction * 2.0f;
+
     const auto F = [&](const Vector3f& v) -> Vector3f {
         return v.cross(Vector3f(0.0f, 1.0f, 0.0f)) * v.norm() * 0.1f
             + Vector3f(sinf(v.y() + this->t), cosf(v.x() + this->t), cosf(this->t * 2.0f + v.x())) * 0.2f;
@@ -774,6 +795,8 @@ void App::composeUI() {
     ImGui::Text("F6: Reload shaders");
     ImGui::Text(fmt::format("camera pos: {}", this->camera->pos).c_str());
     ImGui::Text(fmt::format("camera rot: {}", this->camera->rot).c_str());
+    Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
+    ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
 
     ImGui::PopFont();
     ImGui::End();

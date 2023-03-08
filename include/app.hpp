@@ -74,6 +74,7 @@ class App
 
         entt::registry reg;
         entt::entity ePlane;
+        entt::entity eSelectPoint;
         
         RNG rng{0u};
 
