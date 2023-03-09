@@ -278,20 +278,22 @@ App::App(cxxopts::ParseResult& args) {
 
         this->ePlane = e;
     }
-    {
-        entt::entity e = this->makeModel("sphere");
+    { // Create a point to visualize mouse select
+        entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
+                .emissionColor = {1.0f, 1.0f, 0.0f},
+                .emissionFactor = 1.0f
+            }));
         this->eSelectPoint = e;
+
+        Model& model = this->reg.get<Model>(e);
+        model.scale = Vector3f::Ones() * 0.2f;
     }
     // Create lots of colorful boxes
     for (size_t i = 0; i < 30; i++) {
         entt::entity e = this->makeRigidBody(
             this->meshes.clone("cube", uMaterial {
                 .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
-                .shininess = 1000.0f,
-                .diffuseTexID = -1,
-                .specularTexID = -1,
-                .reflectionTexID = -1,
-                .flatReflectionTexID = -1
+                .shininess = 1000.0f
             }),
             rng.vec({1.6f, 0.2f, 1.6f}, {1.8f, 0.4f, 1.8f}),
             rng.vec(this->box));
@@ -573,10 +575,11 @@ void App::simulate(float dt) {
         }
     }
     if (nearestHit) {
+        this->hidden(this->eSelectPoint, false);
         selectModel.pos = *nearestHit;
+    } else {
+        this->hidden(this->eSelectPoint, true);
     }
-    spdlog::trace("{} {}", camRay.origin, camRay.direction);
-    selectModel.pos = camRay.origin + camRay.direction * 2.0f;
 
     const auto F = [&](const Vector3f& v) -> Vector3f {
         return v.cross(Vector3f(0.0f, 1.0f, 0.0f)) * v.norm() * 0.1f
@@ -612,8 +615,11 @@ void App::simulate(float dt) {
 
     for (auto e : this->reg.view<PhysicsBody, RigidBody, ColliderBox>()) {
         auto [pb, rb, collider] = this->reg.get<PhysicsBody, RigidBody, ColliderBox>(e);
-        this->box.collide(rb, pb, collider);
-        Physics::simulate(dt, rb, pb);
+        const float substep = dt * (this->simTimeStep / (float)this->simTimeIters);
+        for (size_t i = 0; i < this->simTimeIters; ++i) {
+            this->box.collide(rb, pb, collider);
+            Physics::simulate(substep, rb, pb);
+        }
     }
 
     for (auto e : this->reg.view<RigidBody, Model>()) {
@@ -786,7 +792,7 @@ void App::composeUI() {
     ImGui::PushFont(this->ui.font);
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(300, this->windowSize.y()));
+    ImGui::SetNextWindowSize(ImVec2(500, this->windowSize.y()));
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::Text("Left Click: Pan");
     ImGui::Text("Wheel / Right Click: Zoom");
@@ -797,6 +803,8 @@ void App::composeUI() {
     ImGui::Text(fmt::format("camera rot: {}", this->camera->rot).c_str());
     Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
+    ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
+    ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 100);
 
     ImGui::PopFont();
     ImGui::End();

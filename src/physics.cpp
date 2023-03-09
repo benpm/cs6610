@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <physics.hpp>
 #include <model.hpp>
 #include <spdlog/spdlog.h>
@@ -26,15 +27,6 @@ bool ColliderInteriorBox::collide(PhysicsBody &body) const {
     return collided;
 }
 
-const std::array<Vector3f, 6u> faceNormals = {
-    Vector3f(-1.0f,  0.0f,  0.0f),
-    Vector3f( 1.0f,  0.0f,  0.0f),
-    Vector3f( 0.0f, -1.0f,  0.0f),
-    Vector3f( 0.0f,  1.0f,  0.0f),
-    Vector3f( 0.0f,  0.0f, -1.0f),
-    Vector3f( 0.0f,  0.0f,  1.0f)
-};
-
 bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& collider) const {
     const std::array<Vector3f, 6u> facePositions = {
         Vector3f(this->max.x(), 0.0f, 0.0f),
@@ -45,20 +37,14 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
         Vector3f(0.0f, 0.0f, this->min.z())
     };
     // Create transform matrix to translate and rotate collider vertices
-    const Matrix4f m = (Model {
-        .pos = pb.pos,
-        .rot = rb.rot.eulerAngles(0,1,2)
-    }).transform();
-    std::array<Vector3f, 8> verts = AABB(-collider.halfExtents, collider.halfExtents).vertices();
-    for (Vector3f& v : verts) {
-        v = (m * vec4(v)).head<3>();
-    }
+    const std::array<Vector3f, 8> verts = rb.vertices(pb, collider);
     for (size_t i = 0; i < 6; i++) {
         Vector3f contact = Vector3f::Zero();
+        const Vector3f faceNormal = -AABB::faceNormals[i];
         int contacts = 0;
         for (const Vector3f& v : verts) {
             // Project vertex onto inverted face normal
-            const float penetration = -(v - facePositions[i]).dot(faceNormals[i]);
+            const float penetration = -(v - facePositions[i]).dot(faceNormal);
             if (penetration > 0.0f) {
                 contact += v;
                 contacts++;
@@ -66,7 +52,7 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
         }
         if (contacts > 0) {
             contact /= (float)contacts;
-            rb.collidePoint(pb, -(contact - facePositions[i]).dot(faceNormals[i]), -faceNormals[i], contact - pb.pos);
+            rb.collidePoint(pb, -(contact - facePositions[i]).dot(faceNormal), -faceNormal, contact - pb.pos);
             return true;
         }
     }
@@ -130,8 +116,40 @@ Vector3f RigidBody::angVel() const {
 
 std::optional<Vector3f> RigidBody::intersect(const PhysicsBody& pb, const ColliderBox& collider, const Ray& ray) const {
     const AABB box(-collider.halfExtents, collider.halfExtents);
-    const Ray transformedRay(ray.transformed(transform(pb.pos, this->rot).inverse()));
-    return box.intersect(transformedRay);
+    const Matrix4f bodyTransform = transform(pb.pos, this->rot);
+    const std::optional<Vector3f> intersection = box.intersect(ray.transformed(bodyTransform.inverse()));
+    if (intersection) {
+        return transformPoint(*intersection, bodyTransform);
+    }
+    return std::nullopt;
+}
+
+std::array<Vector3f, 8> RigidBody::vertices(const PhysicsBody &pb, const ColliderBox &collider) const {
+    const Matrix4f bodyTransform = transform(pb.pos, this->rot.eulerAngles(0,1,2));
+    std::array<Vector3f, 8> verts = AABB(-collider.halfExtents, collider.halfExtents).vertices();
+    for (Vector3f& v : verts) {
+        v = transformPoint(v, bodyTransform);
+    }
+    return verts;
+}
+
+std::array<Plane, 6> RigidBody::faces(const PhysicsBody &pb, const ColliderBox &collider) const {
+    const std::array<Vector3f, 6u> facePositions = {
+        Vector3f(collider.halfExtents.x(), 0.0f, 0.0f),
+        Vector3f(-collider.halfExtents.x(), 0.0f, 0.0f),
+        Vector3f(0.0f, collider.halfExtents.y(), 0.0f),
+        Vector3f(0.0f, -collider.halfExtents.y(), 0.0f),
+        Vector3f(0.0f, 0.0f, collider.halfExtents.z()),
+        Vector3f(0.0f, 0.0f, -collider.halfExtents.z())
+    };
+    const Matrix4f bodyTransform = transform(pb.pos, this->rot);
+    std::array<Plane, 6> faces;
+    for (size_t i = 0; i < 6; i++) {
+        faces[i] = {
+            transformPoint(facePositions[i], bodyTransform),
+            transformDir(AABB::faceNormals[i], bodyTransform)};
+    }
+    return faces;
 }
 
 void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {

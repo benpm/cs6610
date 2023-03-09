@@ -34,9 +34,11 @@ struct uMaterial {
     alignas(16) Vector3f diffuseColor = {1.0f, 1.0f, 1.0f};
     alignas(16) Vector3f specularColor = {1.0f, 1.0f, 1.0f};
     alignas(16) Vector3f ambientColor = {1.0f, 1.0f, 1.0f};
+    alignas(16) Vector3f emissionColor = {0.0f, 0.0f, 0.0f};
     float shininess = 35.0f;
     float specularFactor = 1.0f;
     float ambientFactor = 0.05f;
+    float emissionFactor = 0.0f;
     int diffuseTexID = -1;
     int specularTexID = -1;
     int reflectionTexID = -1;

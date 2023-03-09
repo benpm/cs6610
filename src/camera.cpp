@@ -132,6 +132,15 @@ void Camera::from(const Camera& other) {
 }
 
 Ray Camera::getRay(const Vector2f& screenPoint, const Vector2f& viewSize) const {
-    const Ray ray(vec3(Vector2f(screenPoint.cwiseProduct(viewSize.cwiseInverse()))), {0.0f, 0.0f, -1.0f});
-    return ray.transformed((this->getProj(viewSize) * this->getView()).inverse());
+    // https://antongerdelan.net/opengl/raycasting.html
+
+    const Vector4f rayClip(
+        (screenPoint.x() / viewSize.x()) * 2.0f - 1.0f,
+        1.0f - (screenPoint.y() / viewSize.y()) * 2.0f,
+        -1.0f,
+        1.0f
+    );
+    const Vector4f rayEye = this->getProj(viewSize).inverse() * rayClip;
+    const Vector3f rayWorld = (this->getView().inverse() * vec4(rayEye.head<2>(), -1.0f, 0.0f)).head<3>().normalized();
+    return Ray(this->pos, rayWorld);
 }

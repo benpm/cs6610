@@ -28,9 +28,11 @@ struct Material {
     vec3 diffuseColor;
     vec3 specularColor;
     vec3 ambientColor;
+    vec3 emissionColor;
     float shininess;
     float specularFactor;
     float ambientFactor;
+    float emissionFactor;
     int diffuseTexID;
     int specularTexID;
     int reflectionTexID;
@@ -119,6 +121,8 @@ void main() {
             vec2(ts.x, 1.0 - ts.y)).rgb;
         C = reflectionTex;
     }
+
+    C = mix(C, mat.emissionColor, mat.emissionFactor);
     
     fColor = vec4(C, 1.0);
 }

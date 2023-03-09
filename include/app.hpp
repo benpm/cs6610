@@ -52,6 +52,8 @@ class App
 
         float t = 0.0f;
         float lastFrameTime = 0.0f;
+        float simTimeStep = 0.25f;
+        int simTimeIters = 5u;
 
         // Input
         Vector2f mousePos = {0.0f, 0.0f};

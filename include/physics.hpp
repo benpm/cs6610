@@ -83,6 +83,10 @@ struct RigidBody
     Vector3f angVel() const;
     // Returns the intersection point for given ray
     std::optional<Vector3f> intersect(const PhysicsBody& pb, const ColliderBox& collider, const Ray& ray) const;
+    // Returns vertices
+    std::array<Vector3f, 8> vertices(const PhysicsBody& pb, const ColliderBox& collider) const;
+    // Returns faces as planes
+    std::array<Plane, 6> faces(const PhysicsBody& pb, const ColliderBox& collider) const;
 };
 
 class ColliderInteriorBox : public AABB

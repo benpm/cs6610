@@ -178,18 +178,26 @@ Vector3f project(const Vector3f& a, const Vector3f& b) {
 
 Matrix4f transform(const Vector3f& translation, const Vector3f& axisAngles, const Vector3f& scale) {
     return identityTransform()
+        .translate(translation)
         .rotate(euler(axisAngles))
         .scale(scale)
-        .translate(translation)
         .matrix();
 }
 
 Matrix4f transform(const Vector3f& translation, const Matrix3f& rotMatrix, const Vector3f& scale) {
     return identityTransform()
+        .translate(translation)
         .rotate(rotMatrix)
         .scale(scale)
-        .translate(translation)
         .matrix();
+}
+
+Vector3f transformPoint(const Vector3f& point, const Matrix4f& transform) {
+    return (transform * vec4(point, 1.0f)).head<3>();
+}
+
+Vector3f transformDir(const Vector3f& point, const Matrix4f& transform) {
+    return (transform * vec4(point, 0.0f)).head<3>().normalized();
 }
 
 Vector3f vec3(float v[3]) {
@@ -211,6 +219,21 @@ Vector2f vec2(const Vector3f &v) {
 Vector4f vec4(const Vector3f &v, float w) {
     return {v.x(), v.y(), v.z(), w};
 }
+
+Vector4f vec4(const Vector2f &v, float z, float w) {
+    return {v.x(), v.y(), z, w};
+}
+
+// AABB
+
+const std::array<Vector3f, 6u> AABB::faceNormals = {
+    Vector3f( 1.0f,  0.0f,  0.0f),
+    Vector3f(-1.0f,  0.0f,  0.0f),
+    Vector3f( 0.0f,  1.0f,  0.0f),
+    Vector3f( 0.0f, -1.0f,  0.0f),
+    Vector3f( 0.0f,  0.0f,  1.0f),
+    Vector3f( 0.0f,  0.0f, -1.0f)
+};
 
 AABB::AABB(const Vector3f& min, const Vector3f& max)
     : min(min), max(max) {}
@@ -286,6 +309,12 @@ void AABB::place(const Vector2f& center, const Vector2f& size) {
     this->max = vec3((center + size) / 2.0f, this->max.z());
 }
 
+bool AABB::contains(const Vector3f &point, float eps) const {
+    return point.x() - min.x() > -eps && point.x() - max.x() < eps &&
+           point.y() - min.y() > -eps && point.y() - max.y() < eps &&
+           point.z() - min.z() > -eps && point.z() - max.z() < eps;
+}
+
 float AABB::volume() const {
     return this->width() * this->height() * this->depth();
 }
@@ -300,39 +329,27 @@ std::array<Vector3f, 8> AABB::vertices() const {
 }
 
 std::optional<Vector3f> AABB::intersect(const Ray &ray) const {
-    float tmin = (this->min.x() - ray.origin.x()) / ray.direction.x();
-    float tmax = (this->max.x() - ray.origin.x()) / ray.direction.x();
-    if (tmin > tmax) {
-        std::swap(tmin, tmax);
-    }
-    float tymin = (this->min.y() - ray.origin.y()) / ray.direction.y();
-    float tymax = (this->max.y() - ray.origin.y()) / ray.direction.y();
-    if (tymin > tymax) {
-        std::swap(tymin, tymax);
-    }
-    if ((tmin > tymax) || (tymin > tmax)) {
+    const float eps = 1e-6f;
+
+    // ray.direction is unit direction vector of ray
+    const Vector3f dirFrac = ray.direction.cwiseInverse();
+    // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+    // r.org is origin of ray
+    const float t1 = (this->min.x() - ray.origin.x()) * dirFrac.x();
+    const float t2 = (this->max.x() - ray.origin.x()) * dirFrac.x();
+    const float t3 = (this->min.y() - ray.origin.y()) * dirFrac.y();
+    const float t4 = (this->max.y() - ray.origin.y()) * dirFrac.y();
+    const float t5 = (this->min.z() - ray.origin.z()) * dirFrac.z();
+    const float t6 = (this->max.z() - ray.origin.z()) * dirFrac.z();
+
+    const float tmin = std::max(std::max(std::min(t1, t2), std::min(t3, t4)), std::min(t5, t6));
+    const float tmax = std::min(std::min(std::max(t1, t2), std::max(t3, t4)), std::max(t5, t6));
+
+    if (tmax < eps || tmin - tmax > eps) {
         return std::nullopt;
     }
-    if (tymin > tmin) {
-        tmin = tymin;
-    }
-    if (tymax < tmax) {
-        tmax = tymax;
-    }
-    float tzmin = (this->min.z() - ray.origin.z()) / ray.direction.z();
-    float tzmax = (this->max.z() - ray.origin.z()) / ray.direction.z();
-    if (tzmin > tzmax) {
-        std::swap(tzmin, tzmax);
-    }
-    if ((tmin > tzmax) || (tzmin > tmax)) {
-        return std::nullopt;
-    }
-    if (tzmin > tmin) {
-        tmin = tzmin;
-    }
-    if (tzmax < tmax) {
-        tmax = tzmax;
-    }
+    spdlog::trace("tmin: {}, tmax: {}", tmin, tmax);
+
     return ray.origin + ray.direction * tmin;
 }
 
@@ -346,12 +363,15 @@ Plane::Plane(const Vector3f& origin, const Vector3f& normal)
 Ray::Ray(const Vector3f& origin, const Vector3f& direction)
     : origin(origin), direction(direction) {}
 
-Vector3f Ray::intersect(const Plane& plane) const {
+std::optional<Vector3f> Ray::intersect(const Plane& plane) const {
     const float d = plane.normal.dot(this->direction);
     if (d < 1e-6f) {
         return this->origin;
     }
     const float t = (plane.origin - this->origin).dot(plane.normal) / d;
+    if (t < 0.0f) {
+        return std::nullopt;
+    }
     return this->origin + this->direction * t;
 }
 

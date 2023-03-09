@@ -34,7 +34,7 @@ void glCheckError_(const char *file, int line);
 
 template<typename T> struct EigenFormatter {
     std::string strFormat(const T& input) {
-        IOFormat fmt(4, 0, ",", ",");
+        IOFormat fmt(4, 0, ", ", ", ", "", "", "[", "]", ' ');
         auto wf = input.format(fmt);
         std::stringstream ss;
         ss << wf;
@@ -62,6 +62,18 @@ template<> struct fmt::formatter<Matrix3f> : EigenFormatter<Matrix3f> {
 
     template <typename FormatContext>
     auto format(const Matrix3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
+        return format_to(ctx.out(), "{}", this->strFormat(input));
+    }
+};
+
+// fmt overload for Vector4f
+template<> struct fmt::formatter<Vector4f> : EigenFormatter<Vector4f> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.end();
+    }
+
+    template <typename FormatContext>
+    auto format(const Vector4f& input, FormatContext& ctx) -> decltype(ctx.out()) {
         return format_to(ctx.out(), "{}", this->strFormat(input));
     }
 };
@@ -112,9 +124,10 @@ template <typename T> struct fmt::formatter<std::vector<T>> {
 class Plane
 {
 public:
-    Vector3f origin;
-    Vector3f normal;
+    Vector3f origin = {0.0f, 0.0f, 0.0f};
+    Vector3f normal = {0.0f, 0.0f, 0.0f};
 
+    Plane() = default;
     Plane(const Vector3f& origin, const Vector3f& normal);
 };
 
@@ -127,7 +140,7 @@ public:
 
     Ray(const Vector3f& origin, const Vector3f& direction);
 
-    Vector3f intersect(const Plane& plane) const;
+    std::optional<Vector3f> intersect(const Plane& plane) const;
     // Returns transformed ray
     Ray transformed(const Matrix4f& transform) const;
 };
@@ -136,6 +149,8 @@ public:
 class AABB
 {
 public:
+    static const std::array<Vector3f, 6u> faceNormals;
+
     Vector3f min;
     Vector3f max;
 
@@ -170,6 +185,8 @@ public:
     std::array<Vector3f, 8> vertices() const;
     // Returns the intersection point between this AABB and a ray
     std::optional<Vector3f> intersect(const Ray& ray) const;
+    // Returns if point is inside AABB
+    bool contains(const Vector3f& point, float eps = 1e-6f) const;
 
     AABB operator*(const Vector3f& v) const;
 };
@@ -268,12 +285,17 @@ Vector3f project(const Vector3f& a, const Vector3f& b);
 // Creates a transformation matrix from given translation, rotation, and scale
 Matrix4f transform(const Vector3f& translation, const Vector3f& axisAngles, const Vector3f& scale={1.0f, 1.0f, 1.0f});
 Matrix4f transform(const Vector3f& translation, const Matrix3f& rotMatrix, const Vector3f& scale={1.0f, 1.0f, 1.0f});
+// Applies transformation to a point (applies translation, doesn't normalize)
+Vector3f transformPoint(const Vector3f& point, const Matrix4f& transform);
+// Applies transformation to a direction vector (ignores translation, normalizes)
+Vector3f transformDir(const Vector3f& direction, const Matrix4f& transform);
 
 Vector3f vec3(float v[3]);
 Vector3f vec3(const Vector2f& v, float z=0.0f);
 Vector3f vec3(float xyz);
 Vector2f vec2(const Vector3f& v);
 Vector4f vec4(const Vector3f& v, float w=1.0f);
+Vector4f vec4(const Vector2f& v, float z, float w);
 
 // Cantor's pairing function
 uint64_t cantor(uint32_t x, uint32_t y);
