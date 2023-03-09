@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <memory>
 #include <vector>
+#include <variant>
 #include <camera.hpp>
 #include <spdlog/spdlog.h>
 #include <glad/glad.h>
@@ -31,14 +32,29 @@ struct ObjRef {
     size_t objID;
 };
 
+
+struct RenderTarget {
+    enum class Type {
+        texture,
+        cubemap,
+        renderbuffer
+    } type;
+    GLuint id;
+    GLenum attachment = GL_COLOR_ATTACHMENT0;
+};
+
 // Represents a render pass with a target framebuffer
 struct RenderPass {
+    enum class Type {
+        reflection,
+        cubemap,
+        final
+    } type;
     std::shared_ptr<Camera> camera;
     GLuint fbo;
-    GLuint tex;
-    GLenum texTarget = GL_TEXTURE_2D;
-    GLuint rbo;
+    std::vector<RenderTarget> targets;
     std::vector<ObjRef> objMask = {};
+    RenderTarget cubeMapTarget;
 };
 
 class App
@@ -69,6 +85,7 @@ class App
         Vector2i windowSize = {1280, 720};
         std::shared_ptr<Camera> camera = std::make_shared<Camera>();
         std::shared_ptr<Camera> reflCamera = std::make_shared<Camera>();
+        std::shared_ptr<Camera> shadowCamera = std::make_shared<Camera>();
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
         cyGLSLProgram skyProg;
@@ -109,8 +126,10 @@ class App
         TextureCollection skyTextures;
 
         GLuint fboReflections;
-        GLuint rboDepth;
+        GLuint rboReflections;
         GLuint texReflections;
+        GLuint texShadows;
+        GLuint fboShadows;
 
         std::vector<RenderPass> renderPasses;
 

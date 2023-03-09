@@ -238,10 +238,10 @@ App::App(cxxopts::ParseResult& args) {
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->texReflections, 0); $gl_err();
 
-    glGenRenderbuffers(1, &this->rboDepth); $gl_err();
-    glBindRenderbuffer(GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glGenRenderbuffers(1, &this->rboReflections); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, this->rboReflections); $gl_err();
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboReflections); $gl_err();
 
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
@@ -257,6 +257,21 @@ App::App(cxxopts::ParseResult& args) {
     uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
     skyRefl.shininess = 1000.0f;
     skyRefl.diffuseColor = Vector3f::Zero();
+
+    // Shadows cube map
+    glGenTextures(1, &this->texShadows); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, this->texShadows); $gl_err();
+    for (size_t i = 0; i < 6; i++) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 512, 512, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr); $gl_err();
+    }
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+
+    glGenFramebuffers(1, &this->fboShadows); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fboShadows); $gl_err();
+
+    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+
 
     spdlog::info("Loaded meshes");
 
@@ -349,24 +364,6 @@ App::App(cxxopts::ParseResult& args) {
 
     this->camera->orbitDist(3.0f);
 
-    // Setup render passes
-    this->renderPasses.push_back(RenderPass{ // Reflection pass
-        .camera = this->reflCamera,
-        .fbo = this->fboReflections,
-        .tex = this->texReflections,
-        .texTarget = GL_TEXTURE_2D,
-        .rbo = this->rboDepth,
-        .objMask = { this->reg.get<ObjRef>(this->ePlane) }
-    });
-    this->renderPasses.push_back(RenderPass{ // Final pass
-        .camera = this->camera,
-        .fbo = GL_NONE,
-        .tex = GL_NONE,
-        .texTarget = GL_NONE,
-        .rbo = GL_NONE,
-        .objMask = {}
-    });
-
     // Add lights
     this->makeLight(
         Vector3f(0.25f, 0.5f, 0.25f),
@@ -378,6 +375,41 @@ App::App(cxxopts::ParseResult& args) {
         Vector3f(1.0f, 1.0f, 0.9f),
         0.05f,
         LightType::directional);
+
+    // Setup render passes
+    this->renderPasses.push_back(RenderPass{ // Shadow pass
+        .type = RenderPass::Type::cubemap,
+        .camera = this->shadowCamera,
+        .fbo = this->fboShadows,
+        .cubeMapTarget = RenderTarget {
+            .type = RenderTarget::Type::cubemap,
+            .id = this->texShadows,
+            .attachment = GL_DEPTH_ATTACHMENT,
+        }
+    });
+    this->renderPasses.push_back(RenderPass{ // Reflection pass
+        .type = RenderPass::Type::reflection,
+        .camera = this->reflCamera,
+        .fbo = this->fboReflections,
+        .targets = {
+            RenderTarget {
+                .type = RenderTarget::Type::texture,
+                .id = this->texReflections,
+                .attachment = GL_COLOR_ATTACHMENT0,
+            },
+            RenderTarget {
+                .type = RenderTarget::Type::renderbuffer,
+                .id = this->rboReflections,
+                .attachment = GL_DEPTH_ATTACHMENT,
+            }
+        },
+        .objMask = { this->reg.get<ObjRef>(this->ePlane) }
+    });
+    this->renderPasses.push_back(RenderPass{ // Final pass
+        .type = RenderPass::Type::final,
+        .camera = this->camera,
+        .fbo = GL_NONE
+    });
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels); $gl_err();
@@ -492,7 +524,7 @@ void App::onResize(int width, int height) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
 
-    glBindRenderbuffer(GL_RENDERBUFFER, this->rboDepth); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, this->rboReflections); $gl_err();
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height); $gl_err();
     // glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboDepth); $gl_err();
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
@@ -804,6 +836,15 @@ void App::updateBuffers() {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 }
 
+const std::array<Vector3f, 6> cubeMapCameraRotations = {
+    Vector3f(0.0f, 0.0f, 0.0f),
+    Vector3f(0.0f, tau4, 0.0f),
+    Vector3f(0.0f, tau4 * 2.0f, 0.0f),
+    Vector3f(0.0f, tau4 * 3.0f, 0.0f),
+    Vector3f(tau4, 0.0f, 0.0f),
+    Vector3f(-tau4, 0.0f, 0.0f),
+};
+
 void App::draw(float dt) {
     this->updateBuffers();
 
@@ -813,14 +854,46 @@ void App::draw(float dt) {
     this->reflCamera->rot = this->camera->rot.cwiseProduct(Vector3f(-1.0f, 1.0f, 0.0f));
 
     for (const RenderPass& pass : this->renderPasses) {
-        const Matrix4f view = pass.camera->getView();
-        const Matrix4f proj = pass.camera->getProj(this->windowSize.cast<float>());
         glBindFramebuffer(GL_FRAMEBUFFER, pass.fbo); $gl_err();
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-        this->drawSky(view, proj);
-        this->drawMeshes(view, proj, this->camera->pos);
-        if (pass.fbo != 0u) {
-            glGenerateTextureMipmap(pass.tex); $gl_err();
+        // Set up render targets
+        for (const RenderTarget& target : pass.targets) {
+            switch (target.type) {
+                case RenderTarget::Type::texture:
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, target.attachment, GL_TEXTURE_2D, target.id, 0); $gl_err();
+                    break;
+                case RenderTarget::Type::renderbuffer:
+                    glFramebufferRenderbuffer(GL_FRAMEBUFFER, target.attachment, GL_RENDERBUFFER, target.id); $gl_err();
+                    break;
+            }
+            if (target.type != RenderTarget::Type::renderbuffer) {
+                glGenerateTextureMipmap(target.id); $gl_err();
+            }
+        }
+
+        // Draw
+        size_t iters = 1u;
+        switch (pass.type) {
+            case RenderPass::Type::cubemap:
+                iters = 6u;
+                break;
+        }
+        for (size_t i = 0u; i < iters; i++) {
+            if (pass.type == RenderPass::Type::cubemap) {
+                pass.camera->rot = cubeMapCameraRotations[i];
+                glFramebufferTexture2D(
+                    GL_FRAMEBUFFER, pass.cubeMapTarget.attachment,
+                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, pass.cubeMapTarget.id, 0); $gl_err();
+            }
+            const Matrix4f view = pass.camera->getView();
+            const Matrix4f proj = pass.camera->getProj(this->windowSize.cast<float>());
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+            this->drawSky(view, proj);
+            this->drawMeshes(view, proj, this->camera->pos);
+        }
+
+        // Generate mipmaps
+        for (const RenderTarget& target : pass.targets) {
+            glGenerateTextureMipmap(target.id); $gl_err();
         }
     }
     const Matrix4f view = this->camera->getView();
