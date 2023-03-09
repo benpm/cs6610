@@ -23,6 +23,7 @@ out vec4 fColor;
 uniform uint nLights;
 uniform sampler2D uTex[16];
 uniform samplerCube uEnvTex;
+uniform samplerCube uShadowMap;
 
 struct Material {
     vec3 diffuseColor;
@@ -63,6 +64,7 @@ layout(std430, binding = 2) buffer Lights
 
 uniform vec3 uCamPos;
 uniform vec2 uViewport;
+uniform vec3 uShadowPos;
 
 vec3 dampLight(vec3 v) {
     return 1.0 - 1.0 / (v*v + 1.0);
@@ -123,6 +125,14 @@ void main() {
     }
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
+
+    // Shadow mapping
+    vec3 shadowCoord = uShadowPos - wposition;
+    float shadow = 1.0;
+    if (texture(uShadowMap, shadowCoord).r > length(uShadowPos - wposition) - 0.1) {
+        shadow = 0.1;
+    }
+    C *= shadow;
     
     fColor = vec4(C, 1.0);
 }

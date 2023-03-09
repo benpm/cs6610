@@ -49,10 +49,10 @@ uint32_t TextureCollection::add(const std::string& path) {
     return texUnitID;
 }
 
-uint32_t TextureCollection::add(const std::string& name, GLuint bindID) {
+uint32_t TextureCollection::add(const std::string& name, GLuint bindID, GLenum type) {
     const uint32_t texUnitID = this->nextTexUnitID++;
     this->idMap.emplace(texUnitID, TextureData {
-        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_2D});
+        .bindID = bindID, .texUnitID = texUnitID, .type = type});
     this->map.emplace(name, texUnitID);
     return texUnitID;
 }

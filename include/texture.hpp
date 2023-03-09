@@ -27,7 +27,7 @@ public:
     // Add texture to collection and return its ID (same as texture unit for now)
     uint32_t add(const std::string& path);
     // Adds an already created texture to this collection
-    uint32_t add(const std::string& name, GLuint bindID);
+    uint32_t add(const std::string& name, GLuint bindID, GLenum type = GL_TEXTURE_2D);
     // Adds a cubemap texture, loading texture images from the given directory
     uint32_t addCubemap(const std::string& name, const std::string& dirName);
     // Adds an empty cubemap texture

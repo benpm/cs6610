@@ -272,6 +272,8 @@ App::App(cxxopts::ParseResult& args) {
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
 
+    this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP);
+
 
     spdlog::info("Loaded meshes");
 
@@ -755,7 +757,9 @@ void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f&
     
     // Draw models in scene
     this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
+    this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
     this->meshes.bind(this->meshProg);
+    this->meshProg.SetUniform3("uShadowPos", this->shadowCamera->pos.data());
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
     this->meshProg.SetUniform("uCamPos", (float)camPos.x(), (float)camPos.y(), (float)camPos.z());
