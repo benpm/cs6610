@@ -111,10 +111,10 @@ Vector3f spherePoint(const Vector2f& point) {
     return spherePoint(point.x(), point.y());
 }
 
-Vector2f pointSphere(const Vector3f& point) {
+Vector2f pointSphere(const Vector3f& p) {
     return {
-        std::atan2(point.z(), point.x()) + tau2,
-        std::asin(point.y())
+        std::atan2(p.y(), std::sqrt(p.x()*p.x() + p.z()*p.z())),
+        std::atan2(p.x(), p.z()) + tau4
     };
 }
 
@@ -135,12 +135,7 @@ Vector3f direction(const Vector3f& axisAngles) {
 }
 
 Vector3f towards(const Vector3f &a, const Vector3f &b) {
-    // Euler angles of the rotation from a to b
-    return {
-        std::atan2(b.z() - a.z(), b.x() - a.x()),
-        tau4 * 3.0f + (float)std::atan2(b.y() - a.y(), std::sqrt(std::pow(b.x() - a.x(), 2) + std::pow(b.z() - a.z(), 2))),
-        0.0f
-    };
+    return vec3(pointSphere(b - a), 0.0f);
 }
 
 Matrix4f perspective(float fov, float aspect, float near, float far) {
@@ -348,7 +343,6 @@ std::optional<Vector3f> AABB::intersect(const Ray &ray) const {
     if (tmax < eps || tmin - tmax > eps) {
         return std::nullopt;
     }
-    spdlog::trace("tmin: {}, tmax: {}", tmin, tmax);
 
     return ray.origin + ray.direction * tmin;
 }

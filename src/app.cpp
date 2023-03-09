@@ -288,6 +288,16 @@ App::App(cxxopts::ParseResult& args) {
         Model& model = this->reg.get<Model>(e);
         model.scale = Vector3f::Ones() * 0.2f;
     }
+    { // Create an arrow to visualize added forces
+        entt::entity e = this->reg.create();
+
+        this->reg.emplace<DebugRay>(e);
+        this->reg.emplace<RayTransform>(e);
+        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+        debugColor.color = {1.0f, 1.0f, 0.0f, 1.0f};
+
+        this->eDragArrow = e;
+    }
     // Create lots of colorful boxes
     for (size_t i = 0; i < 30; i++) {
         entt::entity e = this->makeRigidBody(
@@ -497,8 +507,18 @@ void App::onClick(int button, bool pressed) {
     }
     if (pressed) {
         this->mouseClickStart = this->mousePos;
+        if (button == GLFW_MOUSE_BUTTON_RIGHT && this->eSelected != entt::null) {
+            auto [debugRay, debugColor] = this->reg.get<DebugRay, DebugColor>(this->eDragArrow);
+            debugRay.pos = this->selectPoint;
+            debugColor.color.w() = 1.0f;
+        }
     } else {
-        
+        if (button == GLFW_MOUSE_BUTTON_RIGHT && this->eSelected != entt::null) {
+            auto [debugRay, debugColor] = this->reg.get<DebugRay, DebugColor>(this->eDragArrow);
+            auto [rb, pb] = this->reg.get<RigidBody, PhysicsBody>(this->eSelected);
+            rb.applyImpulse(pb, this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length);
+            debugColor.color.w() = 0.0f;
+        }
     }
 }
 
@@ -564,21 +584,28 @@ void App::idle() {
 
 void App::simulate(float dt) {
     // Update select point
-    Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     const Ray camRay = this->camera->getRay(this->mousePos, this->windowSize.cast<float>());
-    std::optional<Vector3f> nearestHit = std::nullopt;
-    for (const auto& e : this->reg.view<RigidBody, PhysicsBody, ColliderBox>()) {
-        const auto [rigidBody, physicsBody, colliderBox] = this->reg.get<RigidBody, PhysicsBody, ColliderBox>(e);
-        std::optional<Vector3f> hit = rigidBody.intersect(physicsBody, colliderBox, camRay);
-        if (hit && (!nearestHit || (camRay.origin - *hit).norm() < (camRay.origin - *nearestHit).norm())) {
-            nearestHit = hit;
+    if (!this->mouseRight) {
+        this->eSelected = entt::null;
+        std::optional<Vector3f> nearestHit = std::nullopt;
+        for (const auto& e : this->reg.view<RigidBody, PhysicsBody, ColliderBox>()) {
+            const auto [rigidBody, physicsBody, colliderBox] = this->reg.get<RigidBody, PhysicsBody, ColliderBox>(e);
+            std::optional<Vector3f> hit = rigidBody.intersect(physicsBody, colliderBox, camRay);
+            if (hit && (!nearestHit || (camRay.origin - *hit).norm() < (camRay.origin - *nearestHit).norm())) {
+                nearestHit = hit;
+                this->eSelected = e;
+            }
         }
-    }
-    if (nearestHit) {
-        this->hidden(this->eSelectPoint, false);
-        selectModel.pos = *nearestHit;
+        if (nearestHit) {
+            this->hidden(this->eSelectPoint, false);
+            selectPoint = *nearestHit;
+            this->reg.get<Model>(this->eSelectPoint).pos = selectPoint;
+        } else {
+            this->hidden(this->eSelectPoint, true);
+        }
     } else {
-        this->hidden(this->eSelectPoint, true);
+        float d = (camRay.origin - this->selectPoint).norm();
+        this->reg.get<DebugRay>(this->eDragArrow).setEndpoint(camRay.origin + camRay.direction * d);
     }
 
     const auto F = [&](const Vector3f& v) -> Vector3f {
@@ -594,7 +621,7 @@ void App::simulate(float dt) {
         (float)this->pressedKeys.count(GLFW_KEY_W) - (float)this->pressedKeys.count(GLFW_KEY_S)
     };
     Vector2f dragDelta = Vector2f::Zero();
-    if (this->mouseLeft) {
+    if (this->mouseLeft && !this->mouseRight) {
         dragDelta = panDelta * 2.0f;
         dragDelta.y() *= -1.0f;
     }
@@ -713,6 +740,8 @@ void App::drawDebug(const Matrix4f& view, const Matrix4f& proj) {
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
 void App::updateBuffers() {
@@ -731,8 +760,8 @@ void App::updateBuffers() {
     // Update model transforms buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboModels); $gl_err();
     auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>();
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER,
-        0, transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw()); $gl_err();
+    glBufferData(GL_SHADER_STORAGE_BUFFER,
+        transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboModels); $gl_err();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     
@@ -745,7 +774,7 @@ void App::updateBuffers() {
     if (arrowsStorage.size() > 0) {
         glBufferData(GL_SHADER_STORAGE_BUFFER,
             arrowsStorage.size() * sizeof(RayTransform), *arrowsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, this->ssboArrows); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, this->ssboArrows); $gl_err();
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
     // Update arrow colors buffer
@@ -754,7 +783,7 @@ void App::updateBuffers() {
     if (colorsStorage.size() > 0) {
         glBufferData(GL_SHADER_STORAGE_BUFFER,
             colorsStorage.size() * sizeof(DebugColor), *colorsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboArrowColors); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, this->ssboArrowColors); $gl_err();
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 }

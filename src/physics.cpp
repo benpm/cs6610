@@ -11,6 +11,11 @@ const Matrix4f DebugRay::transform() const {
         .matrix();
 }
 
+void DebugRay::setEndpoint(const Vector3f &endpoint) {
+    this->length = (endpoint - this->pos).norm();
+    this->rot = towards(this->pos, endpoint);
+}
+
 bool ColliderInteriorBox::collide(PhysicsBody &body) const {
     bool collided = false;
     for (size_t i = 0; i < 3; i++) {
@@ -150,6 +155,11 @@ std::array<Plane, 6> RigidBody::faces(const PhysicsBody &pb, const ColliderBox &
             transformDir(AABB::faceNormals[i], bodyTransform)};
     }
     return faces;
+}
+
+void RigidBody::applyImpulse(PhysicsBody& pb, const Vector3f &point, const Vector3f &impulse) {
+    this->angMomentum += point.cross(impulse);
+    pb.vel += impulse / pb.mass;
 }
 
 void Physics::simulate(float dt, RigidBody& rb, PhysicsBody& b) {

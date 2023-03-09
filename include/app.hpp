@@ -77,6 +77,10 @@ class App
         entt::registry reg;
         entt::entity ePlane;
         entt::entity eSelectPoint;
+        entt::entity eDragArrow;
+
+        Vector3f selectPoint;
+        entt::entity eSelected = entt::null;
         
         RNG rng{0u};
 

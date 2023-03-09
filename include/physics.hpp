@@ -24,6 +24,7 @@ struct DebugRay
     float length = 1.0f;
 
     const Matrix4f transform() const;
+    void setEndpoint(const Vector3f& endpoint);
 };
 
 // COMPONENT: Box collider
@@ -87,6 +88,8 @@ struct RigidBody
     std::array<Vector3f, 8> vertices(const PhysicsBody& pb, const ColliderBox& collider) const;
     // Returns faces as planes
     std::array<Plane, 6> faces(const PhysicsBody& pb, const ColliderBox& collider) const;
+    // Applies impulse at specified point with specified vector
+    void applyImpulse(PhysicsBody& pb, const Vector3f &point, const Vector3f &impulse);
 };
 
 class ColliderInteriorBox : public AABB
