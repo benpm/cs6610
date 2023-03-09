@@ -216,6 +216,17 @@ App::App(cxxopts::ParseResult& args) {
     size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
     this->meshes.setMaterial("teapot", skyMatID);
     this->meshes.setMaterial("sphere", skyMatID);
+    size_t whiteMatID = this->meshes.createMaterial("white", uMaterial{
+        .diffuseColor = {0.8f, 0.8f, 0.8f},
+        .shininess = 500.0f
+    });
+    size_t lightMatID = this->meshes.createMaterial("light", uMaterial{
+        .emissionColor = {1.0f, 1.0f, 1.0f},
+        .emissionFactor = 1.0f
+    });
+    this->meshes.setMaterial("suzanne", whiteMatID);
+    this->meshes.clone("sphere", "light_ball");
+    this->meshes.setMaterial("light_ball", lightMatID);
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
     glGenTextures(1, &this->texReflections); $gl_err();
@@ -313,7 +324,7 @@ App::App(cxxopts::ParseResult& args) {
         pbody.vel = rng.vec({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f});
     }
     // Create lots of random models
-    for (size_t i = 0; i < 0; i++) {
+    for (size_t i = 0; i < 20; i++) {
         entt::entity e = this->makeRigidBody(rng.choose({"suzanne", "teapot"}),
             {1.0f, 1.0f, 1.0f},
             rng.vec(this->box));
@@ -321,6 +332,17 @@ App::App(cxxopts::ParseResult& args) {
         body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
         PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
         pbody.vel = rng.vec({-2.0f, -2.0f, -2.0f}, {2.0f, 2.0f, 2.0f});
+    }
+    // Create lots of lit spheres
+    for (size_t i = 0; i < 30; i++) {
+        entt::entity e = this->makeRigidBody("light_ball",
+            vec3(rng.range(0.1f, 0.5f)),
+            rng.vec(this->box));
+        Light& light = this->reg.emplace<Light>(e);
+        light.intensity = 1.0f;
+        light.type = LightType::point;
+
+        this->reg.emplace<uLight>(e);
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -356,16 +378,6 @@ App::App(cxxopts::ParseResult& args) {
         Vector3f(1.0f, 1.0f, 0.9f),
         0.05f,
         LightType::directional);
-    this->makeLight(
-        {0.2f, 0.5f, -0.2f},
-        {1.0f, 1.0f, 1.0f},
-        2.0f,
-        LightType::point);
-    this->makeLight(
-        {0.4f, 0.9f, 0.4f},
-        {1.0f, 1.0f, 1.0f},
-        2.0f,
-        LightType::point);
 
     // Create and bind model transforms SSBO
     glGenBuffers(1, &this->ssboModels); $gl_err();
@@ -659,6 +671,10 @@ void App::simulate(float dt) {
         auto [body, model] = this->reg.get<PhysicsBody, Model>(e);
         model.pos = body.pos;
     }
+    for (auto e : this->reg.view<Light, Model>()) {
+        auto [light, model] = this->reg.get<Light, Model>(e);
+        light.pos = model.pos;
+    }
     for (auto e : this->reg.view<Model, ModelTransform>()) {
         auto [model, transform] = this->reg.get<Model, ModelTransform>(e);
         transform.transform = model.transform();
@@ -904,9 +920,9 @@ entt::entity App::makeRigidBody(const std::string& name, const Vector3f &scale, 
 
     Model& model = this->reg.emplace<Model>(e);
     model.pos = pos;
-    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
     model.pivot = meshData.center;
-    model.scale = 2.0f * halfExtents;
+    model.scale = scale;
+    MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
 
     PhysicsBody& physicsBody = this->reg.emplace<PhysicsBody>(e);
     physicsBody.pos = pos;
