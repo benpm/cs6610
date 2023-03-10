@@ -253,7 +253,7 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
     spdlog::debug("built mesh collection with {} vertices and {} elements", this->vertexData.size(), this->arrElems.size());
 }
 
-void MeshCollection::bind(cyGLSLProgram& prog) const {
+void MeshCollection::bind(cyGLSLProgram& prog, bool includeMaterials) const {
     if (this->dirty) {
         spdlog::warn("MeshCollection::bind() called on dirty MeshCollection");
     }
@@ -261,13 +261,15 @@ void MeshCollection::bind(cyGLSLProgram& prog) const {
     glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts); $gl_err();
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->eboElems); $gl_err();
 
-    // Bind materials SSBO
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+    if (includeMaterials) {
+        // Bind materials SSBO
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboMaterials); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, this->ssboMaterials); $gl_err();
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 
-    // Bind textures
-    this->textures.bind(prog);
+        // Bind textures
+        this->textures.bind(prog);
+    }
 }
 
 uMaterial& MeshCollection::setMaterial(const std::string& meshName, size_t matID) {

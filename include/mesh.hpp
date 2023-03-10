@@ -123,8 +123,8 @@ public:
     const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built
     void build(const cyGLSLProgram& prog) const;
-    // Binds the VBO and EBO
-    void bind(cyGLSLProgram& prog) const;
+    // Binds vertex data, element data, materials, textures
+    void bind(cyGLSLProgram& prog, bool includeMaterials=true) const;
     // Assigns a given material ID to all vertices in a mesh, returns material
     uMaterial& setMaterial(const std::string& meshName, size_t matID);
     // Assigns a custom material (a named material) to a all vertices in a mesh

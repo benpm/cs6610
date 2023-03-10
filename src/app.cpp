@@ -191,6 +191,16 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->vboBox); $gl_err();
     glCreateBuffers(1, &this->ssboArrows); $gl_err();
     glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
+
+    // Build and bind shadows shader program
+    built = this->depthProg.BuildFiles(
+        "resources/shaders/shadow.vert",
+        "resources/shaders/shadow.frag");
+    if (!built) {
+        spdlog::error("Failed to build shadows shader program");
+    } else {
+        this->depthProg.Bind();
+    }
     
     // Build and bind meshes shader program
     built = this->meshProg.BuildFiles(
@@ -265,15 +275,11 @@ App::App(cxxopts::ParseResult& args) {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 512, 512, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr); $gl_err();
     }
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
-
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
-    glBindFramebuffer(GL_FRAMEBUFFER, this->fboShadows); $gl_err();
-
-    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
 
     this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP);
-
+    this->shadowCamera->pos = Vector3f(0.0f, 3.0f, 0.0f);
+    this->shadowCamera->far = 20.0f;
 
     spdlog::info("Loaded meshes");
 
@@ -383,6 +389,7 @@ App::App(cxxopts::ParseResult& args) {
         .type = RenderPass::Type::cubemap,
         .camera = this->shadowCamera,
         .fbo = this->fboShadows,
+        .viewport = {{512.0f, 512.0f}},
         .cubeMapTarget = RenderTarget {
             .type = RenderTarget::Type::cubemap,
             .id = this->texShadows,
@@ -733,7 +740,9 @@ void App::simulate(float dt) {
     }
 }
 
-void App::drawSky(const Matrix4f& view, const Matrix4f& proj) {
+void App::drawSky(const Camera& cam) {
+    const Matrix4f view = cam.getView();
+    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
     this->skyProg.Bind();
     glBindVertexArray(this->vaoSky); $gl_err();
 
@@ -751,18 +760,18 @@ void App::drawSky(const Matrix4f& view, const Matrix4f& proj) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
-void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f& camPos) {
-    this->meshProg.Bind();
+void App::drawMeshesDepth(const Camera& cam) {
+    const Matrix4f view = cam.getView();
+    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
+    this->depthProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Draw models in scene
-    this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
-    this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
-    this->meshes.bind(this->meshProg);
-    this->meshProg.SetUniform3("uShadowPos", this->shadowCamera->pos.data());
-    this->meshProg.SetUniformMatrix4("uTProj", proj.data());
-    this->meshProg.SetUniformMatrix4("uTView", view.data());
-    this->meshProg.SetUniform("uCamPos", (float)camPos.x(), (float)camPos.y(), (float)camPos.z());
+    this->meshes.bind(this->depthProg, false);
+    this->depthProg.SetUniformMatrix4("uTProj", proj.data());
+    this->depthProg.SetUniformMatrix4("uTView", view.data());
+    this->depthProg.SetUniform3("uLightPos", cam.pos.data());
+    this->depthProg.SetUniform("uFarPlane", cam.far);
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
@@ -775,7 +784,36 @@ void App::drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f&
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
-void App::drawDebug(const Matrix4f& view, const Matrix4f& proj) {
+void App::drawMeshes(const Camera& cam) {
+    const Matrix4f view = cam.getView();
+    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
+    this->meshProg.Bind();
+    glBindVertexArray(this->vaoMeshes); $gl_err();
+    
+    // Draw models in scene
+    this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
+    this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
+    this->meshes.bind(this->meshProg);
+    this->meshProg.SetUniform3("uShadowPos", this->shadowCamera->pos.data());
+    this->meshProg.SetUniformMatrix4("uTProj", proj.data());
+    this->meshProg.SetUniformMatrix4("uTView", view.data());
+    this->meshProg.SetUniform3("uCamPos", cam.pos.data());
+    this->meshProg.SetUniform("uFarPlane", cam.far);
+    glMultiDrawElements(
+        GL_TRIANGLES,
+        this->vCounts.data(),
+        GL_UNSIGNED_INT,
+        (const void**)this->vOffsets.data(),
+        this->vCounts.size()); $gl_err();
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+}
+
+void App::drawDebug(const Camera& cam) {
+    const Matrix4f view = cam.getView();
+    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
     this->wiresProg.Bind();
     glBindVertexArray(this->vaoWires); $gl_err();
     this->wiresProg.SetUniformMatrix4("uTProj", proj.data());
@@ -860,6 +898,8 @@ void App::draw(float dt) {
     for (const RenderPass& pass : this->renderPasses) {
         glBindFramebuffer(GL_FRAMEBUFFER, pass.fbo); $gl_err();
         // Set up render targets
+        bool colorAttached = (pass.type == RenderPass::Type::final);
+        bool depthAttached = (pass.type == RenderPass::Type::final);
         for (const RenderTarget& target : pass.targets) {
             switch (target.type) {
                 case RenderTarget::Type::texture:
@@ -872,6 +912,24 @@ void App::draw(float dt) {
             if (target.type != RenderTarget::Type::renderbuffer) {
                 glGenerateTextureMipmap(target.id); $gl_err();
             }
+            if (target.attachment == GL_COLOR_ATTACHMENT0) {
+                colorAttached = true;
+            } else if (target.attachment == GL_DEPTH_ATTACHMENT) {
+                depthAttached = true;
+            }
+        }
+        bool depthOnly = !colorAttached;
+        if (depthOnly) {
+            glDrawBuffer(GL_NONE); $gl_err();
+            glReadBuffer(GL_NONE); $gl_err();
+        } else if (pass.type != RenderPass::Type::final) {
+            glDrawBuffer(GL_COLOR_ATTACHMENT0); $gl_err();
+            glReadBuffer(GL_COLOR_ATTACHMENT0); $gl_err();
+        }
+        if (pass.viewport) {
+            glViewport(0, 0, (*pass.viewport).x(), (*pass.viewport).y()); $gl_err();
+        } else {
+            glViewport(0, 0, this->windowSize.x(), this->windowSize.y()); $gl_err();
         }
 
         // Draw
@@ -880,19 +938,26 @@ void App::draw(float dt) {
             case RenderPass::Type::cubemap:
                 iters = 6u;
                 break;
+            default:
+                break;
         }
+        Camera cam = *pass.camera;
         for (size_t i = 0u; i < iters; i++) {
             if (pass.type == RenderPass::Type::cubemap) {
-                pass.camera->rot = cubeMapCameraRotations[i];
+                cam.rot = cubeMapCameraRotations[i];
+                cam.fov = tau4;
                 glFramebufferTexture2D(
                     GL_FRAMEBUFFER, pass.cubeMapTarget.attachment,
                     GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, pass.cubeMapTarget.id, 0); $gl_err();
             }
-            const Matrix4f view = pass.camera->getView();
-            const Matrix4f proj = pass.camera->getProj(this->windowSize.cast<float>());
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-            this->drawSky(view, proj);
-            this->drawMeshes(view, proj, this->camera->pos);
+            if (!depthOnly) {
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+                this->drawSky(cam);
+                this->drawMeshes(cam);
+            } else {
+                glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
+                this->drawMeshesDepth(cam);
+            }
         }
 
         // Generate mipmaps
@@ -900,9 +965,7 @@ void App::draw(float dt) {
             glGenerateTextureMipmap(target.id); $gl_err();
         }
     }
-    const Matrix4f view = this->camera->getView();
-    const Matrix4f proj = this->camera->getProj(this->windowSize.cast<float>());
-    this->drawDebug(view, proj);
+    this->drawDebug(*this->camera.get());
 }
 
 void App::composeUI() {

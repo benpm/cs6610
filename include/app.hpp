@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 #include <variant>
+#include <optional>
 #include <camera.hpp>
 #include <spdlog/spdlog.h>
 #include <glad/glad.h>
@@ -52,6 +53,8 @@ struct RenderPass {
     } type;
     std::shared_ptr<Camera> camera;
     GLuint fbo;
+    // If not nullopt, the viewport will be set to this value, otherwise uses the window size
+    std::optional<Vector2f> viewport = std::nullopt;
     std::vector<RenderTarget> targets;
     std::vector<ObjRef> objMask = {};
     RenderTarget cubeMapTarget;
@@ -69,7 +72,7 @@ class App
         float t = 0.0f;
         float lastFrameTime = 0.0f;
         float simTimeStep = 0.25f;
-        int simTimeIters = 5u;
+        int simTimeIters = 1u;
 
         // Input
         Vector2f mousePos = {0.0f, 0.0f};
@@ -89,6 +92,7 @@ class App
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
         cyGLSLProgram skyProg;
+        cyGLSLProgram depthProg;
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
@@ -187,13 +191,15 @@ class App
         void draw(float dt);
 
         // Draws the sky shader program to the current framebuffer
-        void drawSky(const Matrix4f& view, const Matrix4f& proj);
+        void drawSky(const Camera& cam);
 
         // Draws the meshes shader program to the current framebuffer
-        void drawMeshes(const Matrix4f& view, const Matrix4f& proj, const Vector3f& camPos);
+        void drawMeshes(const Camera& cam);
+
+        void drawMeshesDepth(const Camera& cam);
 
         // Draws the debugging shader program to the current framebuffer
-        void drawDebug(const Matrix4f& view, const Matrix4f& proj);
+        void drawDebug(const Camera& cam);
 
         // Updates SSBOs for all shader programs
         void updateBuffers();

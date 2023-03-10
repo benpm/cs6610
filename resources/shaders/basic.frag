@@ -65,6 +65,7 @@ layout(std430, binding = 2) buffer Lights
 uniform vec3 uCamPos;
 uniform vec2 uViewport;
 uniform vec3 uShadowPos;
+uniform float uFarPlane;
 
 vec3 dampLight(vec3 v) {
     return 1.0 - 1.0 / (v*v + 1.0);
@@ -127,9 +128,9 @@ void main() {
     C = mix(C, mat.emissionColor, mat.emissionFactor);
 
     // Shadow mapping
-    vec3 shadowCoord = uShadowPos - wposition;
+    vec3 shadowCoord = wposition - uShadowPos;
     float shadow = 1.0;
-    if (texture(uShadowMap, shadowCoord).r > length(uShadowPos - wposition) - 0.1) {
+    if ((length(shadowCoord) - 0.0001) / uFarPlane > texture(uShadowMap, shadowCoord).r) {
         shadow = 0.1;
     }
     C *= shadow;
