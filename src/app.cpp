@@ -333,7 +333,7 @@ App::App(cxxopts::ParseResult& args) {
         this->eDragArrow = e;
     }
     // Create lots of colorful boxes
-    for (size_t i = 0; i < 30; i++) {
+    for (size_t i = 0; i < 4; i++) {
         entt::entity e = this->makeRigidBody(
             this->meshes.clone("cube", uMaterial {
                 .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
@@ -347,7 +347,7 @@ App::App(cxxopts::ParseResult& args) {
         pbody.vel = rng.vec({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f});
     }
     // Create lots of random models
-    for (size_t i = 0; i < 20; i++) {
+    for (size_t i = 0; i < 0; i++) {
         entt::entity e = this->makeRigidBody(rng.choose({"suzanne", "teapot"}),
             {1.0f, 1.0f, 1.0f},
             rng.vec(this->box));
@@ -357,7 +357,7 @@ App::App(cxxopts::ParseResult& args) {
         pbody.vel = rng.vec({-2.0f, -2.0f, -2.0f}, {2.0f, 2.0f, 2.0f});
     }
     // Create lots of lit spheres
-    for (size_t i = 0; i < 30; i++) {
+    for (size_t i = 0; i < 10; i++) {
         entt::entity e = this->makeRigidBody("light_ball",
             vec3(rng.range(0.1f, 0.5f)),
             rng.vec(this->box));
@@ -492,6 +492,15 @@ void App::onKey(int key, bool pressed) {
                 } else {
                     this->skyProg.Bind();
                     spdlog::info("Rebuilt sky shader program");
+                }
+                built = this->depthProg.BuildFiles(
+                    "resources/shaders/shadow.vert",
+                    "resources/shaders/shadow.frag");
+                if (!built) {
+                    spdlog::error("Failed to build depth (shadow) shader program");
+                } else {
+                    this->depthProg.Bind();
+                    spdlog::info("Rebuilt depth (shadow) shader program");
                 }
             } break;
             case GLFW_KEY_P: {
@@ -794,10 +803,10 @@ void App::drawMeshes(const Camera& cam) {
     this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
     this->meshes.bind(this->meshProg);
-    this->meshProg.SetUniform3("uLightPos", this->shadowCamera->pos.data());
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
     this->meshProg.SetUniform3("uCamPos", cam.pos.data());
+    this->meshProg.SetUniform3("uLightPos", this->shadowCamera->pos.data());
     this->meshProg.SetUniform("uFarPlane", this->shadowCamera->far);
     glMultiDrawElements(
         GL_TRIANGLES,

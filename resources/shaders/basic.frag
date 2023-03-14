@@ -126,7 +126,7 @@ void main() {
     }
 
     // Shadow mapping
-    vec3 fragRelToLight = uLightPos - wposition;
+    vec3 fragRelToLight = wposition - uLightPos;
     float closestDepth = texture(uShadowMap, fragRelToLight).r * uFarPlane;
     float currentDepth = length(fragRelToLight);
     float shadow = currentDepth - 0.05 > closestDepth ? 0.0 : 1.0;
@@ -135,5 +135,6 @@ void main() {
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
     
+    C = vec3(closestDepth / uFarPlane);
     fColor = vec4(C, 1.0);
 }
