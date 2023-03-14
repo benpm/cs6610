@@ -64,7 +64,7 @@ layout(std430, binding = 2) buffer Lights
 
 uniform vec3 uCamPos;
 uniform vec2 uViewport;
-uniform vec3 uShadowPos;
+uniform vec3 uLightPos;
 uniform float uFarPlane;
 
 vec3 dampLight(vec3 v) {
@@ -125,15 +125,15 @@ void main() {
         C = reflectionTex;
     }
 
-    C = mix(C, mat.emissionColor, mat.emissionFactor);
-
     // Shadow mapping
-    vec3 shadowCoord = wposition - uShadowPos;
-    float shadow = 1.0;
-    if ((length(shadowCoord) - 0.0001) / uFarPlane > texture(uShadowMap, shadowCoord).r) {
-        shadow = 0.1;
-    }
-    C *= shadow;
+    vec3 fragRelToLight = uLightPos - wposition;
+    float closestDepth = texture(uShadowMap, fragRelToLight).r * uFarPlane;
+    float currentDepth = length(fragRelToLight);
+    float shadow = currentDepth - 0.05 > closestDepth ? 0.0 : 1.0;
+    float attenuation = pow((1.0 / currentDepth) * 3.0, 2.0);
+    C *= shadow * attenuation;
+
+    C = mix(C, mat.emissionColor, mat.emissionFactor);
     
     fColor = vec4(C, 1.0);
 }

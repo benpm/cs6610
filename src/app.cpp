@@ -794,11 +794,11 @@ void App::drawMeshes(const Camera& cam) {
     this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
     this->meshes.bind(this->meshProg);
-    this->meshProg.SetUniform3("uShadowPos", this->shadowCamera->pos.data());
+    this->meshProg.SetUniform3("uLightPos", this->shadowCamera->pos.data());
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
     this->meshProg.SetUniform3("uCamPos", cam.pos.data());
-    this->meshProg.SetUniform("uFarPlane", cam.far);
+    this->meshProg.SetUniform("uFarPlane", this->shadowCamera->far);
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
@@ -879,12 +879,12 @@ void App::updateBuffers() {
 }
 
 const std::array<Vector3f, 6> cubeMapCameraRotations = {
-    Vector3f(0.0f, 0.0f, 0.0f),
-    Vector3f(0.0f, tau4, 0.0f),
-    Vector3f(0.0f, tau4 * 2.0f, 0.0f),
-    Vector3f(0.0f, tau4 * 3.0f, 0.0f),
-    Vector3f(tau4, 0.0f, 0.0f),
-    Vector3f(-tau4, 0.0f, 0.0f),
+    Vector3f(0.0f, tau4 * 3.0f, 0.0f), // Facing positive X
+    Vector3f(0.0f, tau4 * 1.0f, 0.0f), // Facing negative X
+    Vector3f(tau4 * 1.0f, 0.0f, 0.0f), // Facing positive Y
+    Vector3f(tau4 * 3.0f, 0.0f, 0.0f), // Facing negative Y
+    Vector3f(0.0f, tau4 * 2.0f, 0.0f), // Facing positive Z
+    Vector3f(0.0f, 0.0f,        0.0f), // Facing negative Z
 };
 
 void App::draw(float dt) {
