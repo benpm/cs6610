@@ -5,7 +5,7 @@ in vec3 vNormal;
 in vec3 vUV;
 in uint vMatID;
 
-layout(location = 0) out vec4 fragPos;
+out vec4 fragPos;
 
 uniform mat4 uTProj;
 uniform mat4 uTView;

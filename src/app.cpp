@@ -964,6 +964,9 @@ void App::draw(float dt) {
         for (const RenderTarget& target : pass.targets) {
             glGenerateTextureMipmap(target.id); $gl_err();
         }
+        if (pass.type == RenderPass::Type::cubemap) {
+            glGenerateTextureMipmap(pass.cubeMapTarget.id); $gl_err();
+        }
     }
     this->drawDebug(*this->camera.get());
 }
