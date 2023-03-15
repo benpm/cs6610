@@ -23,7 +23,7 @@ out vec4 fColor;
 uniform uint nLights;
 uniform sampler2D uTex[16];
 uniform samplerCube uEnvTex;
-uniform samplerCube uShadowMap;
+uniform samplerCubeShadow uShadowMap;
 
 struct Material {
     vec3 diffuseColor;
@@ -127,10 +127,9 @@ void main() {
 
     // Shadow mapping
     vec3 fragRelToLight = wposition - uLightPos;
-    float closestDepth = texture(uShadowMap, fragRelToLight).x * uFarPlane;
-    float currentDepth = length(fragRelToLight);
-    float shadow = currentDepth - 0.01 > closestDepth ? 0.0 : 1.0;
-    float attenuation = pow((1.0 / currentDepth) * 3.0, 2.0);
+    float dist = length(wposition - uLightPos);
+    float shadow = texture(uShadowMap, vec4(fragRelToLight, dist / uFarPlane - 0.005));
+    float attenuation = pow((1.0 / dist) * 3.0, 2.0);
     C *= shadow * attenuation;
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
