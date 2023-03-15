@@ -191,15 +191,15 @@ class App
         void draw(float dt);
 
         // Draws the sky shader program to the current framebuffer
-        void drawSky(const Camera& cam);
+        void drawSky(const Camera& cam, const Vector2f& viewport);
 
         // Draws the meshes shader program to the current framebuffer
-        void drawMeshes(const Camera& cam);
+        void drawMeshes(const Camera& cam, const Vector2f& viewport);
 
-        void drawMeshesDepth(const Camera& cam);
+        void drawMeshesDepth(const Camera& cam, const Vector2f& viewport);
 
         // Draws the debugging shader program to the current framebuffer
-        void drawDebug(const Camera& cam);
+        void drawDebug(const Camera& cam, const Vector2f& viewport);
 
         // Updates SSBOs for all shader programs
         void updateBuffers();

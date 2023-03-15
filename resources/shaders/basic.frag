@@ -127,14 +127,13 @@ void main() {
 
     // Shadow mapping
     vec3 fragRelToLight = wposition - uLightPos;
-    float closestDepth = texture(uShadowMap, fragRelToLight).r * uFarPlane;
+    float closestDepth = texture(uShadowMap, fragRelToLight).x * uFarPlane;
     float currentDepth = length(fragRelToLight);
-    float shadow = currentDepth - 0.05 > closestDepth ? 0.0 : 1.0;
+    float shadow = currentDepth - 0.01 > closestDepth ? 0.0 : 1.0;
     float attenuation = pow((1.0 / currentDepth) * 3.0, 2.0);
     C *= shadow * attenuation;
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
     
-    C = vec3(closestDepth / uFarPlane);
     fColor = vec4(C, 1.0);
 }

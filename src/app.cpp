@@ -224,8 +224,8 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
     size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
-    this->meshes.setMaterial("teapot", skyMatID);
-    this->meshes.setMaterial("sphere", skyMatID);
+    // this->meshes.setMaterial("teapot", skyMatID);
+    // this->meshes.setMaterial("sphere", skyMatID);
     size_t whiteMatID = this->meshes.createMaterial("white", uMaterial{
         .diffuseColor = {0.8f, 0.8f, 0.8f},
         .shininess = 500.0f
@@ -262,7 +262,7 @@ App::App(cxxopts::ParseResult& args) {
         .flatReflectionTexID = (int)this->texReflections,
     };
     this->meshes.createMaterial("plane_reflection", planeRefl);
-    this->meshes.setMaterial("quad", "plane_reflection");
+    // this->meshes.setMaterial("quad", "plane_reflection");
 
     uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
     skyRefl.shininess = 1000.0f;
@@ -272,7 +272,7 @@ App::App(cxxopts::ParseResult& args) {
     glGenTextures(1, &this->texShadows); $gl_err();
     glBindTexture(GL_TEXTURE_CUBE_MAP, this->texShadows); $gl_err();
     for (size_t i = 0; i < 6; i++) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 512, 512, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr); $gl_err();
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 2048, 2048, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr); $gl_err();
     }
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
@@ -285,7 +285,7 @@ App::App(cxxopts::ParseResult& args) {
 
     // Construct scene
     this->loadingScreen("constructing scene");
-    for (size_t i = 0; i < this->objectsToGen; i++) {
+    for (size_t i = 0; i < 0; i++) {
         entt::entity e = this->makeModel("sphere");
         Model& model = this->reg.get<Model>(e);
 
@@ -303,6 +303,16 @@ App::App(cxxopts::ParseResult& args) {
         model.rot.x() = -tau4;
         model.pos.y() = 0.25f;
         model.scale *= 3.0f;
+    }
+    {
+        entt::entity e = this->makeModel("suzanne");
+        Model& model = this->reg.get<Model>(e);
+
+        model.pivot.z() = 0.0f;
+        model.rot.x() = -tau4;
+        model.pos.y() = 1.0f;
+        model.pos.z() = 3.5f;
+        model.scale *= 2.0f;
     }
     {
         entt::entity e = this->makeModel("quad");
@@ -333,7 +343,7 @@ App::App(cxxopts::ParseResult& args) {
         this->eDragArrow = e;
     }
     // Create lots of colorful boxes
-    for (size_t i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 10; i++) {
         entt::entity e = this->makeRigidBody(
             this->meshes.clone("cube", uMaterial {
                 .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
@@ -357,7 +367,7 @@ App::App(cxxopts::ParseResult& args) {
         pbody.vel = rng.vec({-2.0f, -2.0f, -2.0f}, {2.0f, 2.0f, 2.0f});
     }
     // Create lots of lit spheres
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 0; i++) {
         entt::entity e = this->makeRigidBody("light_ball",
             vec3(rng.range(0.1f, 0.5f)),
             rng.vec(this->box));
@@ -374,22 +384,17 @@ App::App(cxxopts::ParseResult& args) {
 
     // Add lights
     this->makeLight(
-        Vector3f(0.25f, 0.5f, 0.25f),
+        Vector3f(0.0f, 3.0f, 0.0f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        0.9f,
-        LightType::directional);
-    this->makeLight(
-        Vector3f(-0.15f, -0.5f, -0.45f),
-        Vector3f(1.0f, 1.0f, 0.9f),
-        0.05f,
-        LightType::directional);
+        3.0f,
+        LightType::point);
 
     // Setup render passes
     this->renderPasses.push_back(RenderPass{ // Shadow pass
         .type = RenderPass::Type::cubemap,
         .camera = this->shadowCamera,
         .fbo = this->fboShadows,
-        .viewport = {{512.0f, 512.0f}},
+        .viewport = {{2048.0f, 2048.0f}},
         .cubeMapTarget = RenderTarget {
             .type = RenderTarget::Type::cubemap,
             .id = this->texShadows,
@@ -749,9 +754,9 @@ void App::simulate(float dt) {
     }
 }
 
-void App::drawSky(const Camera& cam) {
+void App::drawSky(const Camera& cam, const Vector2f& viewport) {
     const Matrix4f view = cam.getView();
-    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
+    const Matrix4f proj = cam.getProj(viewport);
     this->skyProg.Bind();
     glBindVertexArray(this->vaoSky); $gl_err();
 
@@ -769,9 +774,9 @@ void App::drawSky(const Camera& cam) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
-void App::drawMeshesDepth(const Camera& cam) {
+void App::drawMeshesDepth(const Camera& cam, const Vector2f& viewport) {
     const Matrix4f view = cam.getView();
-    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
+    const Matrix4f proj = cam.getProj(viewport);
     this->depthProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
@@ -793,9 +798,9 @@ void App::drawMeshesDepth(const Camera& cam) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
-void App::drawMeshes(const Camera& cam) {
+void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     const Matrix4f view = cam.getView();
-    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
+    const Matrix4f proj = cam.getProj(viewport);
     this->meshProg.Bind();
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
@@ -820,9 +825,9 @@ void App::drawMeshes(const Camera& cam) {
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
-void App::drawDebug(const Camera& cam) {
+void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
     const Matrix4f view = cam.getView();
-    const Matrix4f proj = cam.getProj(this->windowSize.cast<float>());
+    const Matrix4f proj = cam.getProj(viewport);
     this->wiresProg.Bind();
     glBindVertexArray(this->vaoWires); $gl_err();
     this->wiresProg.SetUniformMatrix4("uTProj", proj.data());
@@ -888,12 +893,12 @@ void App::updateBuffers() {
 }
 
 const std::array<Vector3f, 6> cubeMapCameraRotations = {
-    Vector3f(0.0f, tau4 * 3.0f, 0.0f), // Facing positive X
-    Vector3f(0.0f, tau4 * 1.0f, 0.0f), // Facing negative X
-    Vector3f(tau4 * 1.0f, 0.0f, 0.0f), // Facing positive Y
-    Vector3f(tau4 * 3.0f, 0.0f, 0.0f), // Facing negative Y
-    Vector3f(0.0f, tau4 * 2.0f, 0.0f), // Facing positive Z
-    Vector3f(0.0f, 0.0f,        0.0f), // Facing negative Z
+    Vector3f(0.0f, tau4 * 3.0f, tau2), // Facing positive X
+    Vector3f(0.0f, tau4 * 1.0f, tau2), // Facing negative X
+    Vector3f(tau4 * 3.0f, 0.0f, 0.0f), // Facing positive Y
+    Vector3f(tau4 * 1.0f, 0.0f, 0.0f), // Facing negative Y
+    Vector3f(0.0f, tau2,        tau2), // Facing positive Z
+    Vector3f(0.0f, 0.0f,        tau2), // Facing negative Z
 };
 
 void App::draw(float dt) {
@@ -935,11 +940,11 @@ void App::draw(float dt) {
             glDrawBuffer(GL_COLOR_ATTACHMENT0); $gl_err();
             glReadBuffer(GL_COLOR_ATTACHMENT0); $gl_err();
         }
+        Vector2f viewport = this->windowSize.cast<float>();
         if (pass.viewport) {
-            glViewport(0, 0, (*pass.viewport).x(), (*pass.viewport).y()); $gl_err();
-        } else {
-            glViewport(0, 0, this->windowSize.x(), this->windowSize.y()); $gl_err();
+            viewport = *pass.viewport;
         }
+        glViewport(0, 0, viewport.x(), viewport.y()); $gl_err();
 
         // Draw
         size_t iters = 1u;
@@ -961,11 +966,11 @@ void App::draw(float dt) {
             }
             if (!depthOnly) {
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-                this->drawSky(cam);
-                this->drawMeshes(cam);
+                this->drawSky(cam, viewport);
+                this->drawMeshes(cam, viewport);
             } else {
                 glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
-                this->drawMeshesDepth(cam);
+                this->drawMeshesDepth(cam, viewport);
             }
         }
 
@@ -977,7 +982,7 @@ void App::draw(float dt) {
             glGenerateTextureMipmap(pass.cubeMapTarget.id); $gl_err();
         }
     }
-    this->drawDebug(*this->camera.get());
+    this->drawDebug(*this->camera.get(), this->windowSize.cast<float>());
 }
 
 void App::composeUI() {
