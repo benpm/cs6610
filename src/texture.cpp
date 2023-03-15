@@ -2,6 +2,7 @@
 #include <texture.hpp>
 #include <glad/glad.h>
 #include <spdlog/spdlog.h>
+#include <gfx.hpp>
 
 const std::tuple<std::vector<uint8_t>, uint32_t, uint32_t> getImageData(const std::string& path) {
     assert(fs::exists(path));
@@ -30,16 +31,15 @@ uint32_t TextureCollection::add(const std::string& path) {
 
     const auto [data, width, height] = getImageData(path);
 
-    GLuint bindID;
-    glGenTextures(1, &bindID); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, bindID); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data()); $gl_err();
-    glGenerateMipmap(GL_TEXTURE_2D); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); $gl_err();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    const GLuint bindID = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_2D,
+        .format = GL_RGBA,
+        .width = width,
+        .height = height,
+        .wrap = GL_REPEAT,
+        .mipmap = true,
+        .data = data.data(),
+    });
 
     const std::string name = fs::path(path).stem().string();
 
@@ -86,21 +86,8 @@ void TextureCollection::bind(cyGLSLProgram& prog, const std::string& name, const
     prog.SetUniform(uniform.c_str(), (GLint)texData.texUnitID); $gl_err();
 }
 
-constexpr std::array<GLenum, 6> cubeMapFaces = {
-    GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-    GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-    GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-    GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-    GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-    GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
-};
-
 uint32_t TextureCollection::addCubemap(const std::string& name, const std::string& dirName) {
     const uint32_t texUnitID = this->nextTexUnitID++;
-
-    GLuint bindID;
-    glGenTextures(1, &bindID); $gl_err();
-    glBindTexture(GL_TEXTURE_CUBE_MAP, bindID); $gl_err();
 
     assert(fs::exists(dirName));
 
@@ -113,19 +100,31 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
         fs::path(dirName) / "negz.png"
     };
 
+    uint32_t width, height;
+    std::array<std::vector<uint8_t>, 6> faceData;
     for (size_t i = 0; i < 6u; i++) {
-        const auto [data, width, height] = getImageData(paths[i]);
-        glTexImage2D(cubeMapFaces[i], 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data()); $gl_err();
+        auto [data, w, h] = getImageData(paths[i]);
+        if (i == 0) {
+            width = w;
+            height = h;
+        } else {
+            assert(width == w && height == h);
+        }
+        faceData[i] = std::move(data);
+    }
+    gfx::TextureConfig conf {
+        .target = GL_TEXTURE_CUBE_MAP,
+        .format = GL_RGBA,
+        .width = width,
+        .height = height,
+        .wrap = GL_CLAMP_TO_EDGE,
+        .mipmap = true,
+    };
+    for (size_t i = 0; i < 6u; i++) {
+        conf.dataCube[i] = faceData[i].data();
     }
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); $gl_err();
-    glGenerateMipmap(GL_TEXTURE_CUBE_MAP); $gl_err();
-    
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+    const GLuint bindID = gfx::texture(conf);
 
     this->idMap.emplace(texUnitID, TextureData {
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
@@ -136,21 +135,14 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
 uint32_t TextureCollection::addCubemap(const std::string& name, uint32_t width, uint32_t height) {
     const uint32_t texUnitID = this->nextTexUnitID++;
 
-    GLuint bindID;
-    glGenTextures(1, &bindID); $gl_err();
-    glBindTexture(GL_TEXTURE_CUBE_MAP, bindID); $gl_err();
-
-    for (size_t i = 0; i < 6u; i++) {
-        glTexImage2D(cubeMapFaces[i], 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
-    }
-
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); $gl_err();
-    
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+    const GLuint bindID = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_CUBE_MAP,
+        .format = GL_RGB,
+        .width = width,
+        .height = height,
+        .wrap = GL_CLAMP_TO_EDGE,
+        .mipmap = true,
+    });
 
     this->idMap.emplace(texUnitID, TextureData {
         .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});

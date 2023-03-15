@@ -135,8 +135,6 @@ public:
     uMaterial& getMaterial(size_t matID);
     // Creates a new sky material (will be named "sky_<dirName>")
     size_t createSkyMaterial(const std::string& dirName);
-    // Creates a new buffer material (material which is meant to be used as a framebuffer target)
-    uMaterial& createBufferMaterial(const std::string& name, uint32_t width, uint32_t height);
     // Creates a new material, inferring from given, returns ID
     size_t createMaterial(const std::string& name, uMaterial mat);
     // Creates a new material as a copy of the given material, returns ID

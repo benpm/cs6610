@@ -11,6 +11,7 @@
 #include <gleq.h>
 #include <spdlog/formatter.h>
 #include <physics.hpp>
+#include <gfx.hpp>
 
 void APIENTRY GLDebugMessageCallback(
     GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
@@ -239,10 +240,12 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.setMaterial("light_ball", lightMatID);
 
     // Plane reflection framebuffer, depth renderbuffer, and color texture
-    glGenTextures(1, &this->texReflections); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, this->texReflections); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->windowSize.x(), this->windowSize.y(), 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    this->texReflections = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_2D,
+        .format = GL_RGB,
+        .width = (uint32_t)this->windowSize.x(),
+        .height = (uint32_t)this->windowSize.y(),
+    });
 
     glGenFramebuffers(1, &this->fboReflections); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
@@ -269,19 +272,15 @@ App::App(cxxopts::ParseResult& args) {
     skyRefl.diffuseColor = Vector3f::Zero();
 
     // Shadows cube map
-    glGenTextures(1, &this->texShadows); $gl_err();
-    glBindTexture(GL_TEXTURE_CUBE_MAP, this->texShadows); $gl_err();
-    for (size_t i = 0; i < 6; i++) {
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 2048, 2048, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr); $gl_err();
-    }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); $gl_err();
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL); $gl_err();
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+    this->texShadows = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_CUBE_MAP,
+        .format = GL_DEPTH_COMPONENT,
+        .width = 2048,
+        .height = 2048,
+        .wrap = GL_CLAMP_TO_EDGE,
+        .storageType = GL_FLOAT,
+        .filter = GL_NEAREST,
+    });
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
     this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP);

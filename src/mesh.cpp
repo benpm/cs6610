@@ -320,24 +320,6 @@ size_t MeshCollection::createSkyMaterial(const std::string& dirName) {
     return matID;
 }
 
-uMaterial& MeshCollection::createBufferMaterial(const std::string& name, uint32_t width, uint32_t height) {
-    this->dirty = true;
-
-    GLuint texBindID;
-    glGenTextures(1, &texBindID); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, texBindID); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
-
-    const uint32_t matID = this->materials.size();
-    uMaterial& mat = this->materials.emplace_back();
-    mat.flatReflectionTexID = this->textures.add(name, texBindID);
-
-    this->nameMaterialMap[name] = matID;
-    this->materialNameMap[matID] = name;
-    return mat;
-}
-
 size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
     this->dirty = true;
 
