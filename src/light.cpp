@@ -6,8 +6,9 @@ Light::Light(const Vector3f& pos, const Vector3f& color, float intensity, LightT
 
 uLight Light::toStruct(const Camera& camera) const {
     return {
-        .position = type == LightType::point ? camera.toView(pos) : pos,
+        .position = pos,
         .color = color,
+        .direction = dir,
         .intensity = intensity,
         .type = type
     };

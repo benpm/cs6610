@@ -6,6 +6,11 @@
 #include <glad/glad.h>
 #include <cyGL.h>
 
+enum class TextureSampler {
+    normal,
+    shadow
+};
+
 struct TextureData
 {
     // OpenGL texture name
@@ -14,6 +19,8 @@ struct TextureData
     uint32_t texUnitID;
     // Type of texture
     GLenum type;
+    // Type of sampler
+    TextureSampler sampler = TextureSampler::normal;
 };
 
 class TextureCollection
@@ -27,7 +34,7 @@ public:
     // Add texture to collection and return its ID (same as texture unit for now)
     uint32_t add(const std::string& path);
     // Adds an already created texture to this collection
-    uint32_t add(const std::string& name, GLuint bindID, GLenum type = GL_TEXTURE_2D);
+    uint32_t add(const std::string& name, GLuint bindID, GLenum type = GL_TEXTURE_2D, TextureSampler sampler = TextureSampler::normal);
     // Adds a cubemap texture, loading texture images from the given directory
     uint32_t addCubemap(const std::string& name, const std::string& dirName);
     // Adds an empty cubemap texture

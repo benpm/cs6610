@@ -6,13 +6,15 @@ class Camera;
 
 enum class LightType: uint32_t {
     point,
-    directional
+    directional,
+    spot
 };
 
 // Light struct for use in shaders: exists in view-space
 struct uLight {
     alignas(16) Vector3f position;
     alignas(16) Vector3f color;
+    alignas(16) Vector3f direction;
     float intensity;
     LightType type;
 };
@@ -23,6 +25,7 @@ class Light
 public:
     // Position of light in world space if point, direction of light in world space if directional
     Vector3f pos = {0.0f, 0.0f, 0.0f};
+    Vector3f dir = {0.0f, 0.0f, 0.0f};
     Vector3f color = {1.0f, 1.0f, 1.0f};
     float intensity = 10.0f;
     LightType type = LightType::point;

@@ -283,9 +283,33 @@ App::App(cxxopts::ParseResult& args) {
     });
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
-    this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP);
+    this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP, TextureSampler::shadow);
     this->shadowCamera->pos = Vector3f(0.0f, 3.0f, 0.0f);
     this->shadowCamera->far = 20.0f;
+
+    // Spotlight shadow map
+    this->texSpotShadows = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_2D,
+        .format = GL_DEPTH_COMPONENT,
+        .width = 1024,
+        .height = 1024,
+        .wrap = GL_CLAMP_TO_EDGE,
+        .storageType = GL_FLOAT,
+        .filter = GL_NEAREST,
+    });
+    {
+        this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D, TextureSampler::shadow);
+        this->spotShadowCamera->far = 20.0f;
+        this->spotShadowCamera->fov = 2.0f;
+        this->spotShadowCamera->orbitDist(5.0f);
+        this->spotShadowCamera->orbitTheta(tau4);
+        this->spotShadowCamera->orbitPhi(0.0f);
+        entt::entity e = this->makeSpotLight(
+            this->spotShadowCamera->pos,
+            -direction(this->spotShadowCamera->rot),
+            Vector3f(1.0f, 1.0f, 0.9f),
+            5.0f);
+    }
 
     spdlog::info("Loaded meshes");
 
@@ -327,6 +351,14 @@ App::App(cxxopts::ParseResult& args) {
         model.scale = vec3(100.0f);
 
         this->ePlane = e;
+    }
+    {
+        entt::entity e = this->makeModel("quad");
+        Model& model = this->reg.get<Model>(e);
+
+        model.scale = vec3(100.0f);
+        model.pos.y() = 12.0f;
+        model.rot.x() = tau2;
     }
     { // Create a point to visualize mouse select
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -389,11 +421,11 @@ App::App(cxxopts::ParseResult& args) {
     this->camera->orbitDist(3.0f);
 
     // Add lights
-    this->makeLight(
-        Vector3f(0.0f, 3.0f, 0.0f),
-        Vector3f(1.0f, 1.0f, 0.9f),
-        3.0f,
-        LightType::point);
+    // this->makeLight(
+    //     Vector3f(0.0f, 3.0f, 0.0f),
+    //     Vector3f(1.0f, 1.0f, 0.9f),
+    //     3.0f,
+    //     LightType::point);
 
     // Setup render passes
     this->renderPasses.push_back(RenderPass{ // Shadow pass
@@ -405,6 +437,19 @@ App::App(cxxopts::ParseResult& args) {
             .type = RenderTarget::Type::cubemap,
             .id = this->texShadows,
             .attachment = GL_DEPTH_ATTACHMENT,
+        }
+    });
+    this->renderPasses.push_back(RenderPass{ // Spotlight shadow pass
+        .type = RenderPass::Type::normal,
+        .camera = this->spotShadowCamera,
+        .fbo = this->fboShadows,
+        .viewport = {{1024.0f, 1024.0f}},
+        .targets = {
+            RenderTarget {
+                .type = RenderTarget::Type::texture,
+                .id = this->texSpotShadows,
+                .attachment = GL_DEPTH_ATTACHMENT,
+            }
         }
     });
     this->renderPasses.push_back(RenderPass{ // Reflection pass
@@ -813,11 +858,15 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     // Draw models in scene
     this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
+    this->meshes.textures.bind(this->meshProg, "spot_shadow_map", "uSpotShadowMap");
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
+    const Matrix4f lightMat = this->spotShadowCamera->getProj({1024.0, 1024.0}) * this->spotShadowCamera->getView();
+    this->meshProg.SetUniformMatrix4("uTSpotLight", lightMat.data());
     this->meshProg.SetUniform3("uCamPos", cam.pos.data());
     this->meshProg.SetUniform3("uLightPos", this->shadowCamera->pos.data());
+    this->meshProg.SetUniform3("uSpotLightPos", this->spotShadowCamera->pos.data());
     this->meshProg.SetUniform("uFarPlane", this->shadowCamera->far);
     glMultiDrawElements(
         GL_TRIANGLES,
@@ -1009,6 +1058,7 @@ void App::composeUI() {
     ImGui::Text("F6: Reload shaders");
     ImGui::Text(fmt::format("camera pos: {}", this->camera->pos).c_str());
     ImGui::Text(fmt::format("camera rot: {}", this->camera->rot).c_str());
+    ImGui::Text(fmt::format("phi={} theta={}", this->camera->orbitPhi(), this->camera->orbitTheta()).c_str());
     Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
     ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
@@ -1121,6 +1171,31 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
 
     // DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
     // debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
+
+    return e;
+}
+
+entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const Vector3f& color, float intensity) {
+    entt::entity e = this->reg.create();
+
+    Light& light = this->reg.emplace<Light>(e);
+    light.pos = pos;
+    light.dir = dir;
+    light.color = color;
+    light.intensity = intensity;
+    light.type = LightType::spot;
+
+    this->reg.emplace<uLight>(e);
+
+    DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
+    debugRay.pos = pos;
+    debugRay.rot = vec3(pointSphere(dir));
+
+    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+    rayTransform.transform = debugRay.transform();
+
+    DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+    debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
 
     return e;
 }

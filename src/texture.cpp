@@ -49,10 +49,10 @@ uint32_t TextureCollection::add(const std::string& path) {
     return texUnitID;
 }
 
-uint32_t TextureCollection::add(const std::string& name, GLuint bindID, GLenum type) {
+uint32_t TextureCollection::add(const std::string& name, GLuint bindID, GLenum type, TextureSampler sampler) {
     const uint32_t texUnitID = this->nextTexUnitID++;
     this->idMap.emplace(texUnitID, TextureData {
-        .bindID = bindID, .texUnitID = texUnitID, .type = type});
+        .bindID = bindID, .texUnitID = texUnitID, .type = type, .sampler = sampler});
     this->map.emplace(name, texUnitID);
     return texUnitID;
 }
@@ -62,6 +62,9 @@ void TextureCollection::bind(cyGLSLProgram& prog) const {
     std::vector<GLint> texUnits2D(16u, 0);
     for (const auto& [name, texUnitID] : this->map) {
         const TextureData& texData = this->idMap.at(texUnitID);
+        if (texData.sampler != TextureSampler::normal) {
+            continue;
+        }
         switch (texData.type) {
             case GL_TEXTURE_2D:
                 glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();

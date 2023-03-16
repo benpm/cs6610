@@ -49,7 +49,8 @@ struct RenderPass {
     enum class Type {
         reflection,
         cubemap,
-        final
+        final,
+        normal
     } type;
     std::shared_ptr<Camera> camera;
     GLuint fbo;
@@ -89,6 +90,7 @@ class App
         std::shared_ptr<Camera> camera = std::make_shared<Camera>();
         std::shared_ptr<Camera> reflCamera = std::make_shared<Camera>();
         std::shared_ptr<Camera> shadowCamera = std::make_shared<Camera>();
+        std::shared_ptr<Camera> spotShadowCamera = std::make_shared<Camera>();
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
         cyGLSLProgram skyProg;
@@ -134,6 +136,7 @@ class App
         GLuint texReflections;
         GLuint texShadows;
         GLuint fboShadows;
+        GLuint texSpotShadows;
 
         std::vector<RenderPass> renderPasses;
 
@@ -220,4 +223,5 @@ class App
         entt::entity makeReflectiveModel(const std::string& name);
         entt::entity makeRigidBody(const std::string& name, const Vector3f& scale, const Vector3f& pos, const Vector3f& rot = {0.0f, 0.0f, 0.0f});
         entt::entity makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type);
+        entt::entity makeSpotLight(const Vector3f& pos, const Vector3f& dir, const Vector3f& color, float intensity);
 };

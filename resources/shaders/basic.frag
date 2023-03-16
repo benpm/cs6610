@@ -24,6 +24,7 @@ uniform uint nLights;
 uniform sampler2D uTex[16];
 uniform samplerCube uEnvTex;
 uniform samplerCubeShadow uShadowMap;
+uniform sampler2DShadow uSpotShadowMap;
 
 struct Material {
     vec3 diffuseColor;
@@ -42,10 +43,12 @@ struct Material {
 
 const uint lightPoint = 0;
 const uint lightDirectional = 1;
+const uint lightSpot = 2;
 
 struct Light {
-    vec3 position;      // Light position in view space (direction if directional)
+    vec3 position;      // Light position in world space
     vec3 color;         // Light color
+    vec3 direction;     // Light direction
     float intensity;    // Light intensity
     uint type;          // Light type (point or directional)
 };
@@ -62,10 +65,14 @@ layout(std430, binding = 2) buffer Lights
     Light uLight[];
 };
 
+uniform mat4 uTProj;
+uniform mat4 uTView;
 uniform vec3 uCamPos;
 uniform vec2 uViewport;
 uniform vec3 uLightPos;
+uniform vec3 uSpotLightPos;
 uniform float uFarPlane;
+uniform mat4 uTSpotLight;
 
 vec3 dampLight(vec3 v) {
     return 1.0 - 1.0 / (v*v + 1.0);
@@ -91,22 +98,33 @@ void main() {
     vec3 C = mat.ambientColor * mat.ambientFactor;
     for (uint i = 0; i < nLights; i++) {
         // Vector to light
-        vec3 lightVec = uLight[i].position - position;
-        if (uLight[i].type == lightDirectional) {
-            lightVec = uLight[i].position;
-        }
+        vec3 viewLightPos = (uTView * vec4(uLight[i].position, 1.0)).xyz;
         // Direction to light
+        vec3 lightVec = viewLightPos - position;
         vec3 lightDir = normalize(lightVec);
-        // Half-angle vector between light and view
-        vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
+        if (uLight[i].type == lightDirectional) {
+            lightDir = (uTView * vec4(uLight[i].direction, 0.0)).xyz;
+        }
 
         // Blinn shading
+        vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
         vec3 diffuse = max(0.0, dot(n, lightDir)) * diffuseColor;
         vec3 specular = pow(max(0.0, dot(h, n)), max(0.1, mat.shininess)) * specularColor;
 
+        // Light attenuation
         float attenuation = uLight[i].intensity;
         if (uLight[i].type == lightPoint) {
             attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
+        } else if (uLight[i].type == lightSpot) {
+            float theta = dot(
+                normalize(uLight[i].position - wposition),
+                normalize(-uLight[i].direction));
+            if (theta < cos(0.7)) {
+                attenuation = 0.0;
+            } else {
+                // attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
+                attenuation = 2.0;
+            }
         }
         
         C += attenuation * (diffuse + specular * mat.specularFactor);
@@ -126,11 +144,17 @@ void main() {
     }
 
     // Shadow mapping
-    vec3 fragRelToLight = wposition - uLightPos;
-    float dist = length(wposition - uLightPos);
-    float shadow = texture(uShadowMap, vec4(fragRelToLight, dist / uFarPlane - 0.005));
-    float attenuation = pow((1.0 / dist) * 3.0, 2.0);
-    C *= shadow * attenuation;
+    // vec3 fragRelToLight = wposition - uLightPos;
+    // float dist = length(wposition - uLightPos);
+    // float shadow = texture(uShadowMap, vec4(fragRelToLight, dist / uFarPlane - 0.005));
+    // float attenuation = pow((1.0 / dist) * 5.0, 2.0);
+    // C *= shadow * attenuation;
+
+    // Shadow mapping for spotlight
+    vec4 v = uTSpotLight * vec4(wposition, 1.0);
+    float dist = length(wposition - uSpotLightPos);
+    float shadow = texture(uSpotShadowMap, v.xyz * vec3(1.0, 1.0, 1.0 / uFarPlane));
+    C *= shadow;
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
     

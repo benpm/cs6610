@@ -30,14 +30,14 @@ namespace gfx {
                     glTexImage2D(cubeMapFaces[i], 0, internalFormat, conf.width, conf.height,
                         0, conf.format, conf.storageType, conf.dataCube[i]); $gl_err();
                 }
-                if (conf.format == GL_DEPTH_COMPONENT) {
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); $gl_err();
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL); $gl_err();
-                }
                 break;
             default:
                 spdlog::error("Unhandled texture target: {}", conf.target);
                 break;
+        }
+        if (conf.format == GL_DEPTH_COMPONENT) {
+            glTexParameteri(conf.target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); $gl_err();
+            glTexParameteri(conf.target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL); $gl_err();
         }
         if (conf.mipmap) {
             glTexParameteri(conf.target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); $gl_err();

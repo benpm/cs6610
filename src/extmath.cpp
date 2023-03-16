@@ -131,7 +131,8 @@ Vector3f rotate(const Vector3f &v, const Vector3f &axisAngles) {
 }
 
 Vector3f direction(const Vector3f& axisAngles) {
-    return spherePoint(vec2(axisAngles));
+    // Rotation about x axis is up/down, rotation about y axis is left/right around sphere
+    return spherePoint({axisAngles.y(), axisAngles.x()});
 }
 
 Vector3f towards(const Vector3f &a, const Vector3f &b) {
