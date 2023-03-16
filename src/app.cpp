@@ -279,6 +279,7 @@ App::App(cxxopts::ParseResult& args) {
         .height = 2048,
         .wrap = GL_CLAMP_TO_EDGE,
         .storageType = GL_FLOAT,
+        .shadow = true,
         .filter = GL_NEAREST,
     });
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
@@ -295,6 +296,7 @@ App::App(cxxopts::ParseResult& args) {
         .height = 1024,
         .wrap = GL_CLAMP_TO_EDGE,
         .storageType = GL_FLOAT,
+        .shadow = true,
         .filter = GL_NEAREST,
     });
     {

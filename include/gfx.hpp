@@ -17,6 +17,7 @@ namespace gfx {
         // GL_UNSIGNED_BYTE, GL_FLOAT
         GLenum storageType = GL_UNSIGNED_BYTE;
         bool mipmap = false;
+        bool shadow = false;
         // GL_NEAREST, GL_LINEAR
         GLenum filter = GL_LINEAR;
         const void* data = nullptr;

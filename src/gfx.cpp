@@ -35,7 +35,7 @@ namespace gfx {
                 spdlog::error("Unhandled texture target: {}", conf.target);
                 break;
         }
-        if (conf.format == GL_DEPTH_COMPONENT) {
+        if (conf.shadow) {
             glTexParameteri(conf.target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE); $gl_err();
             glTexParameteri(conf.target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL); $gl_err();
         }
