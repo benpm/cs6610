@@ -3,17 +3,20 @@
 
 ![](2023-03-13-23-29-41.png)
 
+![](2023-03-16-22-06-47.png)
+
 > What you implemented
 
-- Point light shadows
+- Spot light shadows
+- Control spot light orientation with shift + left click
 
 > What you could not implement
 
-WIP
+- There are issues with the spot light shadow projection that I don't understand :(
 
 > Additional functionalities beyond project requirements
 
-WIP
+- Point light shadows (they are implemented but not accessible)
 
 > How to use your implementation
 

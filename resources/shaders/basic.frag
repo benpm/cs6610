@@ -158,10 +158,11 @@ void main() {
     // C *= shadow;
     // float shadow = textureProj(uSpotShadowMap, vec4(v.x, v.y, v.z / uFarPlane, v.w));
     // C = vec3(shadow);
-    float shadow = textureProj(uSpotShadowMap, vec4(
+    float shadow = texture(uSpotShadowMap, vec3(
         (v.x / 2.0) / v.w + 0.5,
         (v.y / 2.0) / v.w + 0.5,
-        dist / uFarPlane - 0.005, 1.0));
+        dist / uFarPlane - 0.005));
+    // float shadow = texture(uSpotShadowMap, v.xyz / v.w);
     C *= shadow;
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);

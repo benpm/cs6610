@@ -101,6 +101,7 @@ class App
         entt::entity ePlane;
         entt::entity eSelectPoint;
         entt::entity eDragArrow;
+        entt::entity eSpotLight;
 
         Vector3f selectPoint;
         entt::entity eSelected = entt::null;

@@ -306,7 +306,7 @@ App::App(cxxopts::ParseResult& args) {
         this->spotShadowCamera->orbitDist(5.0f);
         this->spotShadowCamera->orbitTheta(tau4);
         this->spotShadowCamera->orbitPhi(0.0f);
-        entt::entity e = this->makeSpotLight(
+        this->eSpotLight = this->makeSpotLight(
             this->spotShadowCamera->pos,
             -direction(this->spotShadowCamera->rot),
             Vector3f(1.0f, 1.0f, 0.9f),
@@ -615,6 +615,7 @@ void App::onClick(int button, bool pressed) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
             this->camera->dragStart();
+            this->spotShadowCamera->dragStart();
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
@@ -745,7 +746,14 @@ void App::simulate(float dt) {
         dragDelta = panDelta * 2.0f;
         dragDelta.y() *= -1.0f;
     }
-    this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+    if (this->pressedKeys.count(GLFW_KEY_LEFT_SHIFT)) {
+        this->spotShadowCamera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+        Light& spotLight = this->reg.get<Light>(this->eSpotLight);
+        spotLight.pos = this->spotShadowCamera->pos;
+        spotLight.dir = -direction(this->spotShadowCamera->rot);
+    } else {
+        this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+    }
 
     // Physics simulation
     // constexpr float dampingFactor = 0.25f;
@@ -1189,15 +1197,15 @@ entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const 
 
     this->reg.emplace<uLight>(e);
 
-    DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
-    debugRay.pos = pos;
-    debugRay.rot = vec3(pointSphere(dir));
+    // DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
+    // debugRay.pos = pos;
+    // debugRay.rot = vec3(pointSphere(dir));
 
-    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-    rayTransform.transform = debugRay.transform();
+    // RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+    // rayTransform.transform = debugRay.transform();
 
-    DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-    debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
+    // DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+    // debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
 
     return e;
 }
