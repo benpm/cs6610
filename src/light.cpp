@@ -6,10 +6,12 @@ Light::Light(const Vector3f& pos, const Vector3f& color, float intensity, LightT
 
 uLight Light::toStruct(const Camera& camera) const {
     return {
-        .position = pos,
-        .color = color,
-        .direction = dir,
-        .intensity = intensity,
-        .type = type
+        .position = this->pos,
+        .color = this->color,
+        .direction = this->dir,
+        .intensity = this->intensity,
+        .range = this->range,
+        .spotAngle = cosf(this->spotAngle / 2.0f),
+        .type = this->type
     };
 }

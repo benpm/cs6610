@@ -4,6 +4,11 @@
 
 Assignments for Interactive Computer Graphics and Physics-Based Animation.
 
+## Features
+- Variety of lights, shadow mapping
+- Interactive rigid body physics
+- OBJ format materials, shading
+
 ## Assets
 Before doing anything you need to download the externally-hosted assets. On Linux you can just run the `download_assets.sh` script. Otherwise, you'll have to [download](http://cs.utah.edu/~benpm/assets.zip) and unzip the archive manually.
 

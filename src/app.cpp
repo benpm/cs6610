@@ -309,8 +309,8 @@ App::App(cxxopts::ParseResult& args) {
         this->eSpotLight = this->makeSpotLight(
             this->spotShadowCamera->pos,
             -direction(this->spotShadowCamera->rot),
-            Vector3f(1.0f, 1.0f, 0.9f),
-            6.0f);
+            Vector3f(0.5f, 1.0f, 0.6f),
+            24.0f, this->spotShadowCamera->fov);
     }
 
     spdlog::info("Loaded meshes");
@@ -426,7 +426,7 @@ App::App(cxxopts::ParseResult& args) {
     this->makeLight(
         Vector3f(2.0f, 3.0f, 1.0f),
         Vector3f(1.0f, 1.0f, 0.9f),
-        3.0f,
+        8.0f, 3.0f,
         LightType::point);
 
     // Setup render passes
@@ -1172,7 +1172,7 @@ entt::entity App::makeRigidBody(const std::string& name, const Vector3f &scale, 
     return e;
 }
 
-entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float intensity, LightType type) {
+entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float intensity, float range, LightType type) {
     entt::entity e = this->reg.create();
 
     Light& light = this->reg.emplace<Light>(e);
@@ -1180,6 +1180,7 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
     light.color = color;
     light.intensity = intensity;
     light.type = type;
+    light.range = range;
 
     this->reg.emplace<uLight>(e);
 
@@ -1196,7 +1197,7 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
     return e;
 }
 
-entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const Vector3f& color, float intensity) {
+entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const Vector3f& color, float intensity, float spotAngle) {
     entt::entity e = this->reg.create();
 
     Light& light = this->reg.emplace<Light>(e);
@@ -1205,6 +1206,7 @@ entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const 
     light.color = color;
     light.intensity = intensity;
     light.type = LightType::spot;
+    light.spotAngle = spotAngle;
 
     this->reg.emplace<uLight>(e);
 

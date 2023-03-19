@@ -50,6 +50,8 @@ struct Light {
     vec3 color;         // Light color
     vec3 direction;     // Light direction
     float intensity;    // Light intensity
+    float range;        // Light range
+    float spotAngle;    // Spotlight angle
     uint type;          // Light type (point or directional)
 };
 
@@ -74,6 +76,11 @@ uniform vec3 uSpotLightPos;
 uniform float uFarPlane;
 uniform mat4 uTSpotLight;
 
+// From Cem Yuksel "Point Light Attenuation Without Singularity"
+float lightAttenuate(float d, float r) {
+    return (2.0 / (r*r)) * (1.0 - d / sqrt(d*d + r*r));
+}
+
 void main() {
     Material mat = uMaterial[matID];
     // Fragment normal
@@ -93,49 +100,45 @@ void main() {
     // Accumulate lights
     vec3 C = mat.ambientColor * mat.ambientFactor;
     for (uint i = 0; i < nLights; i++) {
-        // Vector to light
-        vec3 viewLightPos = (uTView * vec4(uLight[i].position, 1.0)).xyz;
-        // Direction to light
-        vec3 lightVec = viewLightPos - position;
+        const vec3 viewLightPos = (uTView * vec4(uLight[i].position, 1.0)).xyz;
+        const vec3 lightVec = viewLightPos - position;
         vec3 lightDir = normalize(lightVec);
-        if (uLight[i].type == LIGHT_DIRECTIONAL) {
-            lightDir = (uTView * vec4(uLight[i].direction, 0.0)).xyz;
+
+        // Light attenuation
+        float attenuation = 0.0;
+        switch (uLight[i].type) {
+            case LIGHT_POINT: {
+                attenuation = lightAttenuate(length(lightVec), uLight[i].range) * uLight[i].intensity;
+                // Shadow mapping for point light
+                vec3 wLightVec = wposition - uLightPos;
+                attenuation *= texture(uShadowMap, vec4(
+                    wLightVec, length(wLightVec) / uFarPlane - 0.01));
+                break; }
+            case LIGHT_SPOT: {
+                float theta = dot(
+                    normalize(uLight[i].position - wposition),
+                    normalize(-uLight[i].direction));
+                if (theta >= uLight[i].spotAngle) {
+                    attenuation = lightAttenuate(length(lightVec), uLight[i].range) * uLight[i].intensity;
+                    // Shadow mapping for spotlight
+                    vec4 wLightVec = uTSpotLight * vec4(wposition, 1.0);
+                    attenuation *= texture(uSpotShadowMap, vec3(
+                        wLightVec.xy / (2.0 * wLightVec.w) + 0.5,
+                        min(1.0, length(wLightVec.xyz / uFarPlane) - 0.01)));
+                }
+                break; }
+            case LIGHT_DIRECTIONAL: {
+                lightDir = (uTView * vec4(uLight[i].direction, 0.0)).xyz;
+                attenuation = uLight[i].intensity;
+                break; }
         }
 
         // Blinn shading
-        vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
-        vec3 diffuse = max(0.0, dot(n, lightDir)) * diffuseColor;
-        vec3 specular = pow(max(0.0, dot(h, n)), max(0.1, mat.shininess)) * specularColor;
-
-        // Light attenuation
-        float attenuation = uLight[i].intensity;
-        if (uLight[i].type == LIGHT_POINT) {
-            attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
-        } else if (uLight[i].type == LIGHT_SPOT) {
-            float theta = dot(
-                normalize(uLight[i].position - wposition),
-                normalize(-uLight[i].direction));
-            if (theta < cos(pi / 4.0)) {
-                attenuation = 0.0;
-            } else {
-                attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
-            }
-        }
-
-        if (uLight[i].type == LIGHT_POINT) {
-            // Shadow mapping for point light
-            vec3 fragRelToLight = wposition - uLightPos;
-            attenuation *= texture(uShadowMap, vec4(
-                fragRelToLight, length(fragRelToLight) / uFarPlane - 0.01));
-        } else if (uLight[i].type == LIGHT_SPOT) {
-            // Shadow mapping for spotlight
-            vec4 v = uTSpotLight * vec4(wposition, 1.0);
-            attenuation *= texture(uSpotShadowMap, vec3(
-                v.xy / (2.0 * v.w) + 0.5,
-                min(1.0, length(v.xyz / uFarPlane) - 0.01)));
-        }
+        const vec3 h = normalize(lightDir + vec3(0.0, 0.0, 1.0));
+        const vec3 diffuse = max(0.0, dot(n, lightDir)) * diffuseColor;
+        const vec3 specular = pow(max(0.0, dot(h, n)), max(0.1, mat.shininess)) * specularColor;
         
-        C += attenuation * (diffuse + specular * mat.specularFactor);
+        C += attenuation * uLight[i].color * (diffuse + specular * mat.specularFactor);
     }
 
     // Environment mapping / reflection

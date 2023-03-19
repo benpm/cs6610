@@ -1,6 +1,8 @@
 # CS 6610 Project 7
 *Benjamin Mastripolito u1419419*
 
+![](2023-03-19_02-16.png)
+
 ![](2023-03-13-23-29-41.png)
 
 ![](2023-03-16-22-06-47.png)
@@ -9,14 +11,17 @@
 
 - Spot light shadows
 - Control spot light orientation with shift + left click
+- Lights use Cem's trick for smoothing out light falloff
 
 > What you could not implement
 
-- There are issues with the spot light shadow projection that I don't understand :(
+- The spotlight projection might be a little wrong
+- Support for multiple shadow-casting lights (beyond the single point light and spot light)
+- Directional light shadows
 
 > Additional functionalities beyond project requirements
 
-- Point light shadows (they are implemented but not accessible)
+- Point light shadows
 
 > How to use your implementation
 

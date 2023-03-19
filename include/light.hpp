@@ -10,12 +10,14 @@ enum class LightType: uint32_t {
     spot
 };
 
-// Light struct for use in shaders: exists in view-space
+// Light struct for use in shaders
 struct uLight {
     alignas(16) Vector3f position;
     alignas(16) Vector3f color;
     alignas(16) Vector3f direction;
     float intensity;
+    float range;
+    float spotAngle;
     LightType type;
 };
 
@@ -23,11 +25,19 @@ struct uLight {
 class Light
 {
 public:
-    // Position of light in world space if point, direction of light in world space if directional
+    // Position of light in world space if point (ignored if directional)
     Vector3f pos = {0.0f, 0.0f, 0.0f};
+    // Direction of light in world space if spot or directional
     Vector3f dir = {0.0f, 0.0f, 0.0f};
+    // Light color
     Vector3f color = {1.0f, 1.0f, 1.0f};
-    float intensity = 10.0f;
+    // Light amount
+    float intensity = 1.0f;
+    // Light range (point, spot)
+    float range = 3.0f;
+    // Spotlight angle limit in radians (converted to cos(angle/2) in toStruct)
+    float spotAngle = tau4;
+    // Type of light
     LightType type = LightType::point;
 
     Light() = default;
