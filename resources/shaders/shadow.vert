@@ -19,6 +19,6 @@ layout(std430, binding = 0) buffer ModelTransforms
 void main()
 {
     const mat4 tViewModel = uTView * tModel[gl_DrawID];
-    fragPos = tViewModel * vec4(vPos, 1.0);
-    gl_Position = uTProj * fragPos;
+    fragPos = uTProj * tViewModel * vec4(vPos, 1.0);
+    gl_Position = fragPos;
 }

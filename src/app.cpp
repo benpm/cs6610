@@ -294,7 +294,7 @@ App::App(cxxopts::ParseResult& args) {
         .format = GL_DEPTH_COMPONENT,
         .width = 1024,
         .height = 1024,
-        .wrap = GL_CLAMP_TO_EDGE,
+        .wrap = GL_CLAMP_TO_BORDER,
         .storageType = GL_FLOAT,
         .shadow = true,
         .filter = GL_NEAREST,
@@ -302,8 +302,8 @@ App::App(cxxopts::ParseResult& args) {
     {
         this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D, TextureSampler::shadow);
         this->spotShadowCamera->far = 20.0f;
-        this->spotShadowCamera->fov = 2.0f;
-        this->spotShadowCamera->orbitDist(5.0f);
+        this->spotShadowCamera->fov = tau4;
+        this->spotShadowCamera->orbitDist(8.0f);
         this->spotShadowCamera->orbitTheta(tau4);
         this->spotShadowCamera->orbitPhi(0.0f);
         this->eSpotLight = this->makeSpotLight(
@@ -452,7 +452,8 @@ App::App(cxxopts::ParseResult& args) {
                 .id = this->texSpotShadows,
                 .attachment = GL_DEPTH_ATTACHMENT,
             }
-        }
+        },
+        .objMask = { this->ePlane }
     });
     this->renderPasses.push_back(RenderPass{ // Reflection pass
         .type = RenderPass::Type::reflection,
@@ -470,7 +471,7 @@ App::App(cxxopts::ParseResult& args) {
                 .attachment = GL_DEPTH_ATTACHMENT,
             }
         },
-        .objMask = { this->reg.get<ObjRef>(this->ePlane) }
+        .objMask = { this->ePlane }
     });
     this->renderPasses.push_back(RenderPass{ // Final pass
         .type = RenderPass::Type::final,
@@ -975,6 +976,11 @@ void App::draw(float dt) {
     this->reflCamera->rot = this->camera->rot.cwiseProduct(Vector3f(-1.0f, 1.0f, 0.0f));
 
     for (const RenderPass& pass : this->renderPasses) {
+        // Hide entities in mask
+        for (const entt::entity& e : pass.objMask) {
+            this->hidden(e, true);
+        }
+
         glBindFramebuffer(GL_FRAMEBUFFER, pass.fbo); $gl_err();
         // Set up render targets
         bool colorAttached = (pass.type == RenderPass::Type::final);
@@ -1035,7 +1041,9 @@ void App::draw(float dt) {
                 this->drawMeshes(cam, viewport);
             } else {
                 glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
+                glCullFace(GL_FRONT);
                 this->drawMeshesDepth(cam, viewport);
+                glCullFace(GL_BACK);
             }
         }
 
@@ -1045,6 +1053,12 @@ void App::draw(float dt) {
         }
         if (pass.type == RenderPass::Type::cubemap) {
             glGenerateTextureMipmap(pass.cubeMapTarget.id); $gl_err();
+        }
+
+
+        // Unhide entities in mask
+        for (const entt::entity& e : pass.objMask) {
+            this->hidden(e, false);
         }
     }
     this->drawDebug(*this->camera.get(), this->windowSize.cast<float>());

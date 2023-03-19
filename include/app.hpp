@@ -57,7 +57,7 @@ struct RenderPass {
     // If not nullopt, the viewport will be set to this value, otherwise uses the window size
     std::optional<Vector2f> viewport = std::nullopt;
     std::vector<RenderTarget> targets;
-    std::vector<ObjRef> objMask = {};
+    std::vector<entt::entity> objMask = {};
     RenderTarget cubeMapTarget;
 };
 

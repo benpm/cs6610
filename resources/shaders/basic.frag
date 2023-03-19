@@ -119,7 +119,7 @@ void main() {
             float theta = dot(
                 normalize(uLight[i].position - wposition),
                 normalize(-uLight[i].direction));
-            if (theta < cos(0.7)) {
+            if (theta < cos(pi / 4.0)) {
                 attenuation = 0.0;
             } else {
                 // attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
@@ -153,16 +153,10 @@ void main() {
     // Shadow mapping for spotlight
     vec4 v = uTSpotLight * vec4(wposition, 1.0);
     float dist = length(wposition - uSpotLightPos);
-    // float shadow = texture(uSpotShadowMap, v.xyz * vec3(1.0 / v.w, 1.0 / v.w, 1.0 / uFarPlane));
-    // C = vec3(1.0, 1.0, 1.0);
-    // C *= shadow;
-    // float shadow = textureProj(uSpotShadowMap, vec4(v.x, v.y, v.z / uFarPlane, v.w));
-    // C = vec3(shadow);
     float shadow = texture(uSpotShadowMap, vec3(
         (v.x / 2.0) / v.w + 0.5,
         (v.y / 2.0) / v.w + 0.5,
-        dist / uFarPlane - 0.005));
-    // float shadow = texture(uSpotShadowMap, v.xyz / v.w);
+        min(1.0, v.z / uFarPlane)));
     C *= shadow;
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);

@@ -50,6 +50,10 @@ namespace gfx {
         if (dims == 3) {
             glTexParameteri(conf.target, GL_TEXTURE_WRAP_R, conf.wrap); $gl_err();
         }
+        if (conf.wrap == GL_CLAMP_TO_BORDER && conf.shadow) {
+            float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+            glTexParameterfv(conf.target, GL_TEXTURE_BORDER_COLOR, borderColor); $gl_err();
+        }
 
         // Generate mipmaps if data was provided
         if (conf.mipmap && (conf.data != nullptr || conf.dataCube[0] != nullptr)) {
