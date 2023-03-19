@@ -41,9 +41,9 @@ struct Material {
     int flatReflectionTexID;
 };
 
-const uint lightPoint = 0;
-const uint lightDirectional = 1;
-const uint lightSpot = 2;
+const uint LIGHT_POINT = 0;
+const uint LIGHT_DIRECTIONAL = 1;
+const uint LIGHT_SPOT = 2;
 
 struct Light {
     vec3 position;      // Light position in world space
@@ -74,10 +74,6 @@ uniform vec3 uSpotLightPos;
 uniform float uFarPlane;
 uniform mat4 uTSpotLight;
 
-vec3 dampLight(vec3 v) {
-    return 1.0 - 1.0 / (v*v + 1.0);
-}
-
 void main() {
     Material mat = uMaterial[matID];
     // Fragment normal
@@ -102,7 +98,7 @@ void main() {
         // Direction to light
         vec3 lightVec = viewLightPos - position;
         vec3 lightDir = normalize(lightVec);
-        if (uLight[i].type == lightDirectional) {
+        if (uLight[i].type == LIGHT_DIRECTIONAL) {
             lightDir = (uTView * vec4(uLight[i].direction, 0.0)).xyz;
         }
 
@@ -113,18 +109,30 @@ void main() {
 
         // Light attenuation
         float attenuation = uLight[i].intensity;
-        if (uLight[i].type == lightPoint) {
+        if (uLight[i].type == LIGHT_POINT) {
             attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
-        } else if (uLight[i].type == lightSpot) {
+        } else if (uLight[i].type == LIGHT_SPOT) {
             float theta = dot(
                 normalize(uLight[i].position - wposition),
                 normalize(-uLight[i].direction));
             if (theta < cos(pi / 4.0)) {
                 attenuation = 0.0;
             } else {
-                // attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
-                attenuation = 2.0;
+                attenuation = pow((1.0/length(lightVec)) * uLight[i].intensity, 2.0);
             }
+        }
+
+        if (uLight[i].type == LIGHT_POINT) {
+            // Shadow mapping for point light
+            vec3 fragRelToLight = wposition - uLightPos;
+            attenuation *= texture(uShadowMap, vec4(
+                fragRelToLight, length(fragRelToLight) / uFarPlane - 0.01));
+        } else if (uLight[i].type == LIGHT_SPOT) {
+            // Shadow mapping for spotlight
+            vec4 v = uTSpotLight * vec4(wposition, 1.0);
+            attenuation *= texture(uSpotShadowMap, vec3(
+                v.xy / (2.0 * v.w) + 0.5,
+                min(1.0, length(v.xyz / uFarPlane) - 0.01)));
         }
         
         C += attenuation * (diffuse + specular * mat.specularFactor);
@@ -142,22 +150,6 @@ void main() {
             vec2(ts.x, 1.0 - ts.y)).rgb;
         C = reflectionTex;
     }
-
-    // Shadow mapping
-    // vec3 fragRelToLight = wposition - uLightPos;
-    // float dist = length(wposition - uLightPos);
-    // float shadow = texture(uShadowMap, vec4(fragRelToLight, dist / uFarPlane - 0.005));
-    // float attenuation = pow((1.0 / dist) * 5.0, 2.0);
-    // C *= shadow * attenuation;
-
-    // Shadow mapping for spotlight
-    vec4 v = uTSpotLight * vec4(wposition, 1.0);
-    float dist = length(wposition - uSpotLightPos);
-    float shadow = texture(uSpotShadowMap, vec3(
-        (v.x / 2.0) / v.w + 0.5,
-        (v.y / 2.0) / v.w + 0.5,
-        min(1.0, v.z / uFarPlane)));
-    C *= shadow;
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
     

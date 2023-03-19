@@ -275,8 +275,8 @@ App::App(cxxopts::ParseResult& args) {
     this->texShadows = gfx::texture(gfx::TextureConfig{
         .target = GL_TEXTURE_CUBE_MAP,
         .format = GL_DEPTH_COMPONENT,
-        .width = 2048,
-        .height = 2048,
+        .width = 1024,
+        .height = 1024,
         .wrap = GL_CLAMP_TO_EDGE,
         .storageType = GL_FLOAT,
         .shadow = true,
@@ -285,7 +285,7 @@ App::App(cxxopts::ParseResult& args) {
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
     this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP, TextureSampler::shadow);
-    this->shadowCamera->pos = Vector3f(0.0f, 3.0f, 0.0f);
+    this->shadowCamera->pos = Vector3f(1.0f, 3.0f, 2.0f);
     this->shadowCamera->far = 20.0f;
 
     // Spotlight shadow map
@@ -310,7 +310,7 @@ App::App(cxxopts::ParseResult& args) {
             this->spotShadowCamera->pos,
             -direction(this->spotShadowCamera->rot),
             Vector3f(1.0f, 1.0f, 0.9f),
-            5.0f);
+            6.0f);
     }
 
     spdlog::info("Loaded meshes");
@@ -423,18 +423,18 @@ App::App(cxxopts::ParseResult& args) {
     this->camera->orbitDist(3.0f);
 
     // Add lights
-    // this->makeLight(
-    //     Vector3f(0.0f, 3.0f, 0.0f),
-    //     Vector3f(1.0f, 1.0f, 0.9f),
-    //     3.0f,
-    //     LightType::point);
+    this->makeLight(
+        Vector3f(2.0f, 3.0f, 1.0f),
+        Vector3f(1.0f, 1.0f, 0.9f),
+        3.0f,
+        LightType::point);
 
     // Setup render passes
     this->renderPasses.push_back(RenderPass{ // Shadow pass
         .type = RenderPass::Type::cubemap,
         .camera = this->shadowCamera,
         .fbo = this->fboShadows,
-        .viewport = {{2048.0f, 2048.0f}},
+        .viewport = {{1024.0f, 1024.0f}},
         .cubeMapTarget = RenderTarget {
             .type = RenderTarget::Type::cubemap,
             .id = this->texShadows,
@@ -534,32 +534,29 @@ void App::onKey(int key, bool pressed) {
                 glfwSetWindowShouldClose(this->window, GL_TRUE);
                 break;
             case GLFW_KEY_F6: {
-                bool built = this->meshProg.BuildFiles(
-                    "resources/shaders/basic.vert",
-                    "resources/shaders/basic.frag");
-                if (!built) {
-                    spdlog::error("Failed to build mesh shader program");
-                } else {
-                    this->meshProg.Bind();
-                    spdlog::info("Rebuilt mesh shader program");
-                }
-                built = this->skyProg.BuildFiles(
-                    "resources/shaders/sky.vert",
-                    "resources/shaders/sky.frag");
-                if (!built) {
-                    spdlog::error("Failed to build sky shader program");
-                } else {
-                    this->skyProg.Bind();
-                    spdlog::info("Rebuilt sky shader program");
-                }
-                built = this->depthProg.BuildFiles(
-                    "resources/shaders/shadow.vert",
-                    "resources/shaders/shadow.frag");
-                if (!built) {
-                    spdlog::error("Failed to build depth (shadow) shader program");
-                } else {
-                    this->depthProg.Bind();
-                    spdlog::info("Rebuilt depth (shadow) shader program");
+                const char* progShaderNames[] = {
+                    "basic", "sky", "shadow"
+                };
+                const std::array<cyGLSLProgram*, 3> progs = {
+                    &this->meshProg, &this->skyProg, &this->depthProg
+                };
+                for (size_t i = 0; i < progs.size(); ++i) {
+                    const std::string vertPath = fmt::format("resources/shaders/{}.vert", progShaderNames[i]);
+                    const std::string fragPath = fmt::format("resources/shaders/{}.frag", progShaderNames[i]);
+                    cyGLSLShader vertShader;
+                    cyGLSLShader fragShader;
+                    bool success = false;
+                    success |= vertShader.CompileFile(vertPath.c_str(), GL_VERTEX_SHADER);
+                    success |= fragShader.CompileFile(fragPath.c_str(), GL_FRAGMENT_SHADER);
+                    if (success) {
+                        bool built = progs[i]->Build(&vertShader, &fragShader);
+                        if (!built) {
+                            spdlog::error("Failed to build {} shader program", progShaderNames[i]);
+                        }
+                        spdlog::info("Rebuilt {} shader program", progShaderNames[i]);
+                    } else {
+                        spdlog::warn("Failed to build {} shader program", progShaderNames[i]);
+                    }
                 }
             } break;
             case GLFW_KEY_P: {
@@ -1041,9 +1038,9 @@ void App::draw(float dt) {
                 this->drawMeshes(cam, viewport);
             } else {
                 glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
-                glCullFace(GL_FRONT);
+                // glCullFace(GL_FRONT);
                 this->drawMeshesDepth(cam, viewport);
-                glCullFace(GL_BACK);
+                // glCullFace(GL_BACK);
             }
         }
 
