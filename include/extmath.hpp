@@ -266,6 +266,8 @@ Vector3f spherePoint(float phi, float theta);
 Vector3f spherePoint(const Vector2f& point);
 // Convert cartesian to spherical coordinates (+Y up)
 Vector2f pointSphere(const Vector3f& point);
+// Converts a direction to an euler angles rotation
+Vector3f dirToRot(const Vector3f& dir);
 // Returns a 3x3 skew-symmetric matrix from given vec3
 Matrix3f skew(const Vector3f& v);
 // Rotates a vector by given euler angles

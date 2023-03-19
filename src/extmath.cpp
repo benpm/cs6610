@@ -118,6 +118,11 @@ Vector2f pointSphere(const Vector3f& p) {
     };
 }
 
+Vector3f dirToRot(const Vector3f& dir) {
+    return Quaternionf::FromTwoVectors(-Vector3f::UnitZ(), dir)
+        .toRotationMatrix().eulerAngles(0, 1, 2);
+}
+
 Matrix3f skew(const Vector3f& v) {
     Matrix3f m; m <<
         0.0f, -v.z(), v.y(),
@@ -136,7 +141,7 @@ Vector3f direction(const Vector3f& axisAngles) {
 }
 
 Vector3f towards(const Vector3f &a, const Vector3f &b) {
-    return vec3(pointSphere(b - a), 0.0f);
+    return dirToRot(b - a);
 }
 
 Matrix4f perspective(float fov, float aspect, float near, float far) {

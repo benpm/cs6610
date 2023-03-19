@@ -175,15 +175,16 @@ App::App(cxxopts::ParseResult& args) {
 
     glCreateBuffers(1, &this->vboWires); $gl_err();
     glBindBuffer(GL_ARRAY_BUFFER, this->vboWires); $gl_err();
+    // Create arrow that points in the -z direction
     std::vector<Vector3f> arrowVerts = {
         {+0.0f, +0.0f, +0.0f},
-        {-1.0f, +0.0f, +0.0f},
+        {+0.0f, +0.0f, -1.0f},
 
-        {-1.0f, +0.0f, +0.0f},
-        {-0.9f, -0.1f, +0.0f},
+        {+0.0f, +0.0f, -1.0f},
+        {-0.1f, +0.0f, -0.9f},
 
-        {-1.0f, +0.0f, +0.0f},
-        {-0.9f, +0.1f, +0.0f},
+        {+0.0f, +0.0f, -1.0f},
+        {+0.1f, +0.0f, -0.9f},
     };
     glBufferData(GL_ARRAY_BUFFER, arrowVerts.size() * sizeof(Vector3f),
         arrowVerts.data(), GL_STATIC_DRAW); $gl_err();
@@ -378,7 +379,7 @@ App::App(cxxopts::ParseResult& args) {
         this->reg.emplace<DebugRay>(e);
         this->reg.emplace<RayTransform>(e);
         DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-        debugColor.color = {1.0f, 1.0f, 0.0f, 1.0f};
+        debugColor.color = {1.0f, 1.0f, 0.0f, 0.0f};
 
         this->eDragArrow = e;
     }
@@ -416,6 +417,20 @@ App::App(cxxopts::ParseResult& args) {
         light.type = LightType::point;
 
         this->reg.emplace<uLight>(e);
+    }
+
+    // Create debug axis arrows
+    for (size_t i = 0; i < 3; i++) {
+        entt::entity e = this->reg.create();
+        DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
+        debugRay.rot = dirToRot(Vector3f::Unit(i));
+        debugRay.pos = {0.0f, 2.5f, 0.0f};
+        debugRay.length = 1.0f;
+        RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+        rayTransform.transform = debugRay.transform();
+        DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+        debugColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
+        debugColor.color[i] = 1.0f;
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -800,6 +815,11 @@ void App::simulate(float dt) {
         ray.pos = body.pos;
         ray.length = body.vel.norm();
         ray.rot = {0.0f, 0.0f, angle2D(vec2(body.vel))};
+    }
+    for (auto e : this->reg.view<Light, DebugRay>()) {
+        auto [light, ray] = this->reg.get<Light, DebugRay>(e);
+        ray.pos = light.pos;
+        ray.rot = dirToRot(light.dir);
     }
     for (auto e : this->reg.view<DebugRay, RayTransform>()) {
         auto [ray, t] = this->reg.get<DebugRay, RayTransform>(e);
@@ -1210,15 +1230,15 @@ entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const 
 
     this->reg.emplace<uLight>(e);
 
-    // DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
-    // debugRay.pos = pos;
-    // debugRay.rot = vec3(pointSphere(dir));
+    DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
+    debugRay.pos = pos;
+    debugRay.rot = vec3(pointSphere(dir));
 
-    // RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-    // rayTransform.transform = debugRay.transform();
+    RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
+    rayTransform.transform = debugRay.transform();
 
-    // DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-    // debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
+    DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
+    debugColor.color = {1.0f, 0.7f, 0.2f, 1.0f};
 
     return e;
 }
