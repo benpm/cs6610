@@ -85,6 +85,8 @@ class App
         bool mouseMoved = false;
         std::unordered_set<int> pressedKeys;
 
+        bool doDrawDebug = true;
+
 
         Vector2i windowSize = {1280, 720};
         std::shared_ptr<Camera> camera = std::make_shared<Camera>();

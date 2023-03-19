@@ -650,7 +650,7 @@ void App::onClick(int button, bool pressed) {
         if (button == GLFW_MOUSE_BUTTON_RIGHT && this->eSelected != entt::null) {
             auto [debugRay, debugColor] = this->reg.get<DebugRay, DebugColor>(this->eDragArrow);
             auto [rb, pb] = this->reg.get<RigidBody, PhysicsBody>(this->eSelected);
-            rb.applyImpulse(pb, this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length);
+            rb.applyImpulse(pb, this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length * 0.2f);
             debugColor.color.w() = 0.0f;
         }
     }
@@ -738,14 +738,9 @@ void App::simulate(float dt) {
             this->hidden(this->eSelectPoint, true);
         }
     } else {
-        float d = (camRay.origin - this->selectPoint).norm();
-        this->reg.get<DebugRay>(this->eDragArrow).setEndpoint(camRay.origin + camRay.direction * d);
+        this->reg.get<DebugRay>(this->eDragArrow).setEndpoint(
+            camRay.origin + camRay.direction * (camRay.origin - this->selectPoint).norm());
     }
-
-    const auto F = [&](const Vector3f& v) -> Vector3f {
-        return v.cross(Vector3f(0.0f, 1.0f, 0.0f)) * v.norm() * 0.1f
-            + Vector3f(sinf(v.y() + this->t), cosf(v.x() + this->t), cosf(this->t * 2.0f + v.x())) * 0.2f;
-    };
 
     // Camera controls
     const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
@@ -767,19 +762,6 @@ void App::simulate(float dt) {
     } else {
         this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
     }
-
-    // Physics simulation
-    // constexpr float dampingFactor = 0.25f;
-    // for (auto e : this->reg.view<PhysicsBody>()) {
-    //     PhysicsBody& body = this->reg.get<PhysicsBody>(e);
-
-    //     this->box.collide(body);
-
-    //     body.acc = {0.0f, -10.0f, 0.0f};
-    //     body.vel += body.acc * dt;
-    //     body.pos += body.vel * dt;
-    //     body.vel *= 1.0f - (dampingFactor);
-    // }
 
     for (auto e : this->reg.view<PhysicsBody, RigidBody, ColliderBox>()) {
         auto [pb, rb, collider] = this->reg.get<PhysicsBody, RigidBody, ColliderBox>(e);
@@ -1078,7 +1060,10 @@ void App::draw(float dt) {
             this->hidden(e, false);
         }
     }
-    this->drawDebug(*this->camera.get(), this->windowSize.cast<float>());
+
+    if (this->doDrawDebug) {
+        this->drawDebug(*this->camera.get(), this->windowSize.cast<float>());
+    }
 }
 
 void App::composeUI() {
@@ -1093,7 +1078,9 @@ void App::composeUI() {
     ImGui::SetNextWindowSize(ImVec2(500, this->windowSize.y()));
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::Text("Left Click: Pan");
-    ImGui::Text("Wheel / Right Click: Zoom");
+    ImGui::Text("Right Click: Drag Object");
+    ImGui::Text("Shift + Left Click: Move light");
+    ImGui::Text("Wheel: Zoom");
     ImGui::Text("1: Orbit camera");
     ImGui::Text("2: Fly camera");
     ImGui::Text("F6: Reload shaders");
@@ -1103,7 +1090,8 @@ void App::composeUI() {
     Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
     ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
-    ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 100);
+    ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
+    ImGui::Checkbox("Draw Debug", &this->doDrawDebug);
 
     ImGui::PopFont();
     ImGui::End();
