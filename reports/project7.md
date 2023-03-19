@@ -1,16 +1,27 @@
 # CS 6610 Project 7
 *Benjamin Mastripolito u1419419*
 
+![](2023-03-19-03-42-05.png)
+
+*Light direction visualized with arrow*
+
 ![](2023-03-19_02-16.png)
+
+*Blending with point and spot light shadows*
 
 ![](2023-03-13-23-29-41.png)
 
+*Early attempt*
+
 ![](2023-03-16-22-06-47.png)
+
+*Getting spot lights working*
 
 > What you implemented
 
 - Spot light shadows
 - Control spot light orientation with shift + left click
+- Spot light position and orientation with arrow
 - Lights use Cem's trick for smoothing out light falloff
 
 > What you could not implement
