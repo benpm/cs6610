@@ -126,7 +126,7 @@ void main() {
                         vec4 wLightVec = uLight[i].transform * vec4(wposition, 1.0);
                         attenuation *= texture(u2DShadowMaps, vec4(
                             wLightVec.xy / (2.0 * wLightVec.w) + 0.5,
-                            min(1.0, length(wLightVec.xyz / uLight[i].far) - 0.01), uLight[i].shadowMapLayer));
+                            uLight[i].shadowMapLayer, min(1.0, length(wLightVec.xyz / uLight[i].far) - 0.01)));
                     }
                 }
                 break; }

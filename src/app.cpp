@@ -727,7 +727,7 @@ void App::simulate(float dt) {
             camRay.origin + camRay.direction * (camRay.origin - this->selectPoint).norm());
     }
 
-    // Camera controls
+    // Camera control and update
     const float maxWinDim = (float)std::max(windowSize.x(), windowSize.y());
     const Vector2f panDelta = (this->mouseClickStart - this->mousePos) / maxWinDim;
     const Vector2f keyboardDelta = {
@@ -745,7 +745,10 @@ void App::simulate(float dt) {
     } else {
         this->cameraControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
     }
+    this->cameraControl.update(this->camera);
+    this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
 
+    // Simulate rigid body dynamics
     for (auto e : this->reg.view<PhysicsBody, RigidBody, ColliderBox>()) {
         auto [pb, rb, collider] = this->reg.get<PhysicsBody, RigidBody, ColliderBox>(e);
         const float substep = dt * (this->simTimeStep / (float)this->simTimeIters);
@@ -755,12 +758,11 @@ void App::simulate(float dt) {
         }
     }
 
+    // Update model transforms from various sources
     for (auto e : this->reg.view<RigidBody, Model>()) {
         auto [body, model] = this->reg.get<RigidBody, Model>(e);
         model.rot = body.rot.eulerAngles(0, 1, 2);
     }
-
-    // Update model transforms
     for (auto e : this->reg.view<PhysicsBody, Model>()) {
         auto [body, model] = this->reg.get<PhysicsBody, Model>(e);
         model.pos = body.pos;
@@ -774,7 +776,7 @@ void App::simulate(float dt) {
         transform.transform = model.transform();
     }
 
-    // Update debug rays
+    // Update debug stuff
     for (auto e : this->reg.view<PhysicsBody, DebugRay, RayTransform>()) {
         auto [body, ray, t] = this->reg.get<PhysicsBody, DebugRay, RayTransform>(e);
         ray.pos = body.pos;
@@ -836,6 +838,8 @@ void App::drawMeshesDepth(const Camera& cam, const Vector2f& viewport) {
     this->meshes.bind(this->depthProg, false);
     this->depthProg.SetUniformMatrix4("uTProj", proj.data());
     this->depthProg.SetUniformMatrix4("uTView", view.data());
+    this->depthProg.SetUniform3("uLightPos", cam.pos.data());
+    this->depthProg.SetUniform("uFarPlane", cam.far);
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
@@ -941,15 +945,6 @@ void App::updateBuffers() {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
 }
 
-const std::array<Vector3f, 6> cubeMapCameraRotations = {
-    Vector3f(0.0f, tau4 * 3.0f, tau2), // Facing positive X
-    Vector3f(0.0f, tau4 * 1.0f, tau2), // Facing negative X
-    Vector3f(tau4 * 3.0f, 0.0f, 0.0f), // Facing positive Y
-    Vector3f(tau4 * 1.0f, 0.0f, 0.0f), // Facing negative Y
-    Vector3f(0.0f, tau2,        tau2), // Facing positive Z
-    Vector3f(0.0f, 0.0f,        tau2), // Facing negative Z
-};
-
 void App::draw(float dt) {
     this->updateBuffers();
 
@@ -980,6 +975,11 @@ void App::draw(float dt) {
             } else if (target.attachment == GL_DEPTH_ATTACHMENT) {
                 depthAttached = true;
             }
+        }
+        if (pass.arrayTarget.attachment == GL_DEPTH_ATTACHMENT) {
+            depthAttached = true;
+        } else if (pass.arrayTarget.attachment == GL_COLOR_ATTACHMENT0) {
+            colorAttached = true;
         }
 
         // Disable draw buffers if we're just doing depth
@@ -1019,17 +1019,23 @@ void App::draw(float dt) {
                     for (const auto e : this->reg.view<Light, Camera, uLight>()) {
                         const auto [light, lightCam, ulight] = this->reg.get<Light, Camera, uLight>(e);
                         assert(ulight.shadowMapLayer >= 0);
-                        Camera cam(lightCam);
-                        light.shadowCam(cam);
+                        GLint layer;
                         if (pass.type == RenderPass::Type::cubemap) {
-                            glFramebufferTextureLayer(
-                                GL_FRAMEBUFFER, pass.arrayTarget.attachment,
-                                pass.arrayTarget.id, 0, ulight.shadowMapLayer * 6 + i); $gl_err();
+                            if (light.type != LightType::point) {
+                                continue;
+                            }
+                            layer = ulight.shadowMapLayer * 6 + i;
                         } else {
-                            glFramebufferTextureLayer(
-                                GL_FRAMEBUFFER, pass.arrayTarget.attachment,
-                                pass.arrayTarget.id, 0, ulight.shadowMapLayer); $gl_err();
+                            if (light.type != LightType::spot) {
+                                continue;
+                            }
+                            layer = ulight.shadowMapLayer;
                         }
+                        glFramebufferTextureLayer(
+                            GL_FRAMEBUFFER, pass.arrayTarget.attachment,
+                            pass.arrayTarget.id, 0, layer); $gl_err();
+                        Camera cam(lightCam);
+                        light.shadowCam(cam, i);
                         glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
                         this->drawMeshesDepth(cam, viewport);
                     }

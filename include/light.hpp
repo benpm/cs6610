@@ -24,7 +24,7 @@ struct uLight {
     float far;
     LightType type;
     int shadowMapLayer;
-    alignas(64) Matrix4f transform;
+    alignas(16) Matrix4f transform;
 };
 
 // Light component for manipulation

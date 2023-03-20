@@ -20,7 +20,7 @@ uLight Light::toStruct(const Camera& camera, uint32_t& nextShadowLayer) const {
         .spotAngle = cosf(this->spotAngle / 2.0f),
         .far = camera.far,
         .type = this->type,
-        .shadowMapLayer = this->castsShadows ? nextShadowLayer++ : -1,
+        .shadowMapLayer = this->castsShadows ? (int)(nextShadowLayer++) : -1,
         .transform = transform
     };
 }
@@ -32,9 +32,10 @@ void Light::shadowCam(Camera &cam, size_t cubeFace) const {
             cam.rot = gfx::cubeMapCameraRotations[cubeFace];
             cam.pos = this->pos;
             cam.fov = tau4;
+            break;
         case LightType::spot:
             cam.pos = this->pos;
-            cam.rot = dirToRot(this->dir);
+            cam.rot = dirToRot(this->dir).cwiseProduct(Vector3f(-1.0f, -1.0f, 1.0f));
             cam.fov = tau4;
             break;
         default:
