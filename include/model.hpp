@@ -7,7 +7,7 @@
 #include <cyTriMesh.h>
 #include <cyGL.h>
 
-class Camera;
+class CameraControl;
 
 class Model
 {

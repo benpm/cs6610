@@ -37,6 +37,7 @@ struct ObjRef {
 struct RenderTarget {
     enum class Type {
         texture,
+        textureArray,
         cubemap,
         renderbuffer
     } type;
@@ -49,16 +50,16 @@ struct RenderPass {
     enum class Type {
         reflection,
         cubemap,
+        array,
         final,
         normal
     } type;
-    std::shared_ptr<Camera> camera;
     GLuint fbo;
     // If not nullopt, the viewport will be set to this value, otherwise uses the window size
     std::optional<Vector2f> viewport = std::nullopt;
     std::vector<RenderTarget> targets;
     std::vector<entt::entity> objMask = {};
-    RenderTarget cubeMapTarget;
+    RenderTarget arrayTarget;
 };
 
 class App
@@ -89,10 +90,9 @@ class App
 
 
         Vector2i windowSize = {1280, 720};
-        std::shared_ptr<Camera> camera = std::make_shared<Camera>();
-        std::shared_ptr<Camera> reflCamera = std::make_shared<Camera>();
-        std::shared_ptr<Camera> shadowCamera = std::make_shared<Camera>();
-        std::shared_ptr<Camera> spotShadowCamera = std::make_shared<Camera>();
+        Camera camera;
+        CameraControl cameraControl;
+        CameraControl lightControl;
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
         cyGLSLProgram skyProg;
@@ -137,7 +137,7 @@ class App
         GLuint fboReflections;
         GLuint rboReflections;
         GLuint texReflections;
-        GLuint texShadows;
+        GLuint texCubeShadows;
         GLuint fboShadows;
         GLuint texSpotShadows;
 

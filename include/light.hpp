@@ -2,7 +2,10 @@
 
 #include <extmath.hpp>
 
-class Camera;
+class CameraControl;
+struct Camera;
+
+constexpr size_t shadowMapSize = 1024;
 
 enum class LightType: uint32_t {
     point,
@@ -18,7 +21,10 @@ struct uLight {
     float intensity;
     float range;
     float spotAngle;
+    float far;
     LightType type;
+    int shadowMapLayer;
+    alignas(64) Matrix4f transform;
 };
 
 // Light component for manipulation
@@ -37,12 +43,18 @@ public:
     float range = 3.0f;
     // Spotlight angle limit in radians (converted to cos(angle/2) in toStruct)
     float spotAngle = tau4;
+    // Far plane for shadow map
+    float far = 20.0f;
     // Type of light
     LightType type = LightType::point;
+    // Casts shadows
+    bool castsShadows = false;
 
     Light() = default;
     Light(const Vector3f& pos, const Vector3f& color, float intensity, LightType type);
 
     // Returns a uLight struct in the given camera's coordinate space
-    uLight toStruct(const Camera& camera) const;
+    uLight toStruct(const Camera& camera, uint32_t& nextShadowLayer) const;
+    // Configures a given camera to behave as a shadow camera for this light
+    void shadowCam(Camera& cam, size_t cubeFace = 0u) const;
 };

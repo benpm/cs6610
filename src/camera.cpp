@@ -1,13 +1,15 @@
 #include <camera.hpp>
 #include <spdlog/spdlog.h>
+#include <model.hpp>
+#include <light.hpp>
 
-void Camera::orbit() {
+void CameraControl::orbit() {
     this->mode = Mode::orbit;
     this->pos = this->target + spherePoint(this->phi, this->theta) * distance;
     this->rot = {this->theta, -this->phi, 0.0f};
 }
 
-void Camera::dragStart() {
+void CameraControl::dragStart() {
     switch (this->mode) {
         case Mode::orbit:
             this->orbitPanStart();
@@ -18,54 +20,58 @@ void Camera::dragStart() {
     }
 }
 
-void Camera::orbitPanStart() {
+void CameraControl::orbitPanStart() {
     this->panStartTheta = this->theta;
     this->panStartPhi = this->phi;
 }
 
-void Camera::orbitPan(Vector2f delta) {
+void CameraControl::orbitPan(Vector2f delta) {
     this->theta = std::clamp(this->panStartTheta + delta.y(), -tau4, tau4);
     this->phi = this->panStartPhi + delta.x();
     this->orbit();
 }
 
-void Camera::orbitTarget(Vector3f target) {
+void CameraControl::orbitTarget(Vector3f target) {
     this->target = target;
     this->orbit();
 }
-const Vector3f& Camera::orbitTarget() const {
+const Vector3f& CameraControl::orbitTarget() const {
     return this->target;
 }
 
-void Camera::orbitDist(float distance) {
+void CameraControl::orbitDist(float distance) {
     this->distance = distance;
     this->orbit();
 }
-float Camera::orbitDist() const {
+float CameraControl::orbitDist() const {
     return this->distance;
 }
 
-void Camera::orbitTheta(float theta) {
+void CameraControl::orbitTheta(float theta) {
     this->theta = theta;
     this->orbit();
 }
-float Camera::orbitTheta() const {
+float CameraControl::orbitTheta() const {
     return this->theta;
 }
 
-void Camera::orbitPhi(float phi) {
+void CameraControl::orbitPhi(float phi) {
     this->phi = phi;
     this->orbit();
 }
-float Camera::orbitPhi() const {
+float CameraControl::orbitPhi() const {
     return this->phi;
 }
 
-void Camera::flyDir(const Vector3f& dir) {
-    this->pos += this->getView().block<3, 3>(0, 0).transpose() * dir;
+void CameraControl::flyDir(const Vector3f& dir) {
+    const Matrix4f view = identityTransform()
+        .rotate(euler(this->rot))
+        .translate(-this->pos)
+        .matrix();
+    this->pos += view.block<3, 3>(0, 0).transpose() * dir;
 }
 
-void Camera::control(const Vector2f& rotateDelta, const Vector2f& dragDelta, const Vector2f& moveDelta) {
+void CameraControl::control(const Vector2f& rotateDelta, const Vector2f& dragDelta, const Vector2f& moveDelta) {
     switch (this->mode) {
         case Mode::fly:
             this->flyDir(Vector3f(moveDelta.x(), 0.0f, -moveDelta.y()));
@@ -85,17 +91,25 @@ void Camera::control(const Vector2f& rotateDelta, const Vector2f& dragDelta, con
     }
 }
 
-void Camera::universalZoom(float delta) {
-    switch (this->projection) {
-        case Projection::perspective:
-            this->orbitDist(this->orbitDist() * (1.0f + delta));
-            break;
-        case Projection::orthographic:
-            this->zoom *= (1.0f - delta);
-            break;
-        default:
-            break;
-    }
+void CameraControl::update(Camera& cam) const {
+    cam.pos = this->pos;
+    cam.rot = this->rot;
+    cam.zoom = this->zoom;
+}
+
+void CameraControl::update(Model& model) const {
+    model.pos = this->pos;
+    model.rot = this->rot;
+}
+
+void CameraControl::update(Light& light) const {
+    light.pos = this->pos;
+    light.dir = -direction(this->rot);
+}
+
+void CameraControl::universalZoom(float delta) {
+    this->orbitDist(this->orbitDist() * (1.0f + delta));
+    this->zoom *= (1.0f - delta);
 }
 
 const Matrix4f Camera::getView() const {
@@ -128,7 +142,6 @@ void Camera::from(const Camera& other) {
     this->projection = other.projection;
     this->near = other.near;
     this->far = other.far;
-    this->mode = other.mode;
 }
 
 Ray Camera::getRay(const Vector2f& screenPoint, const Vector2f& viewSize) const {

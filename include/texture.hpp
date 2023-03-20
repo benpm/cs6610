@@ -8,7 +8,8 @@
 
 enum class TextureSampler {
     normal,
-    shadow
+    shadow,
+    cubemap
 };
 
 struct TextureData

@@ -3,6 +3,13 @@
 
 namespace gfx {
     GLuint texture(const TextureConfig& conf) {
+        GLuint id;
+        glGenTextures(1, &id); $gl_err();
+        modifyTex(id, conf);
+        return id;
+    }
+
+    void modifyTex(GLuint id, const TextureConfig & conf) {
         const uint32_t dims = conf.target == GL_TEXTURE_2D ? 2 : 3;
         GLenum internalFormat = conf.format;
         if (conf.format == GL_RGBA && conf.storageType == GL_UNSIGNED_BYTE) {
@@ -17,8 +24,6 @@ namespace gfx {
             spdlog::error("Unhandled texture format / storage type combination");
         }
 
-        GLuint id;
-        glGenTextures(1, &id); $gl_err();
         glBindTexture(conf.target, id); $gl_err();
         switch (conf.target) {
             case GL_TEXTURE_2D:
@@ -30,6 +35,12 @@ namespace gfx {
                     glTexImage2D(cubeMapFaces[i], 0, internalFormat, conf.width, conf.height,
                         0, conf.format, conf.storageType, conf.dataCube[i]); $gl_err();
                 }
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glTexStorage3D(conf.target, 1, internalFormat, conf.width, conf.height, 6 * conf.layers); $gl_err();
+                break;
+            case GL_TEXTURE_2D_ARRAY:
+                glTexStorage3D(conf.target, 1, internalFormat, conf.width, conf.height, conf.layers); $gl_err();
                 break;
             default:
                 spdlog::error("Unhandled texture target: {}", conf.target);
@@ -50,6 +61,8 @@ namespace gfx {
         if (dims == 3) {
             glTexParameteri(conf.target, GL_TEXTURE_WRAP_R, conf.wrap); $gl_err();
         }
+
+        // Correct border color for shadow maps
         if (conf.wrap == GL_CLAMP_TO_BORDER && conf.shadow) {
             float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
             glTexParameterfv(conf.target, GL_TEXTURE_BORDER_COLOR, borderColor); $gl_err();
@@ -61,6 +74,5 @@ namespace gfx {
         }
 
         glBindTexture(conf.target, 0); $gl_err();
-        return id;
     }
 };

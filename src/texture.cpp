@@ -62,21 +62,17 @@ void TextureCollection::bind(cyGLSLProgram& prog) const {
     std::vector<GLint> texUnits2D(16u, 0);
     for (const auto& [name, texUnitID] : this->map) {
         const TextureData& texData = this->idMap.at(texUnitID);
-        if (texData.sampler != TextureSampler::normal) {
-            continue;
-        }
-        switch (texData.type) {
-            case GL_TEXTURE_2D:
-                glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
-                glBindTexture(texData.type, texData.bindID); $gl_err();
-                texUnits2D[texData.texUnitID] = texData.texUnitID;
-                break;
-            case GL_TEXTURE_CUBE_MAP:
-                // texUnitsCube[texData.texUnitID] = texData.texUnitID;
-                break;
-            default:
-                spdlog::error("Unknown texture type");
-                break;
+        if (texData.sampler == TextureSampler::normal) {
+            switch (texData.type) {
+                case GL_TEXTURE_2D:
+                    glActiveTexture(GL_TEXTURE0 + (GLenum)texData.texUnitID); $gl_err();
+                    glBindTexture(texData.type, texData.bindID); $gl_err();
+                    texUnits2D[texData.texUnitID] = texData.texUnitID;
+                    break;
+                default:
+                    spdlog::error("Unknown texture type for normal sampler");
+                    break;
+            }
         }
     }
     prog.SetUniform1("uTex", texUnits2D.data(), texUnits2D.size()); $gl_err();
@@ -130,7 +126,8 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
     const GLuint bindID = gfx::texture(conf);
 
     this->idMap.emplace(texUnitID, TextureData {
-        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
+        .bindID = bindID, .texUnitID = texUnitID,
+        .type = GL_TEXTURE_CUBE_MAP, .sampler = TextureSampler::cubemap});
     this->map.emplace(name, texUnitID);
     return texUnitID;
 }
@@ -148,7 +145,8 @@ uint32_t TextureCollection::addCubemap(const std::string& name, uint32_t width, 
     });
 
     this->idMap.emplace(texUnitID, TextureData {
-        .bindID = bindID, .texUnitID = texUnitID, .type = GL_TEXTURE_CUBE_MAP});
+        .bindID = bindID, .texUnitID = texUnitID,
+        .type = GL_TEXTURE_CUBE_MAP, .sampler = TextureSampler::cubemap});
     this->map.emplace(name, texUnitID);
     return texUnitID;
 }

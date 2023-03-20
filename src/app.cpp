@@ -271,48 +271,36 @@ App::App(cxxopts::ParseResult& args) {
     uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
     skyRefl.shininess = 1000.0f;
     skyRefl.diffuseColor = Vector3f::Zero();
+    
+    glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
     // Shadows cube map
-    this->texShadows = gfx::texture(gfx::TextureConfig{
-        .target = GL_TEXTURE_CUBE_MAP,
+    this->texCubeShadows = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_CUBE_MAP_ARRAY,
         .format = GL_DEPTH_COMPONENT,
-        .width = 1024,
-        .height = 1024,
+        .width = shadowMapSize,
+        .height = shadowMapSize,
         .wrap = GL_CLAMP_TO_EDGE,
         .storageType = GL_FLOAT,
         .shadow = true,
         .filter = GL_NEAREST,
+        .layers = 1,
     });
-    glGenFramebuffers(1, &this->fboShadows); $gl_err();
-
-    this->meshes.textures.add("shadow_map", this->texShadows, GL_TEXTURE_CUBE_MAP, TextureSampler::shadow);
-    this->shadowCamera->pos = Vector3f(1.0f, 3.0f, 2.0f);
-    this->shadowCamera->far = 20.0f;
+    this->meshes.textures.add("shadow_map", this->texCubeShadows, GL_TEXTURE_CUBE_MAP_ARRAY, TextureSampler::shadow);
 
     // Spotlight shadow map
     this->texSpotShadows = gfx::texture(gfx::TextureConfig{
-        .target = GL_TEXTURE_2D,
+        .target = GL_TEXTURE_2D_ARRAY,
         .format = GL_DEPTH_COMPONENT,
-        .width = 1024,
-        .height = 1024,
+        .width = shadowMapSize,
+        .height = shadowMapSize,
         .wrap = GL_CLAMP_TO_BORDER,
         .storageType = GL_FLOAT,
         .shadow = true,
         .filter = GL_NEAREST,
+        .layers = 1,
     });
-    {
-        this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D, TextureSampler::shadow);
-        this->spotShadowCamera->far = 20.0f;
-        this->spotShadowCamera->fov = tau4;
-        this->spotShadowCamera->orbitDist(8.0f);
-        this->spotShadowCamera->orbitTheta(tau4);
-        this->spotShadowCamera->orbitPhi(0.0f);
-        this->eSpotLight = this->makeSpotLight(
-            this->spotShadowCamera->pos,
-            -direction(this->spotShadowCamera->rot),
-            Vector3f(0.5f, 1.0f, 0.6f),
-            24.0f, this->spotShadowCamera->fov);
-    }
+    this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D_ARRAY, TextureSampler::shadow);
 
     spdlog::info("Loaded meshes");
 
@@ -435,7 +423,7 @@ App::App(cxxopts::ParseResult& args) {
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
-    this->camera->orbitDist(3.0f);
+    this->cameraControl.orbitDist(3.0f);
 
     // Add lights
     this->makeLight(
@@ -443,36 +431,43 @@ App::App(cxxopts::ParseResult& args) {
         Vector3f(1.0f, 1.0f, 0.9f),
         8.0f, 3.0f,
         LightType::point);
+    {
+        this->eSpotLight = this->makeSpotLight(
+            Vector3f::Zero(),
+            Vector3f::Zero(),
+            Vector3f(0.5f, 1.0f, 0.6f),
+            24.0f, 1.0f);
+        this->lightControl.orbitDist(8.0f);
+        this->lightControl.orbitTheta(tau4);
+        this->lightControl.orbitPhi(0.0f);
+        this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
+        this->lightControl.update(this->reg.get<Camera>(this->eSpotLight));
+    }
 
     // Setup render passes
-    this->renderPasses.push_back(RenderPass{ // Shadow pass
+    this->renderPasses.push_back(RenderPass{ // Cubemap shadow pass
         .type = RenderPass::Type::cubemap,
-        .camera = this->shadowCamera,
         .fbo = this->fboShadows,
-        .viewport = {{1024.0f, 1024.0f}},
-        .cubeMapTarget = RenderTarget {
+        .viewport = {{(float)shadowMapSize, (float)shadowMapSize}},
+        .arrayTarget = RenderTarget {
             .type = RenderTarget::Type::cubemap,
-            .id = this->texShadows,
+            .id = this->texCubeShadows,
             .attachment = GL_DEPTH_ATTACHMENT,
         }
     });
     this->renderPasses.push_back(RenderPass{ // Spotlight shadow pass
-        .type = RenderPass::Type::normal,
-        .camera = this->spotShadowCamera,
+        .type = RenderPass::Type::array,
         .fbo = this->fboShadows,
-        .viewport = {{1024.0f, 1024.0f}},
-        .targets = {
-            RenderTarget {
-                .type = RenderTarget::Type::texture,
-                .id = this->texSpotShadows,
-                .attachment = GL_DEPTH_ATTACHMENT,
-            }
+        .viewport = {{(float)shadowMapSize, (float)shadowMapSize}},
+        .objMask = { this->ePlane },
+        .arrayTarget = RenderTarget {
+            .type = RenderTarget::Type::textureArray,
+            .id = this->texSpotShadows,
+            .attachment = GL_DEPTH_ATTACHMENT,
         },
-        .objMask = { this->ePlane }
     });
     this->renderPasses.push_back(RenderPass{ // Reflection pass
         .type = RenderPass::Type::reflection,
-        .camera = this->reflCamera,
         .fbo = this->fboReflections,
         .targets = {
             RenderTarget {
@@ -490,7 +485,6 @@ App::App(cxxopts::ParseResult& args) {
     });
     this->renderPasses.push_back(RenderPass{ // Final pass
         .type = RenderPass::Type::final,
-        .camera = this->camera,
         .fbo = GL_NONE
     });
 
@@ -574,21 +568,12 @@ void App::onKey(int key, bool pressed) {
                     }
                 }
             } break;
-            case GLFW_KEY_P: {
-                if (this->camera->projection == Camera::Projection::perspective) {
-                    this->camera->projection = Camera::Projection::orthographic;
-                    this->camera->zoom = 2000.0f;
-                } else {
-                    this->camera->projection = Camera::Projection::perspective;
-                    this->camera->orbitDist(2.0f);
-                }
-            } break;
             case GLFW_KEY_1: {
-                this->camera->mode = Camera::Mode::orbit;
+                this->cameraControl.mode = CameraControl::Mode::orbit;
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             } break;
             case GLFW_KEY_2: {
-                this->camera->mode = Camera::Mode::fly;
+                this->cameraControl.mode = CameraControl::Mode::fly;
                 glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             } break;
             default:
@@ -627,8 +612,8 @@ void App::onClick(int button, bool pressed) {
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:
             this->mouseLeft = pressed;
-            this->camera->dragStart();
-            this->spotShadowCamera->dragStart();
+            this->cameraControl.dragStart();
+            this->lightControl.dragStart();
             break;
         case GLFW_MOUSE_BUTTON_RIGHT:
             this->mouseRight = pressed;
@@ -688,7 +673,7 @@ void App::run() {
                     this->onClick(event.mouse.button, false);
                     break;
                 case GLEQ_SCROLLED: 
-                    this->camera->universalZoom(-event.scroll.y * 0.1f);
+                    this->cameraControl.universalZoom(-event.scroll.y * 0.1f);
                     break;
                 default:
                     break;
@@ -718,7 +703,7 @@ void App::idle() {
 
 void App::simulate(float dt) {
     // Update select point
-    const Ray camRay = this->camera->getRay(this->mousePos, this->windowSize.cast<float>());
+    const Ray camRay = this->camera.getRay(this->mousePos, this->windowSize.cast<float>());
     if (!this->mouseRight) {
         this->eSelected = entt::null;
         std::optional<Vector3f> nearestHit = std::nullopt;
@@ -755,12 +740,10 @@ void App::simulate(float dt) {
         dragDelta.y() *= -1.0f;
     }
     if (this->pressedKeys.count(GLFW_KEY_LEFT_SHIFT)) {
-        this->spotShadowCamera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
-        Light& spotLight = this->reg.get<Light>(this->eSpotLight);
-        spotLight.pos = this->spotShadowCamera->pos;
-        spotLight.dir = -direction(this->spotShadowCamera->rot);
+        this->lightControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+        this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
     } else {
-        this->camera->control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+        this->cameraControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
     }
 
     for (auto e : this->reg.view<PhysicsBody, RigidBody, ColliderBox>()) {
@@ -809,9 +792,17 @@ void App::simulate(float dt) {
     }
 
     // Update lights
+    for (auto e : this->reg.view<Light, Camera>()) {
+        auto [light, cam] = this->reg.get<Light, Camera>(e);
+        light.shadowCam(cam);
+    }
+    std::array<uint32_t, 2u> shadowMapLayers = {0u, 0u};
     for (auto e : this->reg.view<Light, uLight>()) {
         auto [light, ulight] = this->reg.get<Light, uLight>(e);
-        ulight = light.toStruct(*this->camera.get());
+        const Camera* cam = this->reg.try_get<Camera>(e);
+        ulight = light.toStruct(
+            cam == nullptr ? this->camera : *cam,
+            light.type == LightType::point ? shadowMapLayers[0] : shadowMapLayers[1]);
     }
 }
 
@@ -845,8 +836,6 @@ void App::drawMeshesDepth(const Camera& cam, const Vector2f& viewport) {
     this->meshes.bind(this->depthProg, false);
     this->depthProg.SetUniformMatrix4("uTProj", proj.data());
     this->depthProg.SetUniformMatrix4("uTView", view.data());
-    this->depthProg.SetUniform3("uLightPos", cam.pos.data());
-    this->depthProg.SetUniform("uFarPlane", cam.far);
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
@@ -867,17 +856,12 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     
     // Draw models in scene
     this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
-    this->meshes.textures.bind(this->meshProg, "shadow_map", "uShadowMap");
-    this->meshes.textures.bind(this->meshProg, "spot_shadow_map", "uSpotShadowMap");
+    this->meshes.textures.bind(this->meshProg, "shadow_map", "uCubeShadowMaps");
+    this->meshes.textures.bind(this->meshProg, "spot_shadow_map", "u2DShadowMaps");
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
-    const Matrix4f lightMat = this->spotShadowCamera->getProj({1024.0, 1024.0}) * this->spotShadowCamera->getView();
-    this->meshProg.SetUniformMatrix4("uTSpotLight", lightMat.data());
     this->meshProg.SetUniform3("uCamPos", cam.pos.data());
-    this->meshProg.SetUniform3("uLightPos", this->shadowCamera->pos.data());
-    this->meshProg.SetUniform3("uSpotLightPos", this->spotShadowCamera->pos.data());
-    this->meshProg.SetUniform("uFarPlane", this->shadowCamera->far);
     glMultiDrawElements(
         GL_TRIANGLES,
         this->vCounts.data(),
@@ -969,11 +953,6 @@ const std::array<Vector3f, 6> cubeMapCameraRotations = {
 void App::draw(float dt) {
     this->updateBuffers();
 
-    // Reflect camera by plane
-    this->reflCamera->from(*this->camera);
-    this->reflCamera->pos = this->camera->pos.cwiseProduct(Vector3f(1.0f, -1.0f, 1.0f));
-    this->reflCamera->rot = this->camera->rot.cwiseProduct(Vector3f(-1.0f, 1.0f, 0.0f));
-
     for (const RenderPass& pass : this->renderPasses) {
         // Hide entities in mask
         for (const entt::entity& e : pass.objMask) {
@@ -1002,6 +981,8 @@ void App::draw(float dt) {
                 depthAttached = true;
             }
         }
+
+        // Disable draw buffers if we're just doing depth
         bool depthOnly = !colorAttached;
         if (depthOnly) {
             glDrawBuffer(GL_NONE); $gl_err();
@@ -1010,13 +991,15 @@ void App::draw(float dt) {
             glDrawBuffer(GL_COLOR_ATTACHMENT0); $gl_err();
             glReadBuffer(GL_COLOR_ATTACHMENT0); $gl_err();
         }
+
+        // Set the viewport if it's specified, otherwise use window viewport
         Vector2f viewport = this->windowSize.cast<float>();
         if (pass.viewport) {
             viewport = *pass.viewport;
         }
         glViewport(0, 0, viewport.x(), viewport.y()); $gl_err();
 
-        // Draw
+        // Determine how many times the scene needs to be drawn
         size_t iters = 1u;
         switch (pass.type) {
             case RenderPass::Type::cubemap:
@@ -1025,24 +1008,35 @@ void App::draw(float dt) {
             default:
                 break;
         }
-        Camera cam = *pass.camera;
         for (size_t i = 0u; i < iters; i++) {
-            if (pass.type == RenderPass::Type::cubemap) {
-                cam.rot = cubeMapCameraRotations[i];
-                cam.fov = tau4;
-                glFramebufferTexture2D(
-                    GL_FRAMEBUFFER, pass.cubeMapTarget.attachment,
-                    GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, pass.cubeMapTarget.id, 0); $gl_err();
-            }
             if (!depthOnly) {
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-                this->drawSky(cam, viewport);
-                this->drawMeshes(cam, viewport);
+                this->drawSky(this->camera, viewport);
+                this->drawMeshes(this->camera, viewport);
             } else {
-                glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
-                // glCullFace(GL_FRONT);
-                this->drawMeshesDepth(cam, viewport);
-                // glCullFace(GL_BACK);
+                if (pass.type == RenderPass::Type::cubemap || pass.type == RenderPass::Type::array) {
+                    // Draw depth faces of a cubemap, one light per layer in the array texture
+                    for (const auto e : this->reg.view<Light, Camera, uLight>()) {
+                        const auto [light, lightCam, ulight] = this->reg.get<Light, Camera, uLight>(e);
+                        assert(ulight.shadowMapLayer >= 0);
+                        Camera cam(lightCam);
+                        light.shadowCam(cam);
+                        if (pass.type == RenderPass::Type::cubemap) {
+                            glFramebufferTextureLayer(
+                                GL_FRAMEBUFFER, pass.arrayTarget.attachment,
+                                pass.arrayTarget.id, 0, ulight.shadowMapLayer * 6 + i); $gl_err();
+                        } else {
+                            glFramebufferTextureLayer(
+                                GL_FRAMEBUFFER, pass.arrayTarget.attachment,
+                                pass.arrayTarget.id, 0, ulight.shadowMapLayer); $gl_err();
+                        }
+                        glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
+                        this->drawMeshesDepth(cam, viewport);
+                    }
+                } else {
+                    glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
+                    this->drawMeshesDepth(this->camera, viewport);
+                }
             }
         }
 
@@ -1051,7 +1045,7 @@ void App::draw(float dt) {
             glGenerateTextureMipmap(target.id); $gl_err();
         }
         if (pass.type == RenderPass::Type::cubemap) {
-            glGenerateTextureMipmap(pass.cubeMapTarget.id); $gl_err();
+            glGenerateTextureMipmap(pass.arrayTarget.id); $gl_err();
         }
 
 
@@ -1062,7 +1056,7 @@ void App::draw(float dt) {
     }
 
     if (this->doDrawDebug) {
-        this->drawDebug(*this->camera.get(), this->windowSize.cast<float>());
+        this->drawDebug(this->camera, this->windowSize.cast<float>());
     }
 }
 
@@ -1084,9 +1078,9 @@ void App::composeUI() {
     ImGui::Text("1: Orbit camera");
     ImGui::Text("2: Fly camera");
     ImGui::Text("F6: Reload shaders");
-    ImGui::Text(fmt::format("camera pos: {}", this->camera->pos).c_str());
-    ImGui::Text(fmt::format("camera rot: {}", this->camera->rot).c_str());
-    ImGui::Text(fmt::format("phi={} theta={}", this->camera->orbitPhi(), this->camera->orbitTheta()).c_str());
+    ImGui::Text(fmt::format("camera pos: {}", this->cameraControl.pos).c_str());
+    ImGui::Text(fmt::format("camera rot: {}", this->cameraControl.rot).c_str());
+    ImGui::Text(fmt::format("phi={} theta={}", this->cameraControl.orbitPhi(), this->cameraControl.orbitTheta()).c_str());
     Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
     ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
@@ -1189,6 +1183,8 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
     light.intensity = intensity;
     light.type = type;
     light.range = range;
+    light.far = 20.0f;
+    light.castsShadows = true;
 
     this->reg.emplace<uLight>(e);
 
@@ -1201,6 +1197,15 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
 
     // DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
     // debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
+
+    if (light.type == LightType::point) {
+        Camera& camera = this->reg.emplace<Camera>(e);
+        camera.pos = pos;
+        camera.fov = tau4;
+        camera.near = 0.1f;
+        camera.far = light.far;
+        camera.projection = Camera::Projection::perspective;
+    }
 
     return e;
 }
@@ -1215,6 +1220,8 @@ entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const 
     light.intensity = intensity;
     light.type = LightType::spot;
     light.spotAngle = spotAngle;
+    light.far = 20.0f;
+    light.castsShadows = true;
 
     this->reg.emplace<uLight>(e);
 
@@ -1227,6 +1234,14 @@ entt::entity App::makeSpotLight(const Vector3f& pos, const Vector3f& dir, const 
 
     DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
     debugColor.color = {1.0f, 0.7f, 0.2f, 1.0f};
+
+    Camera& camera = this->reg.emplace<Camera>(e);
+    camera.pos = pos;
+    camera.rot = dirToRot(dir);
+    camera.fov = light.spotAngle;
+    camera.near = 0.1f;
+    camera.far = light.far;
+    camera.projection = Camera::Projection::perspective;
 
     return e;
 }

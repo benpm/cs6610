@@ -4,7 +4,35 @@
 #undef near
 #undef far
 
-class Camera
+struct Model;
+struct Light;
+
+struct Camera
+{
+    Vector3f pos = Vector3f::Zero();
+    Vector3f rot = Vector3f::Zero();
+    float near = 0.01f;
+    float far = 10000.0f;
+    float fov = 1.1f;
+    float zoom = 1.0f;
+    enum class Projection {
+        perspective,
+        orthographic
+    } projection = Projection::perspective;
+
+    // Returns view transformation matrix
+    const Matrix4f getView() const;
+    // Returns projection transformation matrix
+    const Matrix4f getProj(Vector2f viewSize) const;
+    // Transforms given point to view space
+    Vector3f toView(const Vector3f& point) const;
+    // Copy import settings from another camera
+    void from(const Camera& other);
+    // Produces a ray in world space from the camera through the given screen point
+    Ray getRay(const Vector2f& screenPoint, const Vector2f& viewSize) const;
+};
+
+class CameraControl
 {
 private:
     Vector3f target = Vector3f::Zero();
@@ -20,14 +48,7 @@ private:
 public:
     Vector3f pos = Vector3f::Zero();
     Vector3f rot = Vector3f::Zero();
-    float near = 0.01f;
-    float far = 10000.0f;
-    float fov = 1.1f;
     float zoom = 1.0f;
-    enum class Projection {
-        perspective,
-        orthographic
-    } projection = Projection::perspective;
     enum class Mode {
         fly,
         orbit,
@@ -67,16 +88,12 @@ public:
      * @param moveDelta keyboard input, moves camera position
      */
     void control(const Vector2f& rotateDelta, const Vector2f& dragDelta, const Vector2f& moveDelta);
+    // Updates the given camera from current state
+    void update(Camera& cam) const;
+    // Updates the given model (as if it were a camera) from current state
+    void update(Model& model) const;
+    // Updates the given light (as if it were a camera) from current state
+    void update(Light& light) const;
     // Modifies "zoom", which does something slightly different depending on the projection
     void universalZoom(float delta);
-    // Returns view transformation matrix
-    const Matrix4f getView() const;
-    // Returns projection transformation matrix
-    const Matrix4f getProj(Vector2f viewSize) const;
-    // Transforms given point to view space
-    Vector3f toView(const Vector3f& point) const;
-    // Copy import settings from another camera
-    void from(const Camera& other);
-    // Produces a ray in world space from the camera through the given screen point
-    Ray getRay(const Vector2f& screenPoint, const Vector2f& viewSize) const;
 };

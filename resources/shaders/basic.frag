@@ -23,8 +23,13 @@ out vec4 fColor;
 uniform uint nLights;
 uniform sampler2D uTex[16];
 uniform samplerCube uEnvTex;
-uniform samplerCubeShadow uShadowMap;
-uniform sampler2DShadow uSpotShadowMap;
+uniform samplerCubeArrayShadow uCubeShadowMaps;
+uniform sampler2DArrayShadow u2DShadowMaps;
+
+uniform mat4 uTProj;
+uniform mat4 uTView;
+uniform vec3 uCamPos;
+uniform vec2 uViewport;
 
 struct Material {
     vec3 diffuseColor;
@@ -52,7 +57,10 @@ struct Light {
     float intensity;    // Light intensity
     float range;        // Light range
     float spotAngle;    // Spotlight angle
+    float far;          // Spotlight far plane
     uint type;          // Light type (point or directional)
+    int shadowMapLayer; // Shadow map layer ID (-1 if none)
+    mat4 transform;     // Light-space transform
 };
 
 // SSBO for materials
@@ -66,15 +74,6 @@ layout(std430, binding = 2) buffer Lights
 {
     Light uLight[];
 };
-
-uniform mat4 uTProj;
-uniform mat4 uTView;
-uniform vec3 uCamPos;
-uniform vec2 uViewport;
-uniform vec3 uLightPos;
-uniform vec3 uSpotLightPos;
-uniform float uFarPlane;
-uniform mat4 uTSpotLight;
 
 // From Cem Yuksel "Point Light Attenuation Without Singularity"
 float lightAttenuate(float d, float r) {
@@ -109,10 +108,12 @@ void main() {
         switch (uLight[i].type) {
             case LIGHT_POINT: {
                 attenuation = lightAttenuate(length(lightVec), uLight[i].range) * uLight[i].intensity;
-                // Shadow mapping for point light
-                vec3 wLightVec = wposition - uLightPos;
-                attenuation *= texture(uShadowMap, vec4(
-                    wLightVec, length(wLightVec) / uFarPlane - 0.01));
+                if (uLight[i].shadowMapLayer >= 0) {
+                    // Shadow mapping for point light
+                    vec3 wLightVec = wposition - uLight[i].position;
+                    attenuation *= texture(uCubeShadowMaps, vec4(
+                        wLightVec, uLight[i].shadowMapLayer), length(wLightVec) / uLight[i].far - 0.01);
+                }
                 break; }
             case LIGHT_SPOT: {
                 float theta = dot(
@@ -121,10 +122,12 @@ void main() {
                 if (theta >= uLight[i].spotAngle) {
                     attenuation = lightAttenuate(length(lightVec), uLight[i].range) * uLight[i].intensity;
                     // Shadow mapping for spotlight
-                    vec4 wLightVec = uTSpotLight * vec4(wposition, 1.0);
-                    attenuation *= texture(uSpotShadowMap, vec3(
-                        wLightVec.xy / (2.0 * wLightVec.w) + 0.5,
-                        min(1.0, length(wLightVec.xyz / uFarPlane) - 0.01)));
+                    if (uLight[i].shadowMapLayer >= 0) {
+                        vec4 wLightVec = uLight[i].transform * vec4(wposition, 1.0);
+                        attenuation *= texture(u2DShadowMaps, vec4(
+                            wLightVec.xy / (2.0 * wLightVec.w) + 0.5,
+                            min(1.0, length(wLightVec.xyz / uLight[i].far) - 0.01), uLight[i].shadowMapLayer));
+                    }
                 }
                 break; }
             case LIGHT_DIRECTIONAL: {
