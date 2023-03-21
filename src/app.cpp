@@ -274,34 +274,6 @@ App::App(cxxopts::ParseResult& args) {
     
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
-    // Shadows cube map
-    this->texCubeShadows = gfx::texture(gfx::TextureConfig{
-        .target = GL_TEXTURE_CUBE_MAP_ARRAY,
-        .format = GL_DEPTH_COMPONENT,
-        .width = shadowMapSize,
-        .height = shadowMapSize,
-        .wrap = GL_CLAMP_TO_EDGE,
-        .storageType = GL_FLOAT,
-        .shadow = true,
-        .filter = GL_NEAREST,
-        .layers = 1,
-    });
-    this->meshes.textures.add("shadow_map", this->texCubeShadows, GL_TEXTURE_CUBE_MAP_ARRAY, TextureSampler::shadow);
-
-    // Spotlight shadow map
-    this->texSpotShadows = gfx::texture(gfx::TextureConfig{
-        .target = GL_TEXTURE_2D_ARRAY,
-        .format = GL_DEPTH_COMPONENT,
-        .width = shadowMapSize,
-        .height = shadowMapSize,
-        .wrap = GL_CLAMP_TO_BORDER,
-        .storageType = GL_FLOAT,
-        .shadow = true,
-        .filter = GL_NEAREST,
-        .layers = 1,
-    });
-    this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D_ARRAY, TextureSampler::shadow);
-
     spdlog::info("Loaded meshes");
 
     // Construct scene
@@ -431,6 +403,11 @@ App::App(cxxopts::ParseResult& args) {
         Vector3f(1.0f, 1.0f, 0.9f),
         8.0f, 3.0f,
         LightType::point);
+    this->makeLight(
+        Vector3f(-2.0f, 3.0f, -1.0f),
+        Vector3f(0.1f, 0.2f, 0.9f),
+        8.0f, 3.0f,
+        LightType::point);
     {
         this->eSpotLight = this->makeSpotLight(
             Vector3f::Zero(),
@@ -443,6 +420,48 @@ App::App(cxxopts::ParseResult& args) {
         this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
         this->lightControl.update(this->reg.get<Camera>(this->eSpotLight));
     }
+    this->makeSpotLight(
+        Vector3f(4.0f, 6.0f, 4.0f),
+        Vector3f(-4.0f, -6.0f, -4.0f),
+        Vector3f(1.0f, 0.2f, 0.6f),
+        24.0f, 1.0f);
+
+    // Shadows cube map
+    int nPointLights = 0;
+    int nSpotLights = 0;
+    for (entt::entity e : this->reg.view<Light>()) {
+        if (this->reg.get<Light>(e).type == LightType::point) {
+            nPointLights++;
+        } else if (this->reg.get<Light>(e).type == LightType::spot) {
+            nSpotLights++;
+        }
+    }
+    this->texCubeShadows = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_CUBE_MAP_ARRAY,
+        .format = GL_DEPTH_COMPONENT,
+        .width = shadowMapSize,
+        .height = shadowMapSize,
+        .wrap = GL_CLAMP_TO_EDGE,
+        .storageType = GL_FLOAT,
+        .shadow = true,
+        .filter = GL_NEAREST,
+        .layers = nPointLights,
+    });
+    this->meshes.textures.add("shadow_map", this->texCubeShadows, GL_TEXTURE_CUBE_MAP_ARRAY, TextureSampler::shadow);
+
+    // Spotlight shadow map
+    this->texSpotShadows = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_2D_ARRAY,
+        .format = GL_DEPTH_COMPONENT,
+        .width = shadowMapSize,
+        .height = shadowMapSize,
+        .wrap = GL_CLAMP_TO_BORDER,
+        .storageType = GL_FLOAT,
+        .shadow = true,
+        .filter = GL_NEAREST,
+        .layers = nSpotLights,
+    });
+    this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D_ARRAY, TextureSampler::shadow);
 
     // Setup render passes
     this->renderPasses.push_back(RenderPass{ // Cubemap shadow pass
