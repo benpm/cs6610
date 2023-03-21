@@ -41,7 +41,7 @@ struct uMaterial {
     float emissionFactor = 0.0f;
     int diffuseTexID = -1;
     int specularTexID = -1;
-    int reflectionTexID = -1;
+    int reflectionLayer = -1;
     int flatReflectionTexID = -1;
 };
 

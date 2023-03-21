@@ -240,26 +240,6 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.clone("sphere", "light_ball");
     this->meshes.setMaterial("light_ball", lightMatID);
 
-    // Plane reflection framebuffer, depth renderbuffer, and color texture
-    this->texReflections = gfx::texture(gfx::TextureConfig{
-        .target = GL_TEXTURE_2D,
-        .format = GL_RGB,
-        .width = (uint32_t)this->windowSize.x(),
-        .height = (uint32_t)this->windowSize.y(),
-    });
-
-    glGenFramebuffers(1, &this->fboReflections); $gl_err();
-    glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->texReflections, 0); $gl_err();
-
-    glGenRenderbuffers(1, &this->rboReflections); $gl_err();
-    glBindRenderbuffer(GL_RENDERBUFFER, this->rboReflections); $gl_err();
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboReflections); $gl_err();
-
-    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
-
     uMaterial planeRefl {
         .diffuseColor = Vector3f::Zero(),
         .shininess = 1000.0f,
@@ -462,6 +442,26 @@ App::App(cxxopts::ParseResult& args) {
         .layers = nSpotLights,
     });
     this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D_ARRAY, TextureSampler::shadow);
+
+    // Reflection probes cubemap array
+    this->texReflections = gfx::texture(gfx::TextureConfig{
+        .target = GL_TEXTURE_CUBE_MAP_ARRAY,
+        .format = GL_RGB,
+        .width = shadowMapSize,
+        .height = shadowMapSize,
+        .wrap = GL_CLAMP_TO_EDGE,
+        .storageType = GL_FLOAT,
+        .filter = GL_LINEAR,
+        .layers = 16,
+    });
+    glGenFramebuffers(1, &this->fboReflections); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
+    glGenRenderbuffers(1, &this->rboReflections); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, this->rboReflections); $gl_err();
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboReflections); $gl_err();
+    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
+    glBindFramebuffer(GL_RENDERBUFFER, 0); $gl_err();
 
     // Setup render passes
     this->renderPasses.push_back(RenderPass{ // Cubemap shadow pass
@@ -788,7 +788,7 @@ void App::simulate(float dt) {
     }
     for (auto e : this->reg.view<Light, Model>()) {
         auto [light, model] = this->reg.get<Light, Model>(e);
-        light.pos = model.pos;
+        model.pos = light.pos;
     }
     for (auto e : this->reg.view<Model, ModelTransform>()) {
         auto [model, transform] = this->reg.get<Model, ModelTransform>(e);
@@ -1200,7 +1200,10 @@ entt::entity App::makeRigidBody(const std::string& name, const Vector3f &scale, 
 }
 
 entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float intensity, float range, LightType type) {
-    entt::entity e = this->reg.create();
+    entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
+        .emissionColor = color,
+        .emissionFactor = 1.0f
+    }));
 
     Light& light = this->reg.emplace<Light>(e);
     light.pos = pos;
@@ -1210,6 +1213,10 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
     light.range = range;
     light.far = 20.0f;
     light.castsShadows = true;
+
+    Model& model = this->reg.get<Model>(e);
+    model.pos = pos;
+    model.scale *= 0.1f;
 
     this->reg.emplace<uLight>(e);
 

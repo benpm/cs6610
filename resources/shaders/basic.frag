@@ -23,6 +23,7 @@ out vec4 fColor;
 uniform uint nLights;
 uniform sampler2D uTex[16];
 uniform samplerCube uEnvTex;
+uniform samplerCubeArray uReflectionMaps;
 uniform samplerCubeArrayShadow uCubeShadowMaps;
 uniform sampler2DArrayShadow u2DShadowMaps;
 
@@ -42,7 +43,7 @@ struct Material {
     float emissionFactor;
     int diffuseTexID;
     int specularTexID;
-    int reflectionTexID;
+    int reflectionLayer;
     int flatReflectionTexID;
 };
 
@@ -145,7 +146,7 @@ void main() {
     }
 
     // Environment mapping / reflection
-    if (mat.reflectionTexID >= 0) {
+    if (mat.reflectionLayer >= 0) {
         vec3 reflectionTex = texture(uEnvTex,
             reflect(wposition - uCamPos, normalize(wnormal))).rgb;
         C = reflectionTex;

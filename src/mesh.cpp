@@ -313,7 +313,7 @@ size_t MeshCollection::createSkyMaterial(const std::string& dirName) {
     const std::string name = fmt::format("sky_{}", fs::path(dirName).stem().string());
     const uint32_t matID = this->materials.size();
     uMaterial& mat = this->materials.emplace_back();
-    mat.reflectionTexID = this->textures.addCubemap(name, dirName);
+    mat.reflectionLayer = this->textures.addCubemap(name, dirName);
     
     this->nameMaterialMap[name] = matID;
     this->materialNameMap[matID] = name;
@@ -331,8 +331,8 @@ size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
     if (mat.specularTexID > -1) {
         mat.specularTexID = this->textures.add(name + "_specular", mat.specularTexID);
     }
-    if (mat.reflectionTexID > -1) {
-        mat.reflectionTexID = this->textures.add(name + "_reflection", mat.reflectionTexID);
+    if (mat.reflectionLayer > -1) {
+        mat.reflectionLayer = this->textures.add(name + "_reflection", mat.reflectionLayer);
     }
     if (mat.flatReflectionTexID > -1) {
         mat.flatReflectionTexID = this->textures.add(name + "_normal", mat.flatReflectionTexID);

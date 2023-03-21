@@ -9,6 +9,13 @@
 
 class CameraControl;
 
+struct ReflectionProbe {
+    static constexpr std::size_t page_size = 65536u;
+    // Determines the layer in the cube map array that this probe will use
+    //  -1 means none assigned
+    int layer = -1;
+};
+
 class Model
 {
 public:
