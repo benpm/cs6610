@@ -331,9 +331,6 @@ size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
     if (mat.specularTexID > -1) {
         mat.specularTexID = this->textures.add(name + "_specular", mat.specularTexID);
     }
-    if (mat.reflectionLayer > -1) {
-        mat.reflectionLayer = this->textures.add(name + "_reflection", mat.reflectionLayer);
-    }
     if (mat.flatReflectionTexID > -1) {
         mat.flatReflectionTexID = this->textures.add(name + "_normal", mat.flatReflectionTexID);
     }

@@ -256,17 +256,22 @@ App::App(cxxopts::ParseResult& args) {
 
     spdlog::info("Loaded meshes");
 
+    int reflectionLayer = 0;
+
     // Construct scene
     this->loadingScreen("constructing scene");
-    for (size_t i = 0; i < 0; i++) {
-        entt::entity e = this->makeModel("sphere");
-        Model& model = this->reg.get<Model>(e);
+    for (size_t i = 0; i < 5; i++) {
+        int reflLayer = reflectionLayer++;
 
-        model.scale = Vector3f::Ones() * rng.range(0.2f, 1.0f);
+        entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
+            .reflectionLayer = reflLayer
+        }));
+        Model& model = this->reg.get<Model>(e);
+        model.scale = Vector3f::Ones() * rng.range(0.2f, 2.0f);
         model.pos = rng.vec(this->box);
 
-        PhysicsBody& body = this->reg.emplace<PhysicsBody>(e);
-        body.pos = model.pos;
+        ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
+        reflProbe.layer = reflLayer;
     }
     {
         entt::entity e = this->makeModel("teapot");
@@ -274,7 +279,21 @@ App::App(cxxopts::ParseResult& args) {
 
         model.pivot.z() = 0.0f;
         model.rot.x() = -tau4;
-        model.pos.y() = 0.25f;
+        model.pos = {-2.0f, 0.0f, -3.0f};
+        model.scale *= 2.0f;
+    }
+    {
+        int reflLayer = reflectionLayer++;
+        entt::entity e = this->makeModel(this->meshes.clone("teapot", uMaterial {
+            .reflectionLayer = reflLayer
+        }));
+        Model& model = this->reg.get<Model>(e);
+
+        ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
+        reflProbe.layer = reflLayer;
+
+        model.pivot.z() = 0.0f;
+        model.rot.x() = -tau4;
         model.scale *= 3.0f;
     }
     {
@@ -450,18 +469,20 @@ App::App(cxxopts::ParseResult& args) {
         .width = shadowMapSize,
         .height = shadowMapSize,
         .wrap = GL_CLAMP_TO_EDGE,
-        .storageType = GL_FLOAT,
+        .storageType = GL_UNSIGNED_BYTE,
+        .mipmap = true,
         .filter = GL_LINEAR,
-        .layers = 16,
+        .layers = reflectionLayer,
     });
     glGenFramebuffers(1, &this->fboReflections); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
     glGenRenderbuffers(1, &this->rboReflections); $gl_err();
     glBindRenderbuffer(GL_RENDERBUFFER, this->rboReflections); $gl_err();
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, this->windowSize.x(), this->windowSize.y()); $gl_err();
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, shadowMapSize, shadowMapSize); $gl_err();
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboReflections); $gl_err();
     glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
-    glBindFramebuffer(GL_RENDERBUFFER, 0); $gl_err();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+    this->meshes.textures.add("refl_maps", this->texReflections, GL_TEXTURE_CUBE_MAP_ARRAY, TextureSampler::cubemap);
 
     // Setup render passes
     this->renderPasses.push_back(RenderPass{ // Cubemap shadow pass
@@ -486,21 +507,21 @@ App::App(cxxopts::ParseResult& args) {
         },
     });
     this->renderPasses.push_back(RenderPass{ // Reflection pass
-        .type = RenderPass::Type::reflection,
+        .type = RenderPass::Type::cubemap,
         .fbo = this->fboReflections,
+        .viewport = {{(float)shadowMapSize, (float)shadowMapSize}},
         .targets = {
-            RenderTarget {
-                .type = RenderTarget::Type::texture,
-                .id = this->texReflections,
-                .attachment = GL_COLOR_ATTACHMENT0,
-            },
             RenderTarget {
                 .type = RenderTarget::Type::renderbuffer,
                 .id = this->rboReflections,
                 .attachment = GL_DEPTH_ATTACHMENT,
             }
         },
-        .objMask = { this->ePlane }
+        .arrayTarget = RenderTarget {
+            .type = RenderTarget::Type::textureArray,
+            .id = this->texReflections,
+            .attachment = GL_COLOR_ATTACHMENT0,
+        },
     });
     this->renderPasses.push_back(RenderPass{ // Final pass
         .type = RenderPass::Type::final,
@@ -530,7 +551,7 @@ App::~App() {
 }
 
 void App::loadingScreen(const std::string& message) {
-    glClearColor(0.08f, 0.08f, 0.08f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -610,20 +631,6 @@ void App::onKey(int key, bool pressed) {
 void App::onResize(int width, int height) {
     glViewport(0, 0, width, height);
     this->windowSize = {width, height};
-
-    glBindTexture(GL_TEXTURE_2D, this->texReflections); $gl_err();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
-
-    glBindRenderbuffer(GL_RENDERBUFFER, this->rboReflections); $gl_err();
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height); $gl_err();
-    // glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rboDepth); $gl_err();
-    glBindRenderbuffer(GL_RENDERBUFFER, 0); $gl_err();
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
-
     spdlog::debug("Resized window to {},{}", width, height);
 }
 
@@ -881,6 +888,7 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.textures.bind(this->meshProg, "shadow_map", "uCubeShadowMaps");
     this->meshes.textures.bind(this->meshProg, "spot_shadow_map", "u2DShadowMaps");
+    this->meshes.textures.bind(this->meshProg, "refl_maps", "uReflectionMaps");
     this->meshes.bind(this->meshProg);
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
@@ -1029,9 +1037,27 @@ void App::draw(float dt) {
         }
         for (size_t i = 0u; i < iters; i++) {
             if (!depthOnly) {
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
-                this->drawSky(this->camera, viewport);
-                this->drawMeshes(this->camera, viewport);
+                if (pass.type == RenderPass::Type::cubemap || pass.type == RenderPass::Type::array) {
+                    for (const auto e : this->reg.view<Model, ReflectionProbe>()) {
+                        const auto [model, probe] = this->reg.get<Model, ReflectionProbe>(e);
+                        assert(probe.layer >= 0);
+                        this->hidden(e, true);
+                        glFramebufferTextureLayer(
+                            GL_FRAMEBUFFER, pass.arrayTarget.attachment,
+                            pass.arrayTarget.id, 0, probe.layer * 6 + i); $gl_err();
+                        const Camera cam = {
+                            .pos = model.transformedCenter(),
+                            .rot = gfx::cubeMapCameraRotations[i % 6u],
+                            .fov = tau4,
+                        };
+                        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+                        this->drawMeshes(cam, viewport);
+                        this->hidden(e, false);
+                    }
+                } else {
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+                    this->drawMeshes(this->camera, viewport);
+                }
             } else {
                 if (pass.type == RenderPass::Type::cubemap || pass.type == RenderPass::Type::array) {
                     // Draw depth faces of a cubemap, one light per layer in the array texture
@@ -1059,8 +1085,8 @@ void App::draw(float dt) {
                         this->drawMeshesDepth(cam, viewport);
                     }
                 } else {
-                    glClear(GL_DEPTH_BUFFER_BIT); $gl_err();
-                    this->drawMeshesDepth(this->camera, viewport);
+                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); $gl_err();
+                    this->drawMeshes(this->camera, viewport);
                 }
             }
         }
@@ -1154,21 +1180,12 @@ entt::entity App::makeModel(const std::string& name) {
 
     const MeshData& meshData = this->meshes.get(name);
 
-    Model& model = this->reg.emplace<Model>(e);
+    this->reg.emplace<Model>(e, meshData);
     MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
-    model.pivot = meshData.center;
 
     this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
     
     this->reg.emplace<ModelTransform>(e);
-    return e;
-}
-
-entt::entity App::makeReflectiveModel(const std::string& name) {
-    entt::entity e = this->makeModel(name);
-
-    this->reg.emplace<RenderPass>(e);
-
     return e;
 }
 
@@ -1179,9 +1196,8 @@ entt::entity App::makeRigidBody(const std::string& name, const Vector3f &scale, 
 
     const Vector3f halfExtents = meshData.bbox.extents().cwiseProduct(scale);
 
-    Model& model = this->reg.emplace<Model>(e);
+    Model& model = this->reg.emplace<Model>(e, meshData);
     model.pos = pos;
-    model.pivot = meshData.center;
     model.scale = scale;
     MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
 
@@ -1219,16 +1235,6 @@ entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float in
     model.scale *= 0.1f;
 
     this->reg.emplace<uLight>(e);
-
-    // DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
-    // debugRay.pos = pos;
-    // debugRay.rot = towards(pos, {0.0f, 0.0f, 0.0f});
-
-    // RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
-    // rayTransform.transform = debugRay.transform();
-
-    // DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
-    // debugColor.color = {1.0f, 1.0f, 0.2f, 1.0f};
 
     if (light.type == LightType::point) {
         Camera& camera = this->reg.emplace<Camera>(e);

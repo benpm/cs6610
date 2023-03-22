@@ -147,8 +147,8 @@ void main() {
 
     // Environment mapping / reflection
     if (mat.reflectionLayer >= 0) {
-        vec3 reflectionTex = texture(uEnvTex,
-            reflect(wposition - uCamPos, normalize(wnormal))).rgb;
+        vec3 reflectionTex = texture(uReflectionMaps,
+            vec4(reflect(wposition - uCamPos, normalize(wnormal)), mat.reflectionLayer)).rgb;
         C = reflectionTex;
     }
     if (mat.flatReflectionTexID >= 0) {

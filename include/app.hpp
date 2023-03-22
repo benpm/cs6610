@@ -223,7 +223,6 @@ class App
 
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);
-        entt::entity makeReflectiveModel(const std::string& name);
         entt::entity makeRigidBody(const std::string& name, const Vector3f& scale, const Vector3f& pos, const Vector3f& rot = {0.0f, 0.0f, 0.0f});
         entt::entity makeLight(const Vector3f& pos, const Vector3f& color, float intensity, float range, LightType type);
         entt::entity makeSpotLight(const Vector3f& pos, const Vector3f& dir, const Vector3f& color, float intensity, float spotAngle);
