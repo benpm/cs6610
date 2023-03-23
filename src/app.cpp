@@ -194,14 +194,21 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->ssboArrows); $gl_err();
     glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
 
-    // Build and bind shadows shader program
+    // Build shadows shader program
     built = this->depthProg.BuildFiles(
         "resources/shaders/shadow.vert",
         "resources/shaders/shadow.frag");
     if (!built) {
         spdlog::error("Failed to build shadows shader program");
-    } else {
-        this->depthProg.Bind();
+    }
+
+    // Build wireframe shader program
+    built = this->wireframeProg.BuildFiles(
+        "resources/shaders/wireframe.vert",
+        "resources/shaders/wireframe.frag",
+        "resources/shaders/wireframe.geom");
+    if (!built) {
+        spdlog::error("Failed to build wireframe shader program");
     }
     
     // Build and bind meshes shader program
@@ -313,7 +320,7 @@ App::App(cxxopts::ParseResult& args) {
         std::string modelClone = this->meshes.clone("quad");
         this->meshes.setMaterial(modelClone, matID);
         entt::entity e = this->makeModel(modelClone);
-        
+
         Model& model = this->reg.get<Model>(e);
         model.scale = vec3(5.0f);
         model.rot.x() = tau4;
@@ -939,6 +946,23 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+
+    // Draw wireframes
+    this->wireframeProg.Bind();
+    this->meshes.bind(this->wireframeProg, false);
+    glBindVertexArray(this->vaoMeshes); $gl_err();
+    this->wireframeProg.SetUniformMatrix4("uTProj", proj.data());
+    this->wireframeProg.SetUniformMatrix4("uTView", view.data());
+    glMultiDrawElements(
+        GL_TRIANGLES,
+        this->vCounts.data(),
+        GL_UNSIGNED_INT,
+        (const void**)this->vOffsets.data(),
+        this->vCounts.size()); $gl_err();
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
 }
 
 void App::updateBuffers() {
@@ -1120,6 +1144,8 @@ void App::draw(float dt) {
     }
 
     if (this->doDrawDebug) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); $gl_err();
+        glViewport(0, 0, this->windowSize.x(), this->windowSize.y()); $gl_err();
         this->drawDebug(this->camera, this->windowSize.cast<float>());
     }
 }

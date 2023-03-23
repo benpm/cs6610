@@ -97,6 +97,7 @@ class App
         cyGLSLProgram wiresProg;
         cyGLSLProgram skyProg;
         cyGLSLProgram depthProg;
+        cyGLSLProgram wireframeProg;
         std::shared_ptr<Light> sunlight;
 
         entt::registry reg;
