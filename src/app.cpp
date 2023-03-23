@@ -206,7 +206,9 @@ App::App(cxxopts::ParseResult& args) {
     built = this->wireframeProg.BuildFiles(
         "resources/shaders/wireframe.vert",
         "resources/shaders/wireframe.frag",
-        "resources/shaders/wireframe.geom");
+        "resources/shaders/wireframe.geom",
+        "resources/shaders/wireframe.tesc",
+        "resources/shaders/wireframe.tese");
     if (!built) {
         spdlog::error("Failed to build wireframe shader program");
     }
@@ -627,6 +629,16 @@ void App::onKey(int key, bool pressed) {
                         spdlog::warn("Failed to build {} shader program", progShaderNames[i]);
                     }
                 }
+
+                bool built = this->wireframeProg.BuildFiles(
+                    "resources/shaders/wireframe.vert",
+                    "resources/shaders/wireframe.frag",
+                    "resources/shaders/wireframe.geom",
+                    "resources/shaders/wireframe.tesc",
+                    "resources/shaders/wireframe.tese");
+                if (!built) {
+                    spdlog::error("Failed to build wireframe shader program");
+                }
             } break;
             case GLFW_KEY_1: {
                 this->cameraControl.mode = CameraControl::Mode::orbit;
@@ -953,8 +965,9 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoMeshes); $gl_err();
     this->wireframeProg.SetUniformMatrix4("uTProj", proj.data());
     this->wireframeProg.SetUniformMatrix4("uTView", view.data());
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
     glMultiDrawElements(
-        GL_TRIANGLES,
+        GL_PATCHES,
         this->vCounts.data(),
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
