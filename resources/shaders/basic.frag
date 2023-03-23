@@ -45,6 +45,7 @@ struct Material {
     int specularTexID;
     int reflectionLayer;
     int flatReflectionTexID;
+    int normalTexID;
 };
 
 const uint LIGHT_POINT = 0;
@@ -96,6 +97,12 @@ void main() {
     }
     vec3 diffuseColor = diffuseTex;
     vec3 specularColor = specularTex;
+
+    // Normal mapping
+    if (mat.normalTexID >= 0) {
+        vec3 normalTex = texture(uTex[mat.normalTexID], uv).rgb;
+        n = normalize((uTView * vec4(wnormal + (normalTex * 2.0 - 1.0) * 10.0, 0.0)).xyz);
+    }
 
     // Accumulate lights
     vec3 C = mat.ambientColor * mat.ambientFactor;

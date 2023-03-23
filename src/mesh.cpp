@@ -332,7 +332,10 @@ size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
         mat.specularTexID = this->textures.add(name + "_specular", mat.specularTexID);
     }
     if (mat.flatReflectionTexID > -1) {
-        mat.flatReflectionTexID = this->textures.add(name + "_normal", mat.flatReflectionTexID);
+        mat.flatReflectionTexID = this->textures.add(name + "_refl", mat.flatReflectionTexID);
+    }
+    if (mat.normalTexID > -1) {
+        mat.normalTexID = this->textures.add(name + "_normal", mat.normalTexID);
     }
 
     this->materials.push_back(mat);
@@ -344,6 +347,24 @@ size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
 
 size_t MeshCollection::createMaterial(const std::string &name, size_t matID) {
     return this->createMaterial(name, this->materials.at(matID));
+}
+
+size_t MeshCollection::createMaterial(const std::string& name, const std::string& diffuseTex, const std::string& specularTex, const std::string& normalTex) {
+    const uint32_t matID = this->materials.size();
+    uMaterial mat;
+    if (!diffuseTex.empty()) {
+        mat.diffuseTexID = this->textures.add(diffuseTex);
+    }
+    if (!specularTex.empty()) {
+        mat.specularTexID = this->textures.add(specularTex);
+    }
+    if (!normalTex.empty()) {
+        mat.normalTexID = this->textures.add(normalTex);
+    }
+    this->materials.push_back(mat);
+    this->nameMaterialMap[name] = matID;
+    this->materialNameMap[matID] = name;
+    return matID;
 }
 
 const TextureData& MeshCollection::getTextureData(int texID) {

@@ -307,6 +307,19 @@ App::App(cxxopts::ParseResult& args) {
         model.scale *= 2.0f;
     }
     {
+        size_t matID = this->meshes.createMaterial("bumpy",
+            "resources/textures/tiles-diffuse.png", "",
+            "resources/textures/tiles-normal.png");
+        std::string modelClone = this->meshes.clone("quad");
+        this->meshes.setMaterial(modelClone, matID);
+        entt::entity e = this->makeModel(modelClone);
+        
+        Model& model = this->reg.get<Model>(e);
+        model.scale = vec3(5.0f);
+        model.rot.x() = tau4;
+        model.pos = {0.0f, 3.0f, -3.0f};
+    }
+    {
         entt::entity e = this->makeModel("quad");
         Model& model = this->reg.get<Model>(e);
 
@@ -443,7 +456,7 @@ App::App(cxxopts::ParseResult& args) {
         .wrap = GL_CLAMP_TO_EDGE,
         .storageType = GL_FLOAT,
         .shadow = true,
-        .filter = GL_NEAREST,
+        .filter = GL_LINEAR,
         .layers = nPointLights,
     });
     this->meshes.textures.add("shadow_map", this->texCubeShadows, GL_TEXTURE_CUBE_MAP_ARRAY, TextureSampler::shadow);
@@ -457,7 +470,7 @@ App::App(cxxopts::ParseResult& args) {
         .wrap = GL_CLAMP_TO_BORDER,
         .storageType = GL_FLOAT,
         .shadow = true,
-        .filter = GL_NEAREST,
+        .filter = GL_LINEAR,
         .layers = nSpotLights,
     });
     this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D_ARRAY, TextureSampler::shadow);
