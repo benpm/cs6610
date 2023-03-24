@@ -327,6 +327,8 @@ App::App(cxxopts::ParseResult& args) {
         model.scale = vec3(5.0f);
         model.rot.x() = tau4;
         model.pos = {0.0f, 3.0f, -3.0f};
+
+        this->eDemoQuad = e;
     }
     {
         entt::entity e = this->makeModel("quad");
@@ -965,13 +967,16 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoMeshes); $gl_err();
     this->wireframeProg.SetUniformMatrix4("uTProj", proj.data());
     this->wireframeProg.SetUniformMatrix4("uTView", view.data());
+    this->wireframeProg.SetUniform("uTessLevel", this->tessLevel);
     glPatchParameteri(GL_PATCH_VERTICES, 3);
+    this->hideAllExcept(this->eDemoQuad);
     glMultiDrawElements(
         GL_PATCHES,
         this->vCounts.data(),
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
+    this->unhideAll();
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
@@ -1189,6 +1194,7 @@ void App::composeUI() {
     ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
     ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
     ImGui::Checkbox("Draw Debug", &this->doDrawDebug);
+    ImGui::SliderFloat("Tesselation Level", &this->tessLevel, 0.0f, 128.0f);
 
     ImGui::PopFont();
     ImGui::End();
@@ -1204,6 +1210,19 @@ void App::hidden(entt::entity e, bool hidden) {
         this->vCounts.at(objRef.objID) = 0;
     } else {
         this->vCounts.at(objRef.objID) = meshRef.elemCount;
+    }
+}
+
+void App::hideAllExcept(entt::entity e) {
+    for (const entt::entity& e : this->reg.view<MeshRef, ObjRef>()) {
+        this->hidden(e, true);
+    }
+    this->hidden(e, false);
+}
+
+void App::unhideAll() {
+    for (const entt::entity& e : this->reg.view<MeshRef, ObjRef>()) {
+        this->hidden(e, false);
     }
 }
 

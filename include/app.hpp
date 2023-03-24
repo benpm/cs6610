@@ -105,6 +105,7 @@ class App
         entt::entity eSelectPoint;
         entt::entity eDragArrow;
         entt::entity eSpotLight;
+        entt::entity eDemoQuad;
 
         Vector3f selectPoint;
         entt::entity eSelected = entt::null;
@@ -148,6 +149,8 @@ class App
         std::vector<GLsizei> vCounts;
         // Element offsets
         std::vector<size_t> vOffsets;
+
+        float tessLevel = 4.0f;
 
         struct UI {
             ImFont* font = nullptr;
@@ -219,6 +222,10 @@ class App
 
         // Hides given object from rendering
         void hidden(entt::entity e, bool hidden);
+        // Hides all objects except the given one
+        void hideAllExcept(entt::entity e);
+        // Unhides all objects
+        void unhideAll();
 
         ObjRef makeObj(const MeshRef& mesh);
 
