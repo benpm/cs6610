@@ -60,9 +60,14 @@ int main(int argc, char const *argv[])
     // Parse arguments
     cxxopts::Options cliOptions("rendertool", "A tool for rendering 3D scenes");
     cliOptions.add_options()
+        ("normal-map", "Path to normal map to render",
+            cxxopts::value<std::string>()->default_value("resources/textures/teapot-normal.png"))
+        ("displacement-map", "Path to displacement map to render",
+            cxxopts::value<std::string>()->default_value("resources/textures/teapot-displacement.png"))
         ("m,model", "Path to .obj file to render into the scene",
             cxxopts::value<std::string>()->default_value("resources/models/yoda/yoda.obj"))
         ("h,help", "Prints help");
+    cliOptions.parse_positional({"normal-map", "displacement-map"});
     cxxopts::ParseResult opts = cliOptions.parse(argc, argv);
     if (opts.count("help")) {
         std::cout << cliOptions.help() << std::endl;

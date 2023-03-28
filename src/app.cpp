@@ -276,8 +276,8 @@ App::App(cxxopts::ParseResult& args) {
     {
         size_t matID = this->meshes.createMaterial("bumpy",
             "resources/textures/tiles-diffuse.png", "",
-            "resources/textures/tiles-normal.png",
-            "resources/textures/tiles-displacement.png");
+            args["normal-map"].as<std::string>(),
+            args["displacement-map"].as<std::string>());
         std::string modelClone = this->meshes.clone("quad");
         this->meshes.setMaterial(modelClone, matID);
         entt::entity e = this->makeModel(modelClone);
@@ -285,7 +285,7 @@ App::App(cxxopts::ParseResult& args) {
         Model& model = this->reg.get<Model>(e);
         model.scale = vec3(5.0f);
         model.rot.x() = tau4;
-        model.pos = {0.0f, 3.0f, -3.0f};
+        model.pos = {0.0f, 3.0f, -0.2f};
 
         this->eDemoQuad = e;
     }
@@ -822,13 +822,15 @@ void App::drawMeshesDepth(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Draw models in scene
-    this->meshes.bind(this->depthProg, false);
+    this->meshes.bind(this->depthProg);
     this->depthProg.SetUniformMatrix4("uTProj", proj.data());
     this->depthProg.SetUniformMatrix4("uTView", view.data());
     this->depthProg.SetUniform3("uLightPos", cam.pos.data());
     this->depthProg.SetUniform("uFarPlane", cam.far);
+    this->depthProg.SetUniform("uTessLevel", this->tessLevel);
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
     glMultiDrawElements(
-        GL_TRIANGLES,
+        GL_PATCHES,
         this->vCounts.data(),
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
@@ -1248,8 +1250,11 @@ void App::buildShaders() {
         "resources/shaders/wireframe.tese");
 
     buildProgram("shadow", this->depthProg,
-        "resources/shaders/shadow.vert",
-        "resources/shaders/shadow.frag");
+        "resources/shaders/basic.vert",
+        "resources/shaders/shadow.frag",
+        nullptr,
+        "resources/shaders/wireframe.tesc",
+        "resources/shaders/wireframe.tese");
 
     buildProgram("debug", this->wiresProg,
         "resources/shaders/wires.vert",

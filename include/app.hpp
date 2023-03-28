@@ -150,7 +150,7 @@ class App
         // Element offsets
         std::vector<size_t> vOffsets;
 
-        float tessLevel = 4.0f;
+        float tessLevel = 64.0f;
 
         struct UI {
             ImFont* font = nullptr;

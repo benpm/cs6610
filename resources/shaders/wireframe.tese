@@ -74,12 +74,12 @@ void main() {
     // Displaced position in world space
     float disp = 0.0;
     if (mat.displacementTexID >= 0) {
-        disp = texture(uTex[mat.displacementTexID], data_out.uv).r * 0.1;
+        disp = texture(uTex[mat.displacementTexID], data_out.uv).r * 0.2;
     }
     vec4 v = interpolate(
         gl_in[0].gl_Position,
         gl_in[1].gl_Position,
-        gl_in[2].gl_Position) + vec4(disp * data_out.normal, 0.0);
+        gl_in[2].gl_Position) + vec4(disp * normal, 0.0);
 
     vec4 wposition = tmodel * v;
     vec4 vposition = uTView * wposition;

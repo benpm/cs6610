@@ -97,7 +97,7 @@ void main() {
     // Normal mapping
     if (mat.normalTexID >= 0) {
         vec3 normalTex = texture(uTex[mat.normalTexID], data_in.uv).rgb;
-        n = normalize((uTView * vec4(normalize(data_in.wnormal) + (normalTex * 2.0 - 1.0) * 10.0, 0.0)).xyz);
+        n = normalize((uTView * vec4(normalize(data_in.wnormal) + (normalTex * 2.0 - 1.0), 0.0)).xyz);
     }
 
     // Accumulate lights
