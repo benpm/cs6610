@@ -214,10 +214,10 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
         this->vertexData.size() * sizeof(VertexData), this->vertexData.data(), GL_STATIC_DRAW); $gl_err();
 
     // Specify vertex attributes
-    GLuint attrib_vPos    = prog.AttribLocation("vPos"); $gl_err();
-    GLuint attrib_vNormal = prog.AttribLocation("vNormal"); $gl_err();
-    GLuint attrib_vUV     = prog.AttribLocation("vUV"); $gl_err();
-    GLuint attrib_vMatID  = prog.AttribLocation("vMatID"); $gl_err();
+    GLuint attrib_vPos    = 0u;
+    GLuint attrib_vNormal = 1u;
+    GLuint attrib_vUV     = 2u;
+    GLuint attrib_vMatID  = 3u;
 
     size_t offset = 0u;
 
@@ -337,6 +337,9 @@ size_t MeshCollection::createMaterial(const std::string& name, uMaterial mat) {
     if (mat.normalTexID > -1) {
         mat.normalTexID = this->textures.add(name + "_normal", mat.normalTexID);
     }
+    if (mat.displacementTexID > -1) {
+        mat.displacementTexID = this->textures.add(name + "_disp", mat.displacementTexID);
+    }
 
     this->materials.push_back(mat);
 
@@ -349,7 +352,13 @@ size_t MeshCollection::createMaterial(const std::string &name, size_t matID) {
     return this->createMaterial(name, this->materials.at(matID));
 }
 
-size_t MeshCollection::createMaterial(const std::string& name, const std::string& diffuseTex, const std::string& specularTex, const std::string& normalTex) {
+size_t MeshCollection::createMaterial(
+    const std::string& name,
+    const std::string& diffuseTex,
+    const std::string& specularTex,
+    const std::string& normalTex,
+    const std::string& displacementTex)
+{
     const uint32_t matID = this->materials.size();
     uMaterial mat;
     if (!diffuseTex.empty()) {
@@ -360,6 +369,9 @@ size_t MeshCollection::createMaterial(const std::string& name, const std::string
     }
     if (!normalTex.empty()) {
         mat.normalTexID = this->textures.add(normalTex);
+    }
+    if (!displacementTex.empty()) {
+        mat.displacementTexID = this->textures.add(displacementTex);
     }
     this->materials.push_back(mat);
     this->nameMaterialMap[name] = matID;

@@ -227,6 +227,8 @@ class App
         // Unhides all objects
         void unhideAll();
 
+        void buildShaders();
+
         ObjRef makeObj(const MeshRef& mesh);
 
         entt::entity makeParticle();

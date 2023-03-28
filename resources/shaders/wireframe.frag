@@ -2,6 +2,11 @@
 
 out vec4 fColor;
 
+in VertexData {
+    vec2 uv;
+    flat uint matID;
+} data_in;
+
 void main() {
-    fColor = vec4(0.0, 1.0, 0.0, 1.0);
+    fColor = vec4(0, 1, 0, 1);
 }

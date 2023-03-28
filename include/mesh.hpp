@@ -44,6 +44,7 @@ struct uMaterial {
     int reflectionLayer = -1;
     int flatReflectionTexID = -1;
     int normalTexID = -1;
+    int displacementTexID = -1;
 };
 
 template<> struct fmt::formatter<uMaterial> {
@@ -141,7 +142,11 @@ public:
     // Creates a new material as a copy of the given material, returns ID
     size_t createMaterial(const std::string& name, size_t matID);
     // Creates a new material from texture files, returns ID
-    size_t createMaterial(const std::string& name, const std::string& diffuseTex, const std::string& specularTex="", const std::string& normalTex="");
+    size_t createMaterial(const std::string& name,
+        const std::string& diffuseTex,
+        const std::string& specularTex="",
+        const std::string& normalTex="",
+        const std::string& displacementTex="");
     // Gets the texturedata with given ID (the IDs from the materials)
     const TextureData& getTextureData(int texID);
 };

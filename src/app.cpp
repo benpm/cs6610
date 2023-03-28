@@ -129,15 +129,10 @@ App::App(cxxopts::ParseResult& args) {
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(GLDebugMessageCallback, NULL);
 
+    this->buildShaders();
+
     // Build and bind sky shader program
-    bool built = this->skyProg.BuildFiles(
-        "resources/shaders/sky.vert",
-        "resources/shaders/sky.frag");
-    if (!built) {
-        spdlog::error("Failed to build sky shader program");
-    } else {
-        this->skyProg.Bind();
-    }
+    this->skyProg.Bind();
     glGenVertexArrays(1, &this->vaoSky); $gl_err();
     glBindVertexArray(this->vaoSky); $gl_err();
     glCreateBuffers(1, &this->vboSky); $gl_err();
@@ -159,17 +154,8 @@ App::App(cxxopts::ParseResult& args) {
     this->skyTextures.addCubemap("sky", "resources/textures/cubemap");
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
 
-    // Build and bind wires shader program
-    built = this->wiresProg.BuildFiles(
-        "resources/shaders/wires.vert",
-        "resources/shaders/wires.frag");
-    if (!built) {
-        spdlog::error("Failed to build wires shader program");
-    } else {
-        this->wiresProg.Bind();
-    }
-
     // Setup for wires drawing
+    this->wiresProg.Bind();
     glGenVertexArrays(1, &this->vaoWires); $gl_err();
     glBindVertexArray(this->vaoWires); $gl_err();
 
@@ -194,36 +180,8 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->ssboArrows); $gl_err();
     glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
 
-    // Build shadows shader program
-    built = this->depthProg.BuildFiles(
-        "resources/shaders/shadow.vert",
-        "resources/shaders/shadow.frag");
-    if (!built) {
-        spdlog::error("Failed to build shadows shader program");
-    }
-
-    // Build wireframe shader program
-    built = this->wireframeProg.BuildFiles(
-        "resources/shaders/wireframe.vert",
-        "resources/shaders/wireframe.frag",
-        "resources/shaders/wireframe.geom",
-        "resources/shaders/wireframe.tesc",
-        "resources/shaders/wireframe.tese");
-    if (!built) {
-        spdlog::error("Failed to build wireframe shader program");
-    }
-    
-    // Build and bind meshes shader program
-    built = this->meshProg.BuildFiles(
-        "resources/shaders/basic.vert",
-        "resources/shaders/basic.frag");
-    if (!built) {
-        spdlog::error("Failed to build meshes shader program");
-    } else {
-        this->meshProg.Bind();
-    }
-
     // Create and bind VAO
+    this->meshProg.Bind();
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
@@ -318,7 +276,8 @@ App::App(cxxopts::ParseResult& args) {
     {
         size_t matID = this->meshes.createMaterial("bumpy",
             "resources/textures/tiles-diffuse.png", "",
-            "resources/textures/tiles-normal.png");
+            "resources/textures/tiles-normal.png",
+            "resources/textures/tiles-displacement.png");
         std::string modelClone = this->meshes.clone("quad");
         this->meshes.setMaterial(modelClone, matID);
         entt::entity e = this->makeModel(modelClone);
@@ -566,6 +525,7 @@ App::App(cxxopts::ParseResult& args) {
     glGenBuffers(1, &this->ssboLights); $gl_err();
 
     this->meshes.build(this->meshProg);
+    this->meshes.build(this->wireframeProg);
 }
 
 App::~App() {
@@ -607,40 +567,7 @@ void App::onKey(int key, bool pressed) {
                 glfwSetWindowShouldClose(this->window, GL_TRUE);
                 break;
             case GLFW_KEY_F6: {
-                const char* progShaderNames[] = {
-                    "basic", "sky", "shadow"
-                };
-                const std::array<cyGLSLProgram*, 3> progs = {
-                    &this->meshProg, &this->skyProg, &this->depthProg
-                };
-                for (size_t i = 0; i < progs.size(); ++i) {
-                    const std::string vertPath = fmt::format("resources/shaders/{}.vert", progShaderNames[i]);
-                    const std::string fragPath = fmt::format("resources/shaders/{}.frag", progShaderNames[i]);
-                    cyGLSLShader vertShader;
-                    cyGLSLShader fragShader;
-                    bool success = false;
-                    success |= vertShader.CompileFile(vertPath.c_str(), GL_VERTEX_SHADER);
-                    success |= fragShader.CompileFile(fragPath.c_str(), GL_FRAGMENT_SHADER);
-                    if (success) {
-                        bool built = progs[i]->Build(&vertShader, &fragShader);
-                        if (!built) {
-                            spdlog::error("Failed to build {} shader program", progShaderNames[i]);
-                        }
-                        spdlog::info("Rebuilt {} shader program", progShaderNames[i]);
-                    } else {
-                        spdlog::warn("Failed to build {} shader program", progShaderNames[i]);
-                    }
-                }
-
-                bool built = this->wireframeProg.BuildFiles(
-                    "resources/shaders/wireframe.vert",
-                    "resources/shaders/wireframe.frag",
-                    "resources/shaders/wireframe.geom",
-                    "resources/shaders/wireframe.tesc",
-                    "resources/shaders/wireframe.tese");
-                if (!built) {
-                    spdlog::error("Failed to build wireframe shader program");
-                }
+                this->buildShaders();
             } break;
             case GLFW_KEY_1: {
                 this->cameraControl.mode = CameraControl::Mode::orbit;
@@ -927,8 +854,10 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     this->meshProg.SetUniformMatrix4("uTProj", proj.data());
     this->meshProg.SetUniformMatrix4("uTView", view.data());
     this->meshProg.SetUniform3("uCamPos", cam.pos.data());
+    this->meshProg.SetUniform("uTessLevel", this->tessLevel);
+    glPatchParameteri(GL_PATCH_VERTICES, 3);
     glMultiDrawElements(
-        GL_TRIANGLES,
+        GL_PATCHES,
         this->vCounts.data(),
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
@@ -963,7 +892,7 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
 
     // Draw wireframes
     this->wireframeProg.Bind();
-    this->meshes.bind(this->wireframeProg, false);
+    this->meshes.bind(this->wireframeProg);
     glBindVertexArray(this->vaoMeshes); $gl_err();
     this->wireframeProg.SetUniformMatrix4("uTProj", proj.data());
     this->wireframeProg.SetUniformMatrix4("uTView", view.data());
@@ -1284,6 +1213,51 @@ entt::entity App::makeRigidBody(const std::string& name, const Vector3f &scale, 
     this->reg.emplace<ModelTransform>(e);
 
     return e;
+}
+
+void buildProgram(
+    const char* name,
+    cyGLSLProgram& prog,
+    const char* vert,
+    const char* frag,
+    const char* geom = nullptr,
+    const char* tesc = nullptr,
+    const char* tese = nullptr)
+{
+    const bool built = prog.BuildFiles(vert, frag, geom, tesc, tese);
+    if (!built) {
+        spdlog::warn("Failed to build shader program {}", name);
+    } else {
+        spdlog::info("Built shader program {}", name);
+    }
+}
+
+void App::buildShaders() {
+    buildProgram("default", this->meshProg,
+        "resources/shaders/basic.vert",
+        "resources/shaders/basic.frag",
+        nullptr,
+        "resources/shaders/wireframe.tesc",
+        "resources/shaders/wireframe.tese");
+    
+    buildProgram("wireframe", this->wireframeProg,
+        "resources/shaders/wireframe.vert",
+        "resources/shaders/wireframe.frag",
+        "resources/shaders/wireframe.geom",
+        "resources/shaders/wireframe.tesc",
+        "resources/shaders/wireframe.tese");
+
+    buildProgram("shadow", this->depthProg,
+        "resources/shaders/shadow.vert",
+        "resources/shaders/shadow.frag");
+
+    buildProgram("debug", this->wiresProg,
+        "resources/shaders/wires.vert",
+        "resources/shaders/wires.frag");
+    
+    buildProgram("sky", this->skyProg,
+        "resources/shaders/sky.vert",
+        "resources/shaders/sky.frag");
 }
 
 entt::entity App::makeLight(const Vector3f& pos, const Vector3f& color, float intensity, float range, LightType type) {
