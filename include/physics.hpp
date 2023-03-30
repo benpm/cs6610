@@ -101,6 +101,25 @@ public:
     bool collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& collider) const;
 };
 
+struct Spring
+{
+    static constexpr std::size_t page_size = 65536u;
+
+    float restLength;
+    size_t startIdx;
+    size_t endIdx;
+};
+
+class SpringMesh
+{
+public:
+    std::vector<Vector3f> vertices;
+    std::vector<Spring> springs;
+    std::vector<Vector3f> boundaryVertices;
+
+    SpringMesh(const std::string& elePath, const std::string& nodePath);
+};
+
 namespace Physics {
     void simulate(float dt, RigidBody& rb, PhysicsBody& b);
     void collide(float dt, entt::registry& reg);

@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 #include <physics.hpp>
 #include <model.hpp>
 #include <spdlog/spdlog.h>
@@ -194,4 +196,52 @@ void Physics::collide(float dt, entt::registry& reg) {
             
         }
     }
+}
+
+SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) {
+    // Read node file
+    std::ifstream nodeFile(nodePath);
+    if (!nodeFile.is_open()) {
+        throw std::runtime_error("Failed to open node file");
+    }
+    int numNodes, dims, attrib, boundaryMarker;
+    nodeFile >> numNodes >> dims >> attrib >> boundaryMarker;
+    spdlog::debug("reading {} nodes from {} [{},{},{}]", numNodes, nodePath, dims, attrib, boundaryMarker);
+    while (nodeFile) {
+        int idx, isBoundary;
+        float x, y, z;
+        nodeFile >> idx >> x >> y >> z >> isBoundary;
+        this->vertices.push_back({x, y, z});
+        if (isBoundary) {
+            this->boundaryVertices.push_back({x, y, z});
+        }
+    }
+    nodeFile.close();
+
+    // Read tetrahedron element file, create springs
+    std::ifstream eleFile(elePath);
+    if (!eleFile.is_open()) {
+        throw std::runtime_error("Failed to open element file");
+    }
+    int numElems, numNodesPerElem, col3;
+    eleFile >> numElems >> numNodesPerElem >> col3;
+    spdlog::debug("reading {} elements from {} with {} nodes per element", numElems, elePath, numNodesPerElem);
+    while (eleFile) {
+        int idx, n1, n2, n3, n4;
+        eleFile >> idx >> n1 >> n2 >> n3 >> n4;
+        const std::array<std::pair<size_t, size_t>, 6u> edges = {
+            std::make_pair((size_t)n1, (size_t)n2),
+            std::make_pair((size_t)n1, (size_t)n3),
+            std::make_pair((size_t)n1, (size_t)n4),
+            std::make_pair((size_t)n2, (size_t)n3),
+            std::make_pair((size_t)n2, (size_t)n4),
+            std::make_pair((size_t)n3, (size_t)n4)
+        };
+        for (const std::pair<size_t, size_t>& edge : edges) {
+            this->springs.push_back(Spring{
+                .restLength=(this->vertices.at(edge.second) - this->vertices.at(edge.first)).norm(),
+                .startIdx=edge.first, .endIdx=edge.second});
+        }
+    }
+    spdlog::debug("created {} springs", this->springs.size());
 }

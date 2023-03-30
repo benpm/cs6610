@@ -273,38 +273,13 @@ App::App(cxxopts::ParseResult& args) {
         ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
         reflProbe.layer = reflLayer;
     }
+
     {
-        entt::entity e = this->makeModel("teapot");
-        Model& model = this->reg.get<Model>(e);
+        entt::entity e = this->reg.create();
+        SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,
+            "resources/vmodels/dragon.ele", "resources/vmodels/dragon.node");
 
-        model.pivot.z() = 0.0f;
-        model.rot.x() = -tau4;
-        model.pos = {-2.0f, 0.0f, -3.0f};
-        model.scale *= 2.0f;
-    }
-    {
-        int reflLayer = reflectionLayer++;
-        entt::entity e = this->makeModel(this->meshes.clone("teapot", uMaterial {
-            .reflectionLayer = reflLayer
-        }));
-        Model& model = this->reg.get<Model>(e);
-
-        ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
-        reflProbe.layer = reflLayer;
-
-        model.pivot.z() = 0.0f;
-        model.rot.x() = -tau4;
-        model.scale *= 3.0f;
-    }
-    {
-        entt::entity e = this->makeModel("suzanne");
-        Model& model = this->reg.get<Model>(e);
-
-        model.pivot.z() = 0.0f;
-        model.rot.x() = -tau4;
-        model.pos.y() = 1.0f;
-        model.pos.z() = 3.5f;
-        model.scale *= 2.0f;
+        
     }
     {
         entt::entity e = this->makeModel("quad");
@@ -313,14 +288,6 @@ App::App(cxxopts::ParseResult& args) {
         model.scale = vec3(100.0f);
 
         this->ePlane = e;
-    }
-    {
-        entt::entity e = this->makeModel("quad");
-        Model& model = this->reg.get<Model>(e);
-
-        model.scale = vec3(100.0f);
-        model.pos.y() = 12.0f;
-        model.rot.x() = tau2;
     }
     { // Create a point to visualize mouse select
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -355,27 +322,6 @@ App::App(cxxopts::ParseResult& args) {
         body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
         PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
         pbody.vel = rng.vec({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f});
-    }
-    // Create lots of random models
-    for (size_t i = 0; i < 0; i++) {
-        entt::entity e = this->makeRigidBody(rng.choose({"suzanne", "teapot"}),
-            {1.0f, 1.0f, 1.0f},
-            rng.vec(this->box));
-        RigidBody& body = this->reg.get<RigidBody>(e);
-        body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
-        PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
-        pbody.vel = rng.vec({-2.0f, -2.0f, -2.0f}, {2.0f, 2.0f, 2.0f});
-    }
-    // Create lots of lit spheres
-    for (size_t i = 0; i < 0; i++) {
-        entt::entity e = this->makeRigidBody("light_ball",
-            vec3(rng.range(0.1f, 0.5f)),
-            rng.vec(this->box));
-        Light& light = this->reg.emplace<Light>(e);
-        light.intensity = 1.0f;
-        light.type = LightType::point;
-
-        this->reg.emplace<uLight>(e);
     }
 
     // Create debug axis arrows
