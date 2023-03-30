@@ -108,6 +108,8 @@
         "cassert": "cpp",
         "GLAD.C": "cpp",
         "*.ipp": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "sparsecholesky": "cpp",
+        "sparse": "cpp"
     }
 }

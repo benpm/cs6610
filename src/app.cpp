@@ -279,7 +279,19 @@ App::App(cxxopts::ParseResult& args) {
         SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,
             "resources/vmodels/dragon.ele", "resources/vmodels/dragon.node");
 
+        const MeshData& meshData = this->meshes.add("dragon", springMesh.surfaceVertices, springMesh.surfaceElems);
+        uMaterial& material = this->meshes.getMaterial("dragon.mat");
+        // material.emissionColor = {1.0f, 1.0f, 1.0f};
+        // material.emissionFactor = 1.0f;
+
+        Model& model = this->reg.emplace<Model>(e, meshData);
+        model.pos = {0.0f, 3.0f, 0.0f};
+        model.scale *= 3.0f;
+        MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
+
+        this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
         
+        this->reg.emplace<ModelTransform>(e);
     }
     {
         entt::entity e = this->makeModel("quad");

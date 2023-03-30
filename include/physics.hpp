@@ -113,11 +113,19 @@ struct Spring
 class SpringMesh
 {
 public:
-    std::vector<Vector3f> vertices;
+    std::vector<Vector3f> surfaceVertices;
+    std::vector<size_t> surfaceElems;
+    std::vector<Vector3f> particles;
+    std::vector<Vector3f> velocities;
     std::vector<Spring> springs;
-    std::vector<Vector3f> boundaryVertices;
+    // Jacobian matrix
+    SparseMatrix<float> K;
+    // Mass matrix
+    SparseMatrix<float> M;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
+
+    void simulate(float dt);
 };
 
 namespace Physics {

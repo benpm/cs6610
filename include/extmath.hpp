@@ -5,6 +5,7 @@
 #include <array>
 #include <sstream>
 #include <optional>
+#include <Eigen/Sparse>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #ifdef PLATFORM_WINDOWS
@@ -151,9 +152,10 @@ class AABB
 public:
     static const std::array<Vector3f, 6u> faceNormals;
 
-    Vector3f min;
-    Vector3f max;
+    Vector3f min = {INFINITY, INFINITY, INFINITY};
+    Vector3f max = {-INFINITY, -INFINITY, -INFINITY};
 
+    AABB() = default;
     AABB(const Vector3f& min, const Vector3f& max);
 
     std::array<Vector3f, 4> cornersXY() const;

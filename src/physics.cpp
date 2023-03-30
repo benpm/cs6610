@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <unordered_set>
 #include <physics.hpp>
 #include <model.hpp>
 #include <spdlog/spdlog.h>
@@ -207,16 +208,35 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     int numNodes, dims, attrib, boundaryMarker;
     nodeFile >> numNodes >> dims >> attrib >> boundaryMarker;
     spdlog::debug("reading {} nodes from {} [{},{},{}]", numNodes, nodePath, dims, attrib, boundaryMarker);
+    std::unordered_map<size_t, size_t> bdryIdxMap;
+    AABB box;
     while (nodeFile) {
         int idx, isBoundary;
         float x, y, z;
         nodeFile >> idx >> x >> y >> z >> isBoundary;
-        this->vertices.push_back({x, y, z});
+        Vector3f v(x, y, z);
+        this->particles.push_back(v);
+        this->velocities.push_back({0.0f, 0.0f, 0.0f});
         if (isBoundary) {
-            this->boundaryVertices.push_back({x, y, z});
+            bdryIdxMap.emplace((size_t)(idx - 1), this->surfaceVertices.size());
+            this->surfaceVertices.push_back(v);
+            for (size_t j = 0; j < 3u; j++) {
+                box.min[j] = std::min(box.min[j], v[j]);
+                box.max[j] = std::max(box.max[j], v[j]);
+            }
         }
     }
     nodeFile.close();
+
+    // Normalize particles
+    const Vector3f boundSize = box.max - box.min;
+    const float maxBoundSize = std::max(std::max(boundSize.x(), boundSize.y()), boundSize.z());
+    for (Vector3f& v : this->particles) {
+        v = (v - box.center()) / maxBoundSize;
+    }
+    for (Vector3f& v : this->surfaceVertices) {
+        v = (v - box.center()) / maxBoundSize;
+    }
 
     // Read tetrahedron element file, create springs
     std::ifstream eleFile(elePath);
@@ -227,21 +247,103 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     eleFile >> numElems >> numNodesPerElem >> col3;
     spdlog::debug("reading {} elements from {} with {} nodes per element", numElems, elePath, numNodesPerElem);
     while (eleFile) {
-        int idx, n1, n2, n3, n4;
-        eleFile >> idx >> n1 >> n2 >> n3 >> n4;
+        int idx, element[4];
+        eleFile >> idx;
+        // Read indices and determine if exterior triangle
+        std::vector<size_t> triIdxs;
+        Vector3f inner;
+        for (int i = 0; i < 4; i++) {
+            eleFile >> element[i];
+            element[i] -= 1;
+            if (bdryIdxMap.count(element[i])) {
+                triIdxs.push_back(bdryIdxMap.at(element[i]));
+            } else {
+                inner = this->particles.at(element[i]);
+            }
+        }
+        // assert(triIdxs.size() <= 3);
+        if (triIdxs.size() == 3) {
+            // Check if normal of face is pointing towards inner
+            const Vector3f& a = this->surfaceVertices.at(triIdxs[0]);
+            const Vector3f& b = this->surfaceVertices.at(triIdxs[1]);
+            const Vector3f& c = this->surfaceVertices.at(triIdxs[2]);
+            const Vector3f normal = (b - a).cross(c - a);
+            if (normal.dot(inner - a) > 0.0f) {
+                std::swap(triIdxs[1], triIdxs[2]);
+            }
+
+            for (int i : triIdxs) {
+                this->surfaceElems.push_back(i);
+            }
+        }
         const std::array<std::pair<size_t, size_t>, 6u> edges = {
-            std::make_pair((size_t)n1, (size_t)n2),
-            std::make_pair((size_t)n1, (size_t)n3),
-            std::make_pair((size_t)n1, (size_t)n4),
-            std::make_pair((size_t)n2, (size_t)n3),
-            std::make_pair((size_t)n2, (size_t)n4),
-            std::make_pair((size_t)n3, (size_t)n4)
+            std::make_pair(element[0], element[1]),
+            std::make_pair(element[0], element[2]),
+            std::make_pair(element[0], element[3]),
+            std::make_pair(element[1], element[2]),
+            std::make_pair(element[1], element[3]),
+            std::make_pair(element[2], element[3])
         };
         for (const std::pair<size_t, size_t>& edge : edges) {
             this->springs.push_back(Spring{
-                .restLength=(this->vertices.at(edge.second) - this->vertices.at(edge.first)).norm(),
+                .restLength=(this->particles.at(edge.second) - this->particles.at(edge.first)).norm(),
                 .startIdx=edge.first, .endIdx=edge.second});
         }
     }
-    spdlog::debug("created {} springs", this->springs.size());
+    spdlog::debug("created {} springs, {} triangles, {} boundary vertices",
+        this->springs.size(), this->surfaceElems.size() / 3u, this->surfaceVertices.size());
+
+    // // Generate Jacobian matrix K
+    // this->K = SparseMatrix<float>(this->particles.size() * 3, this->particles.size() * 3);
+    // this->K.reserve(VectorXi::Constant(this->particles.size() * 3, 12));
+    // for (const Spring& spring : this->springs) {
+    //     const Vector3f diff = this->particles.at(spring.endIdx) - this->particles.at(spring.startIdx);
+    //     const float length = diff.norm();
+    //     const Vector3f dir = diff / length;
+    //     const float k = 1.0f / (1.0f / spring.restLength - 1.0f / length);
+    //     const Matrix3f kMat = k * dir * dir.transpose();
+    //     this->K.block<3, 3>(spring.startIdx * 3, spring.startIdx * 3) += kMat;
+    // }
+
+    // Generate mass matrix M
+    this->M = SparseMatrix<float>(this->particles.size() * 3, this->particles.size() * 3);
+    this->M.reserve(VectorXi::Constant(this->particles.size() * 3, 12));
+    for (size_t i = 0; i < this->particles.size(); i++) {
+        const float mass = 1.0f;
+        const Matrix3f mMat = mass * Matrix3f::Identity();
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 3; k++) {
+                this->M.coeffRef(i * 3 + j, i * 3 + k) = mMat(j, k);
+            }
+        }
+    }
+}
+
+void SpringMesh::simulate(float dt) {
+    // Compute forces
+    VectorXf f = VectorXf::Zero(this->particles.size() * 3);
+    for (const Spring& spring : this->springs) {
+        const Vector3f diff = this->particles.at(spring.endIdx) - this->particles.at(spring.startIdx);
+        const float length = diff.norm();
+        const Vector3f dir = diff / length;
+        const float k = 1.0f / (1.0f / spring.restLength - 1.0f / length);
+        const float fMag = k * (length - spring.restLength);
+        const Vector3f fVec = fMag * dir;
+        f.block<3, 1>(spring.startIdx * 3, 0) += fVec;
+        f.block<3, 1>(spring.endIdx * 3, 0) -= fVec;
+    }
+
+    // Compute accelerations
+    SimplicialLLT<SparseMatrix<float>> solver;
+    VectorXf a = solver.compute(this->M).solve(f);
+
+    // Update velocities
+    for (size_t i = 0; i < this->velocities.size(); i++) {
+        this->velocities.at(i) += a.block<3, 1>(i * 3, 0) * dt;
+    }
+
+    // Update positions
+    for (size_t i = 0; i < this->particles.size(); i++) {
+        this->particles.at(i) += this->velocities.at(i) * dt;
+    }
 }
