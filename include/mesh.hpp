@@ -121,6 +121,8 @@ public:
     std::string clone(const std::string& meshName, const std::string& newName="");
     // Clones mesh with given name, assigning to a new material, returns new name
     std::string clone(const std::string& meshName, const uMaterial& mat, const std::string& newName="");
+    // Updates the stored vertex positions for a mesh
+    void updateVertices(const std::string& meshName, const std::vector<Vector3f>& verts);
     // Returns the meshdata corresponding to given meshname
     const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built

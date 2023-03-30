@@ -255,6 +255,21 @@ std::string MeshCollection::clone(const std::string &meshName, const uMaterial &
     return name;
 }
 
+void MeshCollection::updateVertices(const std::string &meshName, const std::vector<Vector3f> &verts) {
+    const MeshData& meshData = this->meshDataMap.at(meshName);
+    const size_t vertOffset = meshData.vertOffset;
+    const size_t nVerts = verts.size();
+
+    for (size_t i = 0; i < nVerts; i++) {
+        this->vertexData[i + vertOffset].pos = verts[i];
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts); $gl_err();
+    glBufferSubData(GL_ARRAY_BUFFER, vertOffset * sizeof(VertexData),
+        nVerts * sizeof(VertexData), &this->vertexData[vertOffset]); $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE); $gl_err();
+}
+
 const MeshData& MeshCollection::get(const std::string &meshName) const {
     return this->meshDataMap.at(meshName);
 }

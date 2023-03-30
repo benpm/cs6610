@@ -112,16 +112,21 @@ struct Spring
 
 class SpringMesh
 {
+private:
+
+    std::unordered_map<size_t, size_t> bdryIdxMap;
 public:
     std::vector<Vector3f> surfaceVertices;
     std::vector<size_t> surfaceElems;
     std::vector<Vector3f> particles;
-    std::vector<Vector3f> velocities;
+    VectorXf velocities;
+    VectorXf forces;
     std::vector<Spring> springs;
-    // Jacobian matrix
-    SparseMatrix<float> K;
+    float stiffness = 0.5f;
+    // Stiffness matrix
+    SparseMatrix<float> stiffnessMat;
     // Mass matrix
-    SparseMatrix<float> M;
+    SparseMatrix<float> massMat;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 

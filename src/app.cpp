@@ -742,6 +742,13 @@ void App::simulate(float dt) {
         }
     }
 
+    // Simulate spring meshes
+    for (auto e : this->reg.view<SpringMesh>()) {
+        SpringMesh& mesh = this->reg.get<SpringMesh>(e);
+        mesh.simulate(dt);
+        this->meshes.updateVertices("dragon", mesh.surfaceVertices);
+    }
+
     // Update model transforms from various sources
     for (auto e : this->reg.view<RigidBody, Model>()) {
         auto [body, model] = this->reg.get<RigidBody, Model>(e);
