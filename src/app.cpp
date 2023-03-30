@@ -745,6 +745,7 @@ void App::simulate(float dt) {
     // Simulate spring meshes
     for (auto e : this->reg.view<SpringMesh>()) {
         SpringMesh& mesh = this->reg.get<SpringMesh>(e);
+        this->box.collide(mesh);
         mesh.simulate(dt);
         this->meshes.updateVertices("dragon", mesh.surfaceVertices);
     }

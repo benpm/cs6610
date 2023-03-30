@@ -67,6 +67,30 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
     return false;
 }
 
+bool ColliderInteriorBox::collide(SpringMesh &mesh) const {
+    const std::array<Vector3f, 6u> facePositions = {
+        Vector3f(this->max.x(), 0.0f, 0.0f),
+        Vector3f(this->min.x(), 0.0f, 0.0f),
+        Vector3f(0.0f, this->max.y(), 0.0f),
+        Vector3f(0.0f, this->min.y(), 0.0f),
+        Vector3f(0.0f, 0.0f, this->max.z()),
+        Vector3f(0.0f, 0.0f, this->min.z())
+    };
+    // Create transform matrix to translate and rotate collider vertices
+    for (size_t i = 0; i < 6; i++) {
+        const Vector3f faceNormal = -AABB::faceNormals[i];
+        for (const Vector3f& v : mesh.particles) {
+            // Project vertex onto inverted face normal
+            const float penetration = -(v - facePositions[i]).dot(faceNormal);
+            if (penetration > 0.0f) {
+                mesh.particles[i] -= penetration * faceNormal;
+                mesh.velocities.segment<3>(i * 3) -= penetration * faceNormal;
+            }
+        }
+    }
+    return true;
+}
+
 RigidBody::RigidBody(const ColliderBox& collider) {
     // Calculate rest inertial tensor
     const float x = collider.halfExtents.x();
@@ -295,16 +319,33 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
                 .startIdx=edge.first, .endIdx=edge.second});
         }
     }
-    while (springs.size() > 100) {
-        springs.erase(springs.begin() + rand() % springs.size());
-    }
+    // while (springs.size() > 10000) {
+    //     springs.erase(springs.begin() + rand() % springs.size());
+    // }
     spdlog::debug("created {} springs, {} triangles, {} boundary vertices",
         this->springs.size(), this->surfaceElems.size() / 3u, this->surfaceVertices.size());
 
+    // Initialize stiffness matrix
     this->stiffnessMat = SparseMatrix<float>(this->particles.size() * 3, this->particles.size() * 3);
+    this->stiffnessMat.reserve(Eigen::VectorXi::Constant(this->particles.size() * 3, 12));
+    for (const Spring& spring : this->springs) {
+        const size_t i = spring.startIdx;
+        const size_t j = spring.endIdx;
+        const Vector3f v = this->particles.at(spring.endIdx) - this->particles.at(spring.startIdx);
+        const Matrix3f kMat = (v * v.transpose());
+        for (int k = 0; k < 3; k++) {
+            for (int l = 0; l < 3; l++) {
+                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = kMat(k, l);
+                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = kMat(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = -kMat(k, l);
+                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -kMat(k, l);
+            }
+        }
+    }
 
     // Generate mass matrix M
     this->massMat = SparseMatrix<float>(this->particles.size() * 3, this->particles.size() * 3);
+    this->massMat.reserve(Eigen::VectorXi::Constant(this->particles.size() * 3, 1));
     for (size_t i = 0; i < this->particles.size(); i++) {
         const float mass = 1.0f / this->particles.size();
         this->massMat.coeffRef(i*3 + 0, i*3 + 0) = mass;

@@ -3,6 +3,8 @@
 #include <extmath.hpp>
 #include <entt/entt.hpp>
 
+class SpringMesh;
+
 // COMPONENT: Physics body
 //  - controls: Model
 struct PhysicsBody
@@ -99,6 +101,7 @@ public:
 
     bool collide(PhysicsBody& body) const;
     bool collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& collider) const;
+    bool collide(SpringMesh& mesh) const;
 };
 
 struct Spring
