@@ -1,7 +1,7 @@
 #include <surface_net.hpp>
 
 constexpr uint32_t R[] = {1, chunkSize + 1, (chunkSize + 1) * (chunkSize + 1)};
-constexpr std::array<uint16_t[3], 6> faceOffsets = {{
+constexpr std::array<uint16_t[3], 6> edgeOffsets = {{
     {1,1,1},
     {0,1,1},
     {0,0,1},
@@ -37,32 +37,31 @@ void meshNet(const Vector<float, chunkCells>& data, std::vector<Vector3f>& verti
     for (uint16_t z = 0; z < chunkSize - 1; z++)
     for (uint16_t x = 0; x < chunkSize - 1; x++)
     for (uint16_t y = 0; y < chunkSize - 1; y++) {
-        int vIdx = idxBuf[flatIdx(x, y, z)];
-        if (vIdx >= 0) {
-            const uint16_t c[3] = {x + 1u, y + 1u, z + 1u};
-            const bool flip = false;//idxBuf[flatIdx(c[0], c[1], c[2])] >= 0;
-            
-            // Create triangles
-            for (uint16_t fID = 0; fID < 3; fID++) { // Face idx
-                int vertIDs[6];
-                bool validFace = true;
-                for (uint16_t j = 0; j < 6; j++) { // Edge idx
-                    const uint16_t eID = flip ? 5 - j : j;
-                    // Face coordinates
-                    int fc[3];
-                    for (uint16_t d = 0; d < 3; d++) {
-                        fc[d] = c[d] - faceOffsets[eID][(d + fID) % 3];
-                    }
-                    vertIDs[eID] = idxBuf[flatIdx(fc[0], fc[1], fc[2])];
-                    if (vertIDs[eID] < 0) {
-                        validFace = false;
-                        break;
-                    }
+        const uint16_t c[3] = {x + 1u, y + 1u, z + 1u};
+        if (idxBuf[flatIdx(x,y,z)] < 0) {
+            continue;
+        }
+        
+        // Create triangles
+        for (uint16_t fID = 0; fID < 3; fID++) { // Face idx
+            int vertIDs[6];
+            bool validFace = true;
+            for (uint16_t j = 0; j < 6; j++) { // Edge idx
+                const uint16_t eID = j;
+                // Face coordinates
+                int fc[3];
+                for (uint16_t d = 0; d < 3; d++) {
+                    fc[d] = c[d] - edgeOffsets[eID][(d + fID) % 3];
                 }
-                if (validFace) {
-                    for (int id : vertIDs) {
-                        tris.push_back(id);
-                    }
+                vertIDs[j] = idxBuf[flatIdx(fc[0], fc[1], fc[2])];
+                if (vertIDs[j] < 0) {
+                    validFace = false;
+                    break;
+                }
+            }
+            if (validFace) {
+                for (int id : vertIDs) {
+                    tris.push_back(id);
                 }
             }
         }
