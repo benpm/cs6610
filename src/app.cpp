@@ -337,10 +337,12 @@ App::App(cxxopts::ParseResult& args) {
     // Create surface nets mesh
     SurfaceNet surfNet;
     Vector<float, chunkCells> data;
+    const float r = (float)(chunkSize - 2)/2.0f;
     for (size_t x = 0; x < chunkSize; x++) {
         for (size_t y = 0; y < chunkSize; y++) {
             for (size_t z = 0; z < chunkSize; z++) {
-                data[flatIdx(x, y, z)] = 1.0 - (Vector3f(x, y, z).norm() / ((float)chunkSize / 2.0f));
+                Vector3f p(Vector3f(x, y, z) - vec3((float)chunkSize/2.0f));
+                data[flatIdx(x, y, z)] = 1.0 - (p.norm() / r);
             }
         }
     }
@@ -349,7 +351,9 @@ App::App(cxxopts::ParseResult& args) {
     {
         entt::entity e = this->makeModel("surfnet");
         Model& model = this->reg.get<Model>(e);
-        model.pivot = Vector3f::Zero();
+        model.pivot = vec3(chunkSize / 2.0f);
+        model.pivot.y() = 0.0f;
+        model.scale *= 3.0f / chunkSize;
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
