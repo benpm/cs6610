@@ -115,10 +115,14 @@ public:
     
     // Load and add mesh to the collection, returns name
     std::string add(const std::string& filename, const std::string& meshName="", bool normalize=true, bool computeNormals=true);
+    // Add mesh from vertex and element data
+    const MeshData& add(const std::string& meshName, const std::vector<Vector3f>& verts, const std::vector<uint32_t>& elems);
     // Clones mesh with given name, returns new name
     std::string clone(const std::string& meshName, const std::string& newName="");
     // Clones mesh with given name, assigning to a new material, returns new name
     std::string clone(const std::string& meshName, const uMaterial& mat, const std::string& newName="");
+    // Updates the stored vertex positions for a mesh
+    void updateVertices(const std::string& meshName, const std::vector<Vector3f>& verts);
     // Returns the meshdata corresponding to given meshname
     const MeshData& get(const std::string& meshName) const;
     // Builds a VBO and EBO from the data in this collection, or rebuilds if already built

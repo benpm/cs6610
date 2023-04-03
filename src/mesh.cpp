@@ -150,6 +150,65 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
     return name;
 }
 
+const MeshData& MeshCollection::add(const std::string &meshName, const std::vector<Vector3f> &verts, const std::vector<uint32_t> &elems) {
+    const size_t vertOffset = this->vertexData.size();
+    const size_t elemOffset = this->arrElems.size();
+    const size_t nVerts = verts.size();
+    const size_t nElems = elems.size();
+
+    this->vertexData.resize(vertOffset + nVerts);
+    this->arrElems.resize(elemOffset + nElems);
+
+    const uint32_t matID = this->createMaterial(fmt::format("{}.mat", meshName), uMaterial{});
+
+    AABB box;
+    for (size_t i = 0; i < nVerts; i++) {
+        VertexData& v = this->vertexData[i + vertOffset];
+        v.pos = verts[i];
+        v.uv = Eigen::Vector3f::Zero();
+        v.normal = Eigen::Vector3f::Zero();
+        v.matID = matID;
+
+        for (size_t j = 0; j < 3u; j++) {
+            box.min[j] = std::min(box.min[j], v.pos[j]);
+            box.max[j] = std::max(box.max[j], v.pos[j]);
+        }
+    }
+    for (size_t i = 0; i < nElems; i++) {
+        this->arrElems[i + elemOffset] = elems[i] + vertOffset;
+    }
+
+    // Compute and assign normals
+    for (size_t i = 0; i < nElems; i += 3) {
+        const uint32_t i0 = this->arrElems[i + elemOffset];
+        const uint32_t i1 = this->arrElems[i + elemOffset + 1];
+        const uint32_t i2 = this->arrElems[i + elemOffset + 2];
+        const Eigen::Vector3f v0 = this->vertexData[i0].pos;
+        const Eigen::Vector3f v1 = this->vertexData[i1].pos;
+        const Eigen::Vector3f v2 = this->vertexData[i2].pos;
+        const Eigen::Vector3f normal = (v1 - v0).cross(v2 - v0).normalized();
+        this->vertexData[i0].normal += normal;
+        this->vertexData[i1].normal += normal;
+        this->vertexData[i2].normal += normal;
+    }
+    for (size_t i = 0; i < nVerts; i++) {
+        this->vertexData[i + vertOffset].normal.normalize();
+    }
+
+    // Add mesh data
+    this->dirty = true;
+    return this->meshDataMap.emplace(meshName, MeshData{
+        .ref = MeshRef{
+            .elemCount = (int)nElems,
+            .elemByteOffset = elemOffset * sizeof(uint32_t)},
+        .materials = {matID},
+        .center = box.center(),
+        .bbox = box,
+        .vertOffset = vertOffset,
+        .vertCount = nVerts
+    }).first->second;
+}
+
 std::string MeshCollection::clone(const std::string &meshName, const std::string &newName) {
     const MeshData& meshData = this->meshDataMap.at(meshName);
     const size_t dstVertOffset = this->vertexData.size();
@@ -194,6 +253,21 @@ std::string MeshCollection::clone(const std::string &meshName, const uMaterial &
     this->setMaterial(name, newMatID);
     this->dirty = true;
     return name;
+}
+
+void MeshCollection::updateVertices(const std::string &meshName, const std::vector<Vector3f> &verts) {
+    const MeshData& meshData = this->meshDataMap.at(meshName);
+    const size_t vertOffset = meshData.vertOffset;
+    const size_t nVerts = verts.size();
+
+    for (size_t i = 0; i < nVerts; i++) {
+        this->vertexData[i + vertOffset].pos = verts[i];
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboVerts); $gl_err();
+    glBufferSubData(GL_ARRAY_BUFFER, vertOffset * sizeof(VertexData),
+        nVerts * sizeof(VertexData), &this->vertexData[vertOffset]); $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE); $gl_err();
 }
 
 const MeshData& MeshCollection::get(const std::string &meshName) const {

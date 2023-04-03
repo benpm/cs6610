@@ -12,6 +12,7 @@
 #include <spdlog/formatter.h>
 #include <physics.hpp>
 #include <gfx.hpp>
+#include <surface_net.hpp>
 
 void APIENTRY GLDebugMessageCallback(
     GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
@@ -283,30 +284,6 @@ App::App(cxxopts::ParseResult& args) {
         model.scale *= 2.0f;
     }
     {
-        int reflLayer = reflectionLayer++;
-        entt::entity e = this->makeModel(this->meshes.clone("teapot", uMaterial {
-            .reflectionLayer = reflLayer
-        }));
-        Model& model = this->reg.get<Model>(e);
-
-        ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
-        reflProbe.layer = reflLayer;
-
-        model.pivot.z() = 0.0f;
-        model.rot.x() = -tau4;
-        model.scale *= 3.0f;
-    }
-    {
-        entt::entity e = this->makeModel("suzanne");
-        Model& model = this->reg.get<Model>(e);
-
-        model.pivot.z() = 0.0f;
-        model.rot.x() = -tau4;
-        model.pos.y() = 1.0f;
-        model.pos.z() = 3.5f;
-        model.scale *= 2.0f;
-    }
-    {
         entt::entity e = this->makeModel("quad");
         Model& model = this->reg.get<Model>(e);
 
@@ -342,41 +319,6 @@ App::App(cxxopts::ParseResult& args) {
 
         this->eDragArrow = e;
     }
-    // Create lots of colorful boxes
-    for (size_t i = 0; i < 10; i++) {
-        entt::entity e = this->makeRigidBody(
-            this->meshes.clone("cube", uMaterial {
-                .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
-                .shininess = 1000.0f
-            }),
-            rng.vec({1.6f, 0.2f, 1.6f}, {1.8f, 0.4f, 1.8f}),
-            rng.vec(this->box));
-        RigidBody& body = this->reg.get<RigidBody>(e);
-        body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
-        PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
-        pbody.vel = rng.vec({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f});
-    }
-    // Create lots of random models
-    for (size_t i = 0; i < 0; i++) {
-        entt::entity e = this->makeRigidBody(rng.choose({"suzanne", "teapot"}),
-            {1.0f, 1.0f, 1.0f},
-            rng.vec(this->box));
-        RigidBody& body = this->reg.get<RigidBody>(e);
-        body.angMomentum = rng.vec({-0.02f, -0.02f, -0.02f}, {0.02f, 0.02f, 0.02f});
-        PhysicsBody& pbody = this->reg.get<PhysicsBody>(e);
-        pbody.vel = rng.vec({-2.0f, -2.0f, -2.0f}, {2.0f, 2.0f, 2.0f});
-    }
-    // Create lots of lit spheres
-    for (size_t i = 0; i < 0; i++) {
-        entt::entity e = this->makeRigidBody("light_ball",
-            vec3(rng.range(0.1f, 0.5f)),
-            rng.vec(this->box));
-        Light& light = this->reg.emplace<Light>(e);
-        light.intensity = 1.0f;
-        light.type = LightType::point;
-
-        this->reg.emplace<uLight>(e);
-    }
 
     // Create debug axis arrows
     for (size_t i = 0; i < 3; i++) {
@@ -390,6 +332,24 @@ App::App(cxxopts::ParseResult& args) {
         DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
         debugColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
         debugColor.color[i] = 1.0f;
+    }
+
+    // Create surface nets mesh
+    SurfaceNet surfNet;
+    Vector<float, chunkCells> data;
+    for (size_t x = 0; x < chunkSize; x++) {
+        for (size_t y = 0; y < chunkSize; y++) {
+            for (size_t z = 0; z < chunkSize; z++) {
+                data[flatIdx(x, y, z)] = 1.0 - (Vector3f(x, y, z).norm() / ((float)chunkSize / 2.0f));
+            }
+        }
+    }
+    surfNet.build(data);
+    this->meshes.add("surfnet", surfNet.vertices, surfNet.tris);
+    {
+        entt::entity e = this->makeModel("surfnet");
+        Model& model = this->reg.get<Model>(e);
+        model.pivot = Vector3f::Zero();
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
