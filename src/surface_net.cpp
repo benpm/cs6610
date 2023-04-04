@@ -48,17 +48,18 @@ void meshNet(const Vector<float, chunkCells>& data, std::vector<Vector3f>& verti
             int fIdx[4];
             bool valid = true;
             for (uint16_t i = 0; i < 4; i++) {
-                std::array<uint16_t, 3> pfc = c;
-                pfc[(axis + 0) % 3] += i / 2;
-                pfc[(axis + 1) % 3] += i % 2;
+                // Face coordinate
+                std::array<uint16_t, 3> fc = c;
+                fc[(axis + 0) % 3] += i / 2;
+                fc[(axis + 1) % 3] += i % 2;
+                // Previous face coordinate, invalidate face if its filled
+                std::array<uint16_t, 3> pfc = fc;
                 pfc[(axis + 2) % 3] -= dir;
                 if (idxBuf[flatIdx(pfc[0], pfc[1], pfc[2])] == _filled) {
                     valid = false;
                     break;
                 }
-                std::array<uint16_t, 3> fc = c;
-                fc[(axis + 0) % 3] += i / 2;
-                fc[(axis + 1) % 3] += i % 2;
+                // Check current face
                 int idx = idxBuf[flatIdx(fc[0], fc[1], fc[2])];
                 if (idx < 0) {
                     valid = false;
@@ -67,6 +68,8 @@ void meshNet(const Vector<float, chunkCells>& data, std::vector<Vector3f>& verti
                     fIdx[i] = idx;
                 }
             }
+
+            // Construct triangles
             if (valid) {
                 for (size_t i = 0; i < 6; i++) {
                     tris.push_back(fIdx[vOrder[dir == 1 ? i : 5 - i]]);
