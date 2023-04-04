@@ -730,10 +730,10 @@ void App::simulate(float dt) {
         dragDelta.y() *= -1.0f;
     }
     if (this->pressedKeys.count(GLFW_KEY_LEFT_SHIFT)) {
-        this->lightControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+        this->lightControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 4.0f);
         this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
     } else {
-        this->cameraControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 20.0f);
+        this->cameraControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 4.0f);
     }
     this->cameraControl.update(this->camera);
     this->lightControl.update(this->reg.get<Light>(this->eSpotLight));

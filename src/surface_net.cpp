@@ -1,20 +1,14 @@
 #include <surface_net.hpp>
 
-constexpr uint32_t R[] = {1, chunkSize + 1, (chunkSize + 1) * (chunkSize + 1)};
-constexpr std::array<uint16_t[3], 6> edgeOffsets = {{
-    {1,1,1},
-    {0,1,1},
-    {0,0,1},
-    {1,1,1},
-    {0,0,1},
-    {1,0,1},
-}};
+constexpr int _empty = -1;
+constexpr int _filled = -2;
+constexpr std::array<uint16_t, 6> vOrder = {1,3,0,3,2,0};
 
 // Compute surface vertex positions from data
 void meshNet(const Vector<float, chunkCells>& data, std::vector<Vector3f>& vertices, std::vector<uint32_t>& tris) {
     // Contains vertex indices for each cell
     Vector<int, chunkCells> idxBuf;
-    idxBuf.fill(-1);
+    idxBuf.fill(_empty);
 
     // Sweep through volume placing vertices
     for (uint16_t z = 0; z < chunkSize - 1u; z++)
@@ -28,40 +22,54 @@ void meshNet(const Vector<float, chunkCells>& data, std::vector<Vector3f>& verti
                 occupancy += 1u;
             }
         }
-        if (occupancy != 0u && occupancy != 8u) {
+        if (occupancy == 8u) {
+            idxBuf[flatIdx(x, y, z)] = _filled;
+        } else if (occupancy != 0u) {
             idxBuf[flatIdx(x, y, z)] = vertices.size();
             vertices.push_back({(float)x, (float)y, (float)z});
         }
     }
 
-    for (uint16_t z = 0; z < chunkSize - 1; z++)
-    for (uint16_t x = 0; x < chunkSize - 1; x++)
-    for (uint16_t y = 0; y < chunkSize - 1; y++) {
-        const uint16_t c[3] = {x + 1u, y + 1u, z + 1u};
-        if (idxBuf[flatIdx(x,y,z)] < 0) {
-            continue;
+    for (int dir : {-1, 1}) {
+        uint16_t d0, d1;
+        if (dir == 1) {
+            d0 = 1;
+            d1 = chunkSize;
+        } else {
+            d0 = chunkSize - 2;
+            d1 = -1;
         }
-        
-        // Create triangles
-        for (uint16_t fID = 0; fID < 3; fID++) { // Face idx
-            int vertIDs[6];
-            bool validFace = true;
-            for (uint16_t j = 0; j < 6; j++) { // Edge idx
-                const uint16_t eID = j;
-                // Face coordinates
-                int fc[3];
-                for (uint16_t d = 0; d < 3; d++) {
-                    fc[d] = c[d] - edgeOffsets[eID][(d + fID) % 3];
-                }
-                vertIDs[j] = idxBuf[flatIdx(fc[0], fc[1], fc[2])];
-                if (vertIDs[j] < 0) {
-                    validFace = false;
+        for (uint16_t axis = 0; axis < 3; axis++)
+        for (uint16_t z = d0; z != d1; z += dir)
+        for (uint16_t x = d0; x != d1; x += dir)
+        for (uint16_t y = d0; y != d1; y += dir) {
+            const std::array<uint16_t, 3> c = {x, y, z};
+
+            int fIdx[4];
+            bool valid = true;
+            for (uint16_t i = 0; i < 4; i++) {
+                std::array<uint16_t, 3> pfc = c;
+                pfc[(axis + 0) % 3] += i / 2;
+                pfc[(axis + 1) % 3] += i % 2;
+                pfc[(axis + 2) % 3] -= dir;
+                if (idxBuf[flatIdx(pfc[0], pfc[1], pfc[2])] == _filled) {
+                    valid = false;
                     break;
                 }
+                std::array<uint16_t, 3> fc = c;
+                fc[(axis + 0) % 3] += i / 2;
+                fc[(axis + 1) % 3] += i % 2;
+                int idx = idxBuf[flatIdx(fc[0], fc[1], fc[2])];
+                if (idx < 0) {
+                    valid = false;
+                    break;
+                } else {
+                    fIdx[i] = idx;
+                }
             }
-            if (validFace) {
-                for (int id : vertIDs) {
-                    tris.push_back(id);
+            if (valid) {
+                for (size_t i = 0; i < 6; i++) {
+                    tris.push_back(fIdx[vOrder[dir == 1 ? i : 5 - i]]);
                 }
             }
         }
