@@ -125,7 +125,7 @@ public:
     VectorXf velocities;
     VectorXf forces;
     std::vector<Spring> springs;
-    float stiffness = 0.5f;
+    float stiffness = 1.0f;
     // Stiffness matrix
     SparseMatrix<float> stiffnessMat;
     // Mass matrix

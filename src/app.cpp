@@ -260,7 +260,7 @@ App::App(cxxopts::ParseResult& args) {
 
     // Construct scene
     this->loadingScreen("constructing scene");
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < 1; i++) {
         int reflLayer = reflectionLayer++;
 
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -285,21 +285,12 @@ App::App(cxxopts::ParseResult& args) {
         // material.emissionFactor = 1.0f;
 
         Model& model = this->reg.emplace<Model>(e, meshData);
-        model.pos = {0.0f, 3.0f, 0.0f};
-        model.scale *= 3.0f;
+        model.pivot = Vector3f::Zero();
         MeshRef& meshRef = this->reg.emplace<MeshRef>(e, meshData.ref);
 
         this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
         
         this->reg.emplace<ModelTransform>(e);
-    }
-    {
-        entt::entity e = this->makeModel("quad");
-        Model& model = this->reg.get<Model>(e);
-
-        model.scale = vec3(100.0f);
-
-        this->ePlane = e;
     }
     { // Create a point to visualize mouse select
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -457,7 +448,7 @@ App::App(cxxopts::ParseResult& args) {
         .type = RenderPass::Type::array,
         .fbo = this->fboShadows,
         .viewport = {{(float)shadowMapSize, (float)shadowMapSize}},
-        .objMask = { this->ePlane },
+        .objMask = {},
         .arrayTarget = RenderTarget {
             .type = RenderTarget::Type::textureArray,
             .id = this->texSpotShadows,
@@ -745,7 +736,7 @@ void App::simulate(float dt) {
     // Simulate spring meshes
     for (auto e : this->reg.view<SpringMesh>()) {
         SpringMesh& mesh = this->reg.get<SpringMesh>(e);
-        // this->box.collide(mesh);
+        this->box.collide(mesh);
         mesh.simulate(dt * this->simTimeStep);
         this->meshes.updateVertices("dragon", mesh.surfaceVertices);
     }

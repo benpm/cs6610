@@ -93,12 +93,12 @@ bool ColliderInteriorBox::collide(SpringMesh &mesh) const {
     // Create transform matrix to translate and rotate collider vertices
     for (size_t i = 0; i < 6; i++) {
         const Vector3f faceNormal = -AABB::faceNormals[i];
-        for (const Vector3f& v : mesh.particles) {
+        for (Vector3f& p : mesh.particles) {
             // Project vertex onto inverted face normal
-            const float penetration = -(v - facePositions[i]).dot(faceNormal);
+            const float penetration = -(p - facePositions[i]).dot(faceNormal);
             if (penetration > 0.0f) {
-                mesh.particles[i] -= penetration * faceNormal;
-                mesh.velocities.segment<3>(i * 3) -= penetration * faceNormal;
+                p += penetration * faceNormal;
+                mesh.velocities.segment<3>(i * 3) = -mesh.velocities.segment<3>(i * 3) * 0.75f;
             }
         }
     }
@@ -269,7 +269,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     this->forces = VectorXf::Zero(this->particles.size() * 3);
     this->velocities = VectorXf::Zero(this->particles.size() * 3);
     for (size_t i = 0; i < this->particles.size(); i++) {
-        this->velocities[i * 3 + 1] = -0.5f;
+        this->forces[i * 3 + 1] = -0.05f;
     }
 
     // Normalize particles
@@ -293,21 +293,22 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     int tetCount = 0;
     std::unordered_set<std::pair<size_t, size_t>, hash_pair> springPairs;
     while (eleFile) {
-        int idx, element[4];
-        eleFile >> idx;
         // Read indices and determine if exterior triangle
+        int idx, t[4];
+        eleFile >> idx;
         std::vector<size_t> triIdxs;
         Vector3f inner;
         for (int i = 0; i < 4; i++) {
-            eleFile >> element[i];
-            spdlog::debug("idx={} element[{}] = {}", idx, i, element[i]);
-            element[i] -= 1;
-            if (this->bdryIdxMap.count(element[i])) {
-                triIdxs.push_back(this->bdryIdxMap.at(element[i]));
+            eleFile >> t[i];
+            t[i] -= 1;
+            if (this->bdryIdxMap.count(t[i])) {
+                triIdxs.push_back(this->bdryIdxMap.at(t[i]));
             } else {
-                inner = this->particles.at(element[i]);
+                inner = this->particles.at(t[i]);
             }
         }
+
+        // Create surface faces for rendering
         if (triIdxs.size() == 3) {
             // Check if normal of face is pointing towards inner
             const Vector3f& a = this->surfaceVertices.at(triIdxs[0]);
@@ -326,13 +327,15 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
                 this->surfaceElems.push_back(triIdxs[i]);
             }
         }
+
+        // Insert springs at edges of tetrahedron, skipping already created ones
         const std::array<std::pair<size_t, size_t>, 6u> edges = {
-            std::make_pair(element[0], element[1]),
-            std::make_pair(element[0], element[2]),
-            std::make_pair(element[0], element[3]),
-            std::make_pair(element[1], element[2]),
-            std::make_pair(element[1], element[3]),
-            std::make_pair(element[2], element[3])
+            std::make_pair(t[0], t[1]),
+            std::make_pair(t[0], t[2]),
+            std::make_pair(t[0], t[3]),
+            std::make_pair(t[1], t[2]),
+            std::make_pair(t[1], t[3]),
+            std::make_pair(t[2], t[3])
         };
         for (const std::pair<size_t, size_t>& edge : edges) {
             if (springPairs.count(edge)) continue;
@@ -341,6 +344,8 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
                 .restLength=(this->particles.at(edge.second) - this->particles.at(edge.first)).norm(),
                 .startIdx=edge.first, .endIdx=edge.second});
         }
+
+        // Break if we've read all the tetrahedra
         tetCount += 1;
         if (tetCount == numTet) {
             break;
@@ -362,23 +367,25 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
         this->massMat.coeffRef(i*3 + 1, i*3 + 1) = mass;
         this->massMat.coeffRef(i*3 + 2, i*3 + 2) = mass;
         for (int j = 0; j < 3; j++) {
-            this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = -this->stiffness;
+            this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = this->stiffness;
         }
     }
 }
 
-void SpringMesh::simulate(float dt) {
+Matrix3f dFdX(const Vector3f& u, const float l0, const float k) {
+    const float l = u.norm();
     const Matrix3f I = Matrix3f::Identity();
+    return k * (-I + (l0 / l) * (I - (u * u.transpose()) / (l*l)));
+}
+
+void SpringMesh::simulate(float dt) {
 
     // Update stiffness matrix
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
         const Vector3f u = this->particles.at(j) - this->particles.at(i);
-        const float l0 = spring.restLength;
-        const float l = u.norm();
-        const float k = this->stiffness;
-        const Matrix3f kMat = k * (-I + (l0 / l) * (I - (u * u.transpose()) / (l*l)));
+        const Matrix3f kMat = dFdX(u, spring.restLength, this->stiffness);
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
                 this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = kMat(k, l);
@@ -389,9 +396,17 @@ void SpringMesh::simulate(float dt) {
 
     // Compute velocities by solving linear system of equations
     const SparseMatrix<float> A = this->massMat - (dt*dt) * this->stiffnessMat;
-    const VectorXf b = this->massMat * this->velocities;
-    SimplicialLDLT<SparseMatrix<float>> solver(A);
+    const VectorXf b = this->massMat * this->velocities + dt * this->forces;
+    BiCGSTAB<SparseMatrix<float>> solver;
+    solver.compute(A);
+    if (solver.info() != Success) {
+        spdlog::warn("decomposition failed");
+    }
     this->velocities = solver.solve(b);
+    if (solver.info() != Success) {
+        spdlog::warn("solving failed");
+    }
+    this->velocities *= 1.0f - 1e-3f;
 
     // Update positions
     for (size_t i = 0; i < this->particles.size(); i++) {
