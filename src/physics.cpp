@@ -6,6 +6,20 @@
 #include <model.hpp>
 #include <spdlog/spdlog.h>
 
+struct hash_pair {
+    template <class T1, class T2>
+    size_t operator()(const std::pair<T1, T2>& p) const
+    {
+        auto hash1 = std::hash<T1>{}(p.first);
+        auto hash2 = std::hash<T2>{}(p.second);
+ 
+        if (hash1 != hash2) {
+            return cantor(hash1, hash2);             
+        }
+        return hash1;
+    }
+};
+
 const Matrix4f DebugRay::transform() const {
     return identityTransform()
         .translate(this->pos)
@@ -247,6 +261,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
                 box.max[j] = std::max(box.max[j], v[j]);
             }
         }
+        if (this->particles.size() == numNodes) break;
     }
     nodeFile.close();
 
@@ -254,7 +269,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     this->forces = VectorXf::Zero(this->particles.size() * 3);
     this->velocities = VectorXf::Zero(this->particles.size() * 3);
     for (size_t i = 0; i < this->particles.size(); i++) {
-        this->velocities[i * 3 + 1] = -0.1f;
+        this->velocities[i * 3 + 1] = -0.5f;
     }
 
     // Normalize particles
@@ -272,9 +287,11 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     if (!eleFile.is_open()) {
         throw std::runtime_error("Failed to open element file");
     }
-    int numElems, numNodesPerElem, col3;
-    eleFile >> numElems >> numNodesPerElem >> col3;
-    spdlog::debug("reading {} elements from {} with {} nodes per element", numElems, elePath, numNodesPerElem);
+    int numTet, numNodesPerElem, col3;
+    eleFile >> numTet >> numNodesPerElem >> col3;
+    spdlog::debug("reading {} elements from {} with {} nodes per element", numTet, elePath, numNodesPerElem);
+    int tetCount = 0;
+    std::unordered_set<std::pair<size_t, size_t>, hash_pair> springPairs;
     while (eleFile) {
         int idx, element[4];
         eleFile >> idx;
@@ -283,6 +300,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
         Vector3f inner;
         for (int i = 0; i < 4; i++) {
             eleFile >> element[i];
+            spdlog::debug("idx={} element[{}] = {}", idx, i, element[i]);
             element[i] -= 1;
             if (this->bdryIdxMap.count(element[i])) {
                 triIdxs.push_back(this->bdryIdxMap.at(element[i]));
@@ -290,7 +308,6 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
                 inner = this->particles.at(element[i]);
             }
         }
-        // assert(triIdxs.size() <= 3);
         if (triIdxs.size() == 3) {
             // Check if normal of face is pointing towards inner
             const Vector3f& a = this->surfaceVertices.at(triIdxs[0]);
@@ -304,6 +321,10 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
             for (int i : triIdxs) {
                 this->surfaceElems.push_back(i);
             }
+        } else if (triIdxs.size() == 4) {
+            for (int i : {0,2,1, 3,0,1, 3,1,2, 2,0,3}) {
+                this->surfaceElems.push_back(triIdxs[i]);
+            }
         }
         const std::array<std::pair<size_t, size_t>, 6u> edges = {
             std::make_pair(element[0], element[1]),
@@ -314,43 +335,35 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
             std::make_pair(element[2], element[3])
         };
         for (const std::pair<size_t, size_t>& edge : edges) {
+            if (springPairs.count(edge)) continue;
+            springPairs.insert(edge);
             this->springs.push_back(Spring{
                 .restLength=(this->particles.at(edge.second) - this->particles.at(edge.first)).norm(),
                 .startIdx=edge.first, .endIdx=edge.second});
         }
+        tetCount += 1;
+        if (tetCount == numTet) {
+            break;
+        }
     }
-    // while (springs.size() > 10000) {
-    //     springs.erase(springs.begin() + rand() % springs.size());
-    // }
     spdlog::debug("created {} springs, {} triangles, {} boundary vertices",
         this->springs.size(), this->surfaceElems.size() / 3u, this->surfaceVertices.size());
 
     // Initialize stiffness matrix
     this->stiffnessMat = SparseMatrix<float>(this->particles.size() * 3, this->particles.size() * 3);
     this->stiffnessMat.reserve(Eigen::VectorXi::Constant(this->particles.size() * 3, 12));
-    for (const Spring& spring : this->springs) {
-        const size_t i = spring.startIdx;
-        const size_t j = spring.endIdx;
-        const Vector3f v = this->particles.at(spring.endIdx) - this->particles.at(spring.startIdx);
-        const Matrix3f kMat = (v * v.transpose());
-        for (int k = 0; k < 3; k++) {
-            for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = kMat(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = kMat(k, l);
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = -kMat(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -kMat(k, l);
-            }
-        }
-    }
 
     // Generate mass matrix M
     this->massMat = SparseMatrix<float>(this->particles.size() * 3, this->particles.size() * 3);
     this->massMat.reserve(Eigen::VectorXi::Constant(this->particles.size() * 3, 1));
+    const float mass = 1.0f / this->particles.size();
     for (size_t i = 0; i < this->particles.size(); i++) {
-        const float mass = 1.0f / this->particles.size();
         this->massMat.coeffRef(i*3 + 0, i*3 + 0) = mass;
         this->massMat.coeffRef(i*3 + 1, i*3 + 1) = mass;
         this->massMat.coeffRef(i*3 + 2, i*3 + 2) = mass;
+        for (int j = 0; j < 3; j++) {
+            this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = -this->stiffness;
+        }
     }
 }
 
@@ -361,23 +374,23 @@ void SpringMesh::simulate(float dt) {
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
-        const Vector3f v = this->particles.at(j) - this->particles.at(i);
-        const Matrix3f kMat = this->stiffness * (-I + (spring.restLength / v.norm()) * (I - (v * v.transpose()) / v.squaredNorm()));
+        const Vector3f u = this->particles.at(j) - this->particles.at(i);
+        const float l0 = spring.restLength;
+        const float l = u.norm();
+        const float k = this->stiffness;
+        const Matrix3f kMat = k * (-I + (l0 / l) * (I - (u * u.transpose()) / (l*l)));
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = kMat(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = kMat(k, l);
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = -kMat(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = kMat(k, l);
                 this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -kMat(k, l);
             }
         }
     }
 
-    // Compute forces by solving linear system of equations
-    const SparseMatrix<float> A = this->massMat - (dt * dt) * this->stiffnessMat;
-    const VectorXf b = this->massMat * this->velocities + dt * this->forces;
-    SimplicialLDLT<SparseMatrix<float>> solver;
-    solver.compute(A);
+    // Compute velocities by solving linear system of equations
+    const SparseMatrix<float> A = this->massMat - (dt*dt) * this->stiffnessMat;
+    const VectorXf b = this->massMat * this->velocities;
+    SimplicialLDLT<SparseMatrix<float>> solver(A);
     this->velocities = solver.solve(b);
 
     // Update positions

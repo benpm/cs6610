@@ -120,8 +120,8 @@ App::App(cxxopts::ParseResult& args) {
     glEnable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_MULTISAMPLE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    // glEnable(GL_CULL_FACE);
+    // glCullFace(GL_BACK);
     glLineWidth(2.0f);
     glEnable(GL_LINE_SMOOTH);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -276,8 +276,8 @@ App::App(cxxopts::ParseResult& args) {
 
     {
         entt::entity e = this->reg.create();
-        SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,
-            "resources/vmodels/dragon.ele", "resources/vmodels/dragon.node");
+        SpringMesh s ("resources/vmodels/cube.ele", "resources/vmodels/cube.node");
+        SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,s);
 
         const MeshData& meshData = this->meshes.add("dragon", springMesh.surfaceVertices, springMesh.surfaceElems);
         uMaterial& material = this->meshes.getMaterial("dragon.mat");
@@ -322,7 +322,7 @@ App::App(cxxopts::ParseResult& args) {
         this->eDragArrow = e;
     }
     // Create lots of colorful boxes
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 0; i++) {
         entt::entity e = this->makeRigidBody(
             this->meshes.clone("cube", uMaterial {
                 .diffuseColor = hsvToRgb({rng.range(0.0f, 360.0f), 1.0f, 1.0f}),
@@ -745,8 +745,8 @@ void App::simulate(float dt) {
     // Simulate spring meshes
     for (auto e : this->reg.view<SpringMesh>()) {
         SpringMesh& mesh = this->reg.get<SpringMesh>(e);
-        this->box.collide(mesh);
-        mesh.simulate(dt);
+        // this->box.collide(mesh);
+        mesh.simulate(dt * this->simTimeStep);
         this->meshes.updateVertices("dragon", mesh.surfaceVertices);
     }
 
