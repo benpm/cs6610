@@ -130,6 +130,8 @@ public:
     SparseMatrix<float> stiffnessMat;
     // Mass matrix
     SparseMatrix<float> massMat;
+    // Forces from springs
+    VectorXf springForces;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 

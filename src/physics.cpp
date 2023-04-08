@@ -266,6 +266,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     nodeFile.close();
 
     // Initialize forces and velocities
+    this->springForces = VectorXf::Zero(this->particles.size() * 3);
     this->forces = VectorXf::Zero(this->particles.size() * 3);
     this->velocities = VectorXf::Zero(this->particles.size() * 3);
     for (size_t i = 0; i < this->particles.size(); i++) {
@@ -339,6 +340,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
         };
         for (const std::pair<size_t, size_t>& edge : edges) {
             if (springPairs.count(edge)) continue;
+            if (springPairs.count({edge.second, edge.first})) continue;
             springPairs.insert(edge);
             this->springs.push_back(Spring{
                 .restLength=(this->particles.at(edge.second) - this->particles.at(edge.first)).norm(),
@@ -366,9 +368,9 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
         this->massMat.coeffRef(i*3 + 0, i*3 + 0) = mass;
         this->massMat.coeffRef(i*3 + 1, i*3 + 1) = mass;
         this->massMat.coeffRef(i*3 + 2, i*3 + 2) = mass;
-        for (int j = 0; j < 3; j++) {
-            this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = this->stiffness;
-        }
+        // for (int j = 0; j < 3; j++) {
+        //     this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = -this->stiffness;
+        // }
     }
 }
 
@@ -380,23 +382,29 @@ Matrix3f dFdX(const Vector3f& u, const float l0, const float k) {
 
 void SpringMesh::simulate(float dt) {
 
-    // Update stiffness matrix
+    // Iterate through springs, updating stiffness matrix and spring forces
+    this->springForces.fill(0.0f);
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
         const Vector3f u = this->particles.at(j) - this->particles.at(i);
-        const Matrix3f kMat = dFdX(u, spring.restLength, this->stiffness);
+        const Matrix3f ikMat = dFdX(u, spring.restLength, this->stiffness);
+        const Matrix3f jkMat = dFdX(-u, spring.restLength, this->stiffness);
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = kMat(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -kMat(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = ikMat(k, l);
+                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = jkMat(k, l);
             }
         }
+
+        const Vector3f springForce = (this->stiffness * (u.norm() - spring.restLength)) * u.normalized();
+        this->springForces.segment<3>(i*3) = springForce;
+        this->springForces.segment<3>(j*3) = -springForce;
     }
 
     // Compute velocities by solving linear system of equations
     const SparseMatrix<float> A = this->massMat - (dt*dt) * this->stiffnessMat;
-    const VectorXf b = this->massMat * this->velocities + dt * this->forces;
+    const VectorXf b = this->massMat * this->velocities + dt * (this->forces + this->springForces);
     BiCGSTAB<SparseMatrix<float>> solver;
     solver.compute(A);
     if (solver.info() != Success) {
