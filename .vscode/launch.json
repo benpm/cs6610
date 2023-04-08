@@ -22,7 +22,7 @@
                     "ignoreFailures": false
                 }
             ],
-            "preLaunchTask": "C/C++: Build Main"
+            "preLaunchTask": "CMake: build"
         }
     ]
 }

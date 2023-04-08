@@ -26,7 +26,17 @@ void meshNet(const Vector<float, chunkCells>& data, std::vector<Vector3f>& verti
             idxBuf[flatIdx(x, y, z)] = _filled;
         } else if (occupancy != 0u) {
             idxBuf[flatIdx(x, y, z)] = vertices.size();
-            vertices.push_back({(float)x, (float)y, (float)z});
+            // Linear interpolate the vertex based on the data
+            Vector3f v = {0.0f, 0.0f, 0.0f};
+            for (uint16_t i = 0; i < 2; i++)
+            for (uint16_t j = 0; j < 2; j++)
+            for (uint16_t k = 0; k < 2; k++) {
+                if (data[flatIdx(x+i, y+j, z+k)] > 0.0f) {
+                    v += Vector3f{(float)(x+i), (float)(y+j), (float)(z+k)};
+                }
+            }
+            v /= (float)occupancy;
+            vertices.push_back(v);
         }
     }
 
