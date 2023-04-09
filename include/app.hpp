@@ -196,6 +196,8 @@ class App
          */
         void draw(float dt);
 
+        void buildShaders();
+
         // Draws the sky shader program to the current framebuffer
         void drawSky(const Camera& cam, const Vector2f& viewport);
 

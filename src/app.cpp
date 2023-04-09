@@ -130,15 +130,10 @@ App::App(cxxopts::ParseResult& args) {
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(GLDebugMessageCallback, NULL);
 
+    this->buildShaders();
+
     // Build and bind sky shader program
-    bool built = this->skyProg.BuildFiles(
-        "resources/shaders/sky.vert",
-        "resources/shaders/sky.frag");
-    if (!built) {
-        spdlog::error("Failed to build sky shader program");
-    } else {
-        this->skyProg.Bind();
-    }
+    this->skyProg.Bind();
     glGenVertexArrays(1, &this->vaoSky); $gl_err();
     glBindVertexArray(this->vaoSky); $gl_err();
     glCreateBuffers(1, &this->vboSky); $gl_err();
@@ -161,14 +156,7 @@ App::App(cxxopts::ParseResult& args) {
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
 
     // Build and bind wires shader program
-    built = this->wiresProg.BuildFiles(
-        "resources/shaders/wires.vert",
-        "resources/shaders/wires.frag");
-    if (!built) {
-        spdlog::error("Failed to build wires shader program");
-    } else {
-        this->wiresProg.Bind();
-    }
+    this->wiresProg.Bind();
 
     // Setup for wires drawing
     glGenVertexArrays(1, &this->vaoWires); $gl_err();
@@ -195,27 +183,8 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->ssboArrows); $gl_err();
     glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
 
-    // Build and bind shadows shader program
-    built = this->depthProg.BuildFiles(
-        "resources/shaders/shadow.vert",
-        "resources/shaders/shadow.frag");
-    if (!built) {
-        spdlog::error("Failed to build shadows shader program");
-    } else {
-        this->depthProg.Bind();
-    }
-    
-    // Build and bind meshes shader program
-    built = this->meshProg.BuildFiles(
-        "resources/shaders/basic.vert",
-        "resources/shaders/basic.frag");
-    if (!built) {
-        spdlog::error("Failed to build meshes shader program");
-    } else {
-        this->meshProg.Bind();
-    }
-
     // Create and bind VAO
+    this->meshProg.Bind();
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
@@ -506,6 +475,42 @@ App::App(cxxopts::ParseResult& args) {
     glGenBuffers(1, &this->ssboLights); $gl_err();
 
     this->meshes.build(this->meshProg);
+}
+
+void buildProgram(
+    const char* name,
+    cyGLSLProgram& prog,
+    const char* vert,
+    const char* frag,
+    const char* geom = nullptr,
+    const char* tesc = nullptr,
+    const char* tese = nullptr)
+{
+    const bool built = prog.BuildFiles(vert, frag, geom, tesc, tese);
+    if (!built) {
+        spdlog::warn("Failed to build shader program {}", name);
+    } else {
+        spdlog::info("Built shader program {}", name);
+    }
+}
+
+void App::buildShaders() {
+    buildProgram("default", this->meshProg,
+        "resources/shaders/basic.vert",
+        "resources/shaders/basic.frag",
+        "resources/shaders/basic.geom");
+
+    buildProgram("shadow", this->depthProg,
+        "resources/shaders/shadow.vert",
+        "resources/shaders/shadow.frag");
+
+    buildProgram("debug", this->wiresProg,
+        "resources/shaders/wires.vert",
+        "resources/shaders/wires.frag");
+    
+    buildProgram("sky", this->skyProg,
+        "resources/shaders/sky.vert",
+        "resources/shaders/sky.frag");
 }
 
 App::~App() {

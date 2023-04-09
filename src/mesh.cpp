@@ -288,10 +288,10 @@ void MeshCollection::build(const cyGLSLProgram& prog) const {
         this->vertexData.size() * sizeof(VertexData), this->vertexData.data(), GL_STATIC_DRAW); $gl_err();
 
     // Specify vertex attributes
-    GLuint attrib_vPos    = prog.AttribLocation("vPos"); $gl_err();
-    GLuint attrib_vNormal = prog.AttribLocation("vNormal"); $gl_err();
-    GLuint attrib_vUV     = prog.AttribLocation("vUV"); $gl_err();
-    GLuint attrib_vMatID  = prog.AttribLocation("vMatID"); $gl_err();
+    GLuint attrib_vPos    = 0; $gl_err();
+    GLuint attrib_vNormal = 1; $gl_err();
+    GLuint attrib_vUV     = 2; $gl_err();
+    GLuint attrib_vMatID  = 3; $gl_err();
 
     size_t offset = 0u;
 
