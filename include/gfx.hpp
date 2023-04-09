@@ -49,4 +49,17 @@ namespace gfx {
         Vector3f(0.0f, tau2,        tau2), // Facing positive Z
         Vector3f(0.0f, 0.0f,        tau2), // Facing negative Z
     };
+
+    // Binding IDs for SSBOs
+    enum class SSBOids : GLuint {
+        modelTransforms = 0,
+        materials = 1,
+        lights = 2,
+        wireModelTransforms = 3,
+        arrowColors = 4,
+        voxelData = 5,
+        voxelVertIdx = 6,
+        voxelVerts = 7,
+        voxelElems = 8,
+    };
 };

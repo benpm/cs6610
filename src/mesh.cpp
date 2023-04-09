@@ -276,9 +276,9 @@ const MeshData& MeshCollection::get(const std::string &meshName) const {
 
 void MeshCollection::build(const cyGLSLProgram& prog) const {
     if (!this->buffersBuilt) {
-        glGenBuffers(1, &this->vboVerts); $gl_err();
-        glGenBuffers(1, &this->eboElems); $gl_err();
-        glGenBuffers(1, &this->ssboMaterials); $gl_err();
+        glCreateBuffers(1, &this->vboVerts); $gl_err();
+        glCreateBuffers(1, &this->eboElems); $gl_err();
+        glCreateBuffers(1, &this->ssboMaterials); $gl_err();
         this->buffersBuilt = true;
     }
 

@@ -3,7 +3,7 @@
 #include <bitset>
 #include <extmath.hpp>
 
-constexpr size_t chunkSize = 32u;
+constexpr size_t chunkSize = 8u;
 constexpr size_t chunkCells = chunkSize * chunkSize * chunkSize;
 
 // Adapted from https://0fps.net/2012/07/12/smooth-voxel-terrain-part-2/

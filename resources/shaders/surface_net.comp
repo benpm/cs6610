@@ -1,0 +1,126 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+layout(std430, binding = 5) readonly buffer VoxelData {
+    uint data[];
+};
+layout(std430, binding = 6) coherent buffer VoxelVertIdx {
+    int idxBuf[];
+};
+layout(std430, binding = 7) writeonly buffer VoxelVerts {
+    uint vertsLength;
+    vec3 verts[];
+};
+layout(std430, binding = 8) writeonly buffer VoxelElems {
+    uint elemsLength;
+    uint elems[];
+};
+
+const int _empty = -1;
+const int _filled = -2;
+const uint chunkSize = 8;
+const uint vOrder[6] = {1,3,0,3,2,0};
+shared uint nVerts;
+shared uint nElems;
+
+uint flatIdx(uvec3 c) {
+    return c.z * (chunkSize*chunkSize) + c.y * chunkSize + c.x;
+}
+
+// Called in first invocation to initialize shared memory
+void init() {
+    nVerts = 0;
+    nElems = 0;
+}
+
+void exit() {
+    vertsLength = nVerts;
+    elemsLength = nElems;
+}
+
+void main() {
+    if (gl_LocalInvocationIndex == 0) {
+        init();
+    }
+    barrier();
+
+    // Find surface voxels
+    uvec3 c = gl_GlobalInvocationID;
+    uint occupancy = 0;
+    for (uint i = 0; i < 2; i++)
+    for (uint j = 0; j < 2; j++)
+    for (uint k = 0; k < 2; k++) {
+        occupancy += data[flatIdx(c + uvec3(i,j,k))];
+    }
+    if (occupancy == 8) {
+        idxBuf[flatIdx(c)] = _filled;
+    } else if (occupancy == 0) {
+        idxBuf[flatIdx(c)] = _empty;
+    } else {
+        vec3 v = vec3(0.0);
+
+        // Linear interpolate the vertex position
+        for (uint i = 0; i < 2; i++)
+        for (uint j = 0; j < 2; j++)
+        for (uint k = 0; k < 2; k++) {
+            const uvec3 cc = c + uvec3(i,j,k);
+            if (data[flatIdx(cc)] > 0) {
+                v += vec3(cc);
+            }
+        }
+        v /= float(occupancy);
+
+        // Add the vertex
+        uint idx = atomicAdd(nVerts, 1);
+        idxBuf[flatIdx(c)] = int(idx);
+        verts[idx] = v;
+
+        // Sync invocations operating on idxBuf
+        memoryBarrierBuffer();
+
+        // Generate triangles
+        for (int dir = -1; dir <= 1; dir += 2) {
+            for (int axis = 0; axis < 3; axis++) {
+                if ((dir == 1 && c[axis] == 0) || (dir == -1 && c[axis] == chunkSize-1)) continue;
+
+                int fIdx[4];
+                bool valid = true;
+                for (uint i = 0; i < 4; i++) {
+                    // Coordinate of vertex cell on face
+                    uvec3 fc = c;
+                    fc[(axis + 0) % 3] += i / 2;
+                    fc[(axis + 1) % 3] += i % 2;
+                    // Previous face coordinate, invalidate face if its filled
+                    uvec3 pfc = fc;
+                    pfc[(axis + 2) % 3] -= dir;
+                    if (idxBuf[flatIdx(pfc)] == _filled) {
+                        valid = false;
+                        break;
+                    }
+                    // Check current face
+                    int idx = idxBuf[flatIdx(fc)];
+                    if (idx < 0) {
+                        valid = false;
+                        break;
+                    } else {
+                        fIdx[i] = idx;
+                    }
+                }
+
+                if (valid) {
+                    uint triIdx = atomicAdd(nElems, 6);
+                    for (uint i = 0; i < 6; i++) {
+                        elems[triIdx + i] = fIdx[vOrder[dir == 1 ? i : 5 - i]];
+                    }
+                }
+            }
+        }
+    }
+
+    // Sync and write globals
+    memoryBarrierShared();
+    if (gl_LocalInvocationIndex == 0) {
+        exit();
+    }
+}

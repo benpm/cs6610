@@ -27,6 +27,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <compute_shader.hpp>
 
 // Index into element counts and offsets arrays
 struct ObjRef {
@@ -109,6 +110,8 @@ class App
         entt::entity eSelected = entt::null;
         
         RNG rng{0u};
+
+        ComputeShader csSurfaceNets;
 
         // ID of model transform matrices SSBO
         GLuint ssboModels;
