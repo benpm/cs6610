@@ -86,3 +86,10 @@ void ComputeShader::run()
     glDispatchCompute(1, 1, 1); $gl_err();
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT); $gl_err();
 }
+
+GLuint ComputeShader::bufId(GLuint bindingIdx)
+{
+    assert(this->bufBindIdxMap.count(bindingIdx) && "ComputeShader::bufId: bindingIdx not found");
+
+    return this->bufBindIdxMap[bindingIdx];
+}

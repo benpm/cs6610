@@ -234,7 +234,7 @@ App::App(cxxopts::ParseResult& args) {
 
     // Construct scene
     this->loadingScreen("constructing scene");
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < 1; i++) {
         int reflLayer = reflectionLayer++;
 
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -246,31 +246,6 @@ App::App(cxxopts::ParseResult& args) {
 
         ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
         reflProbe.layer = reflLayer;
-    }
-    {
-        entt::entity e = this->makeModel("teapot");
-        Model& model = this->reg.get<Model>(e);
-
-        model.pivot.z() = 0.0f;
-        model.rot.x() = -tau4;
-        model.pos = {-2.0f, 0.0f, -3.0f};
-        model.scale *= 2.0f;
-    }
-    {
-        entt::entity e = this->makeModel("quad");
-        Model& model = this->reg.get<Model>(e);
-
-        model.scale = vec3(100.0f);
-
-        this->ePlane = e;
-    }
-    {
-        entt::entity e = this->makeModel("quad");
-        Model& model = this->reg.get<Model>(e);
-
-        model.scale = vec3(100.0f);
-        model.pos.y() = 12.0f;
-        model.rot.x() = tau2;
     }
     { // Create a point to visualize mouse select
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -414,7 +389,6 @@ App::App(cxxopts::ParseResult& args) {
         .type = RenderPass::Type::array,
         .fbo = this->fboShadows,
         .viewport = {{(float)shadowMapSize, (float)shadowMapSize}},
-        .objMask = { this->ePlane },
         .arrayTarget = RenderTarget {
             .type = RenderTarget::Type::textureArray,
             .id = this->texSpotShadows,
@@ -468,14 +442,31 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, voxelData.data(), 0u, chunkCells * sizeof(GLuint));
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, 65536 * sizeof(Vector4f));
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
+    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVertIdx, 0u, chunkCells * sizeof(int32_t));
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, 65536 * sizeof(GLuint));
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.run();
 
-    std::array<uint32_t, 2> counts = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
+    const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
-    spdlog::info("Surface verts: {}, elems: {}", counts[0], counts[1]);
+    const uint32_t nElems = nQuads * 6;
+    spdlog::info("Surface verts: {}, elems: {}", nVerts, nElems);
+
+    std::vector<Vector4f> v = this->csSurfaceNets.readBufferDataArray<Vector4f>(
+        gfx::ssbo::voxelVerts, nVerts);
+    std::vector<Vector3f> verts;
+    verts.reserve(nVerts);
+    for (const Vector4f& vert : v) {
+        verts.push_back(vert.head<3>());
+    }
+    std::vector<GLuint> elems = this->csSurfaceNets.readBufferDataArray<GLuint>(
+        gfx::ssbo::voxelElems, nElems);
+    this->meshes.add("voxel_mesh", verts, elems);
+    this->meshes.setMaterial("voxel_mesh", whiteMatID);
+    {
+        entt::entity e = this->makeModel("voxel_mesh");
+    }
 
     this->meshProg.Bind();
     this->meshes.build(this->meshProg);
@@ -515,6 +506,11 @@ void App::buildShaders() {
     buildProgram("sky", this->skyProg,
         "resources/shaders/sky.vert",
         "resources/shaders/sky.frag");
+
+    buildProgram("points", this->pointsProg,
+        "resources/shaders/basic.vert",
+        "resources/shaders/points.frag",
+        "resources/shaders/points.geom");
 }
 
 App::~App() {
@@ -895,6 +891,19 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
     if (arrowsStorage.size() > 0) {
         glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
     }
+
+    this->pointsProg.Bind();
+    glBindVertexArray(this->vaoMeshes); $gl_err();
+    this->meshes.bind(this->pointsProg, false);
+    this->pointsProg.SetUniformMatrix4("uTProj", proj.data());
+    this->pointsProg.SetUniformMatrix4("uTView", view.data());
+    glPointSize(3.0f);
+    glMultiDrawElements(
+        GL_TRIANGLES,
+        this->vCounts.data(),
+        GL_UNSIGNED_INT,
+        (const void**)this->vOffsets.data(),
+        this->vCounts.size()); $gl_err();
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
