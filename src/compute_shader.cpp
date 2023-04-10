@@ -49,25 +49,35 @@ void ComputeShader::compile(const std::string &path) {
     checkProgramLinkErr(this->programID, "compute shader");
 }
 
-GLuint ComputeShader::createBuffer(GLuint bindingIdx, size_t bytes) {
+GLuint ComputeShader::createBuffer(GLuint bindingIdx, size_t bytes, GLenum target) {
     glUseProgram(this->programID); $gl_err();
     GLuint bufferID;
     glCreateBuffers(1, &bufferID); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufferID); $gl_err();
-    glBufferData(GL_SHADER_STORAGE_BUFFER, bytes, nullptr, GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingIdx, bufferID); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+    glBindBuffer(target, bufferID); $gl_err();
+    glBufferData(target, bytes, nullptr, GL_DYNAMIC_DRAW); $gl_err();
+    glBindBufferBase(target, bindingIdx, bufferID); $gl_err();
+    glBindBuffer(target, 0); $gl_err();
     this->bufBindIdxMap[bindingIdx] = bufferID;
     return bufferID;
 }
 
-void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t offset, size_t bytes)
+void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t offset, size_t bytes, GLenum target)
 {
     assert(this->bufBindIdxMap.count(bindingIdx) && "ComputeShader::setBufferData: bindingIdx not found");
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->bufBindIdxMap[bindingIdx]); $gl_err();
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, bytes, data); $gl_err();
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();
+    glBindBuffer(target, this->bufBindIdxMap[bindingIdx]); $gl_err();
+    glBufferSubData(target, offset, bytes, data); $gl_err();
+    glBindBuffer(target, 0); $gl_err();
+}
+
+void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes, GLenum target)
+{
+    assert(this->bufBindIdxMap.count(bindingIdx) && "ComputeShader::zeroBufferData: bindingIdx not found");
+
+    glBindBuffer(target, this->bufBindIdxMap[bindingIdx]); $gl_err();
+    const std::vector<uint8_t> zeros(bytes, 0);
+    glBufferSubData(target, offset, bytes, zeros.data()); $gl_err();
+    glBindBuffer(target, 0); $gl_err();
 }
 
 void ComputeShader::run()

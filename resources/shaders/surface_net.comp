@@ -2,49 +2,32 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout(std430, binding = 5) readonly buffer VoxelData {
+layout(std430, binding = 0) readonly buffer VoxelData {
     uint data[];
 };
-layout(std430, binding = 6) coherent buffer VoxelVertIdx {
+layout(std430, binding = 1) coherent buffer VoxelVertIdx {
     int idxBuf[];
 };
-layout(std430, binding = 7) writeonly buffer VoxelVerts {
-    uint vertsLength;
-    vec3 verts[];
+layout(std430, binding = 2) coherent writeonly buffer VoxelVerts {
+    vec4 verts[];
 };
-layout(std430, binding = 8) writeonly buffer VoxelElems {
-    uint elemsLength;
+layout(std430, binding = 3) coherent writeonly buffer VoxelElems {
     uint elems[];
 };
+
+layout(binding = 4, offset = 0) uniform atomic_uint vertsLength;
+layout(binding = 4, offset = 4) uniform atomic_uint elemsLength;
 
 const int _empty = -1;
 const int _filled = -2;
 const uint chunkSize = 8;
 const uint vOrder[6] = {1,3,0,3,2,0};
-shared uint nVerts;
-shared uint nElems;
 
 uint flatIdx(uvec3 c) {
     return c.z * (chunkSize*chunkSize) + c.y * chunkSize + c.x;
 }
 
-// Called in first invocation to initialize shared memory
-void init() {
-    nVerts = 0;
-    nElems = 0;
-}
-
-void exit() {
-    vertsLength = nVerts;
-    elemsLength = nElems;
-}
-
 void main() {
-    if (gl_LocalInvocationIndex == 0) {
-        init();
-    }
-    barrier();
-
     // Find surface voxels
     uvec3 c = gl_GlobalInvocationID;
     uint occupancy = 0;
@@ -72,13 +55,15 @@ void main() {
         v /= float(occupancy);
 
         // Add the vertex
-        uint idx = atomicAdd(nVerts, 1);
+        uint idx = atomicCounterIncrement(vertsLength);
         idxBuf[flatIdx(c)] = int(idx);
-        verts[idx] = v;
+        verts[idx] = vec4(v, 1.0);
+    }
 
-        // Sync invocations operating on idxBuf
-        memoryBarrierBuffer();
+    // Sync invocations operating on idxBuf
+    memoryBarrierBuffer();
 
+    if (occupancy != 0 && occupancy != 8) {
         // Generate triangles
         for (int dir = -1; dir <= 1; dir += 2) {
             for (int axis = 0; axis < 3; axis++) {
@@ -109,18 +94,12 @@ void main() {
                 }
 
                 if (valid) {
-                    uint triIdx = atomicAdd(nElems, 6);
                     for (uint i = 0; i < 6; i++) {
-                        elems[triIdx + i] = fIdx[vOrder[dir == 1 ? i : 5 - i]];
+                        uint triIdx = atomicCounterIncrement(elemsLength);
+                        elems[triIdx] = fIdx[vOrder[dir == 1 ? i : 5 - i]];
                     }
                 }
             }
         }
-    }
-
-    // Sync and write globals
-    memoryBarrierShared();
-    if (gl_LocalInvocationIndex == 0) {
-        exit();
     }
 }

@@ -13,7 +13,17 @@ private:
     std::unordered_map<GLuint, GLuint> bufBindIdxMap;
 public:
     void compile(const std::string& path);
-    GLuint createBuffer(GLuint bindingIdx, size_t bytes);
-    void setBufferData(GLuint bindingIdx, const void* data, size_t offset, size_t bytes);
+    GLuint createBuffer(GLuint bindingIdx, size_t bytes, GLenum target = GL_SHADER_STORAGE_BUFFER);
+    void setBufferData(GLuint bindingIdx, const void* data, size_t offset, size_t bytes, GLenum target = GL_SHADER_STORAGE_BUFFER);
+    void zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes, GLenum target = GL_SHADER_STORAGE_BUFFER);
     void run();
+    template<typename T> T readBufferData(GLuint bindingIdx, size_t offset = 0u, GLenum target = GL_SHADER_STORAGE_BUFFER) {
+        glUseProgram(this->programID); $gl_err();
+        GLuint bufferID = this->bufBindIdxMap[bindingIdx];
+        glBindBuffer(target, bufferID); $gl_err();
+        T data;
+        glGetBufferSubData(target, offset, sizeof(T), &data); $gl_err();
+        glBindBuffer(target, 0); $gl_err();
+        return data;
+    }
 };

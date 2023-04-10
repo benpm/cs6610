@@ -182,9 +182,9 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->vboBox); $gl_err();
 
     glCreateBuffers(1, &this->ssboArrows); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::wireModelTransforms, this->ssboArrows); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::wireModelTransforms, this->ssboArrows); $gl_err();
     glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::arrowColors, this->ssboArrowColors); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::arrowColors, this->ssboArrowColors); $gl_err();
 
 
     // Create and bind VAO
@@ -445,29 +445,37 @@ App::App(cxxopts::ParseResult& args) {
 
     // Create and bind model transforms SSBO
     glCreateBuffers(1, &this->ssboModels); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::modelTransforms, this->ssboModels); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::modelTransforms, this->ssboModels); $gl_err();
 
     // Create and bind lights SSBO
     glCreateBuffers(1, &this->ssboLights); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::lights, this->ssboLights); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
 
     // Create surface nets mesh
-    Vector<float, chunkCells> data;
+    Vector<GLuint, chunkCells> voxelData;
     const float r = (float)(chunkSize - 2)/2.0f;
     for (size_t x = 0; x < chunkSize; x++) {
         for (size_t y = 0; y < chunkSize; y++) {
             for (size_t z = 0; z < chunkSize; z++) {
                 Vector3f p(Vector3f(x, y, z) - vec3((float)chunkSize/2.0f));
-                data[flatIdx(x, y, z)] = 1.0 - (p.norm() / r);
+                float v = 1.0 - (p.norm() / r);
+                voxelData[flatIdx(x, y, z)] = (GLuint)(v > 0.0f);
             }
         }
     }
     this->csSurfaceNets.compile("resources/shaders/surface_net.comp");
-    this->csSurfaceNets.createBuffer((GLuint)gfx::SSBOids::voxelData, chunkCells * sizeof(float));
-    this->csSurfaceNets.createBuffer((GLuint)gfx::SSBOids::voxelVerts, 65536 * sizeof(float));
-    this->csSurfaceNets.createBuffer((GLuint)gfx::SSBOids::voxelVertIdx, chunkCells * sizeof(int32_t));
-    this->csSurfaceNets.createBuffer((GLuint)gfx::SSBOids::voxelElems, 65536 * sizeof(uint32_t));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
+    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, voxelData.data(), 0u, chunkCells * sizeof(GLuint));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, 65536 * sizeof(Vector4f));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, 65536 * sizeof(GLuint));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
+    this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.run();
+
+    std::array<uint32_t, 2> counts = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
+        gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
+    spdlog::info("Surface verts: {}, elems: {}", counts[0], counts[1]);
 
     this->meshProg.Bind();
     this->meshes.build(this->meshProg);
@@ -904,7 +912,7 @@ void App::updateBuffers() {
     auto& lightsStorage = this->reg.view<uLight>().storage<uLight>();
     glBufferData(GL_SHADER_STORAGE_BUFFER,
         lightsStorage.size() * sizeof(uLight), *lightsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::lights, this->ssboLights); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
     this->meshProg.SetUniform("nLights", (GLuint)lightsStorage.size());
 
     // Update model transforms buffer
@@ -912,7 +920,7 @@ void App::updateBuffers() {
     auto& transformsStorage = this->reg.view<ModelTransform>().storage<ModelTransform>();
     glBufferData(GL_SHADER_STORAGE_BUFFER,
         transformsStorage.size() * sizeof(Matrix4f), *transformsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::modelTransforms, this->ssboModels); $gl_err();
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::modelTransforms, this->ssboModels); $gl_err();
     
     // Wires shader program
     this->wiresProg.Bind();
@@ -924,7 +932,7 @@ void App::updateBuffers() {
     if (arrowsStorage.size() > 0) {
         glBufferData(GL_SHADER_STORAGE_BUFFER,
             arrowsStorage.size() * sizeof(RayTransform), *arrowsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::wireModelTransforms, this->ssboArrows); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::wireModelTransforms, this->ssboArrows); $gl_err();
     }
     
     // Update arrow colors buffer
@@ -933,7 +941,7 @@ void App::updateBuffers() {
     if (colorsStorage.size() > 0) {
         glBufferData(GL_SHADER_STORAGE_BUFFER,
             colorsStorage.size() * sizeof(DebugColor), *colorsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, (GLuint)gfx::SSBOids::arrowColors, this->ssboArrowColors); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::arrowColors, this->ssboArrowColors); $gl_err();
     }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); $gl_err();

@@ -51,15 +51,17 @@ namespace gfx {
     };
 
     // Binding IDs for SSBOs
-    enum class SSBOids : GLuint {
-        modelTransforms = 0,
-        materials = 1,
-        lights = 2,
-        wireModelTransforms = 3,
-        arrowColors = 4,
-        voxelData = 5,
-        voxelVertIdx = 6,
-        voxelVerts = 7,
-        voxelElems = 8,
+    namespace ssbo {
+        constexpr GLuint modelTransforms = 0u;
+        constexpr GLuint materials = 1u;
+        constexpr GLuint lights = 2u;
+        constexpr GLuint wireModelTransforms = 3u;
+        constexpr GLuint arrowColors = 4u;
+        
+        constexpr GLuint voxelData = 0u;
+        constexpr GLuint voxelVertIdx = 1u;
+        constexpr GLuint voxelVerts = 2u;
+        constexpr GLuint voxelElems = 3u;
+        constexpr GLuint atomicCounts = 4u;
     };
 };
