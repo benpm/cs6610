@@ -125,7 +125,8 @@ public:
     VectorXf velocities;
     VectorXf forces;
     std::vector<Spring> springs;
-    float stiffness = 1.0f;
+    float stiffness = 0.5f;
+    float damping = 0.01f;
     // Stiffness matrix
     SparseMatrix<float> stiffnessMat;
     // Mass matrix
@@ -136,6 +137,7 @@ public:
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
     void simulate(float dt);
+    void resetForces();
 };
 
 namespace Physics {

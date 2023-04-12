@@ -368,9 +368,9 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
         this->massMat.coeffRef(i*3 + 0, i*3 + 0) = mass;
         this->massMat.coeffRef(i*3 + 1, i*3 + 1) = mass;
         this->massMat.coeffRef(i*3 + 2, i*3 + 2) = mass;
-        // for (int j = 0; j < 3; j++) {
-        //     this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = -this->stiffness;
-        // }
+        for (int j = 0; j < 3; j++) {
+            this->stiffnessMat.coeffRef(i*3 + j, i*3 + j) = -this->stiffness;
+        }
     }
 }
 
@@ -397,9 +397,13 @@ void SpringMesh::simulate(float dt) {
             }
         }
 
+        const Vector3f vi = this->velocities.segment<3>(i*3);
+        const Vector3f vj = this->velocities.segment<3>(j*3);
         const Vector3f springForce = (this->stiffness * (u.norm() - spring.restLength)) * u.normalized();
-        this->springForces.segment<3>(i*3) = springForce;
-        this->springForces.segment<3>(j*3) = -springForce;
+        const Vector3f dampingForce = 
+            this->damping * (vj - vi).dot(u.normalized()) * u.normalized();
+        this->springForces.segment<3>(i*3) += springForce + dampingForce;
+        this->springForces.segment<3>(j*3) -= springForce + dampingForce;
     }
 
     // Compute velocities by solving linear system of equations
@@ -423,4 +427,8 @@ void SpringMesh::simulate(float dt) {
             this->surfaceVertices.at(this->bdryIdxMap.at(i)) = this->particles.at(i);
         }
     }
+}
+
+void SpringMesh::resetForces() {
+    this->velocities.fill(0.0f);
 }

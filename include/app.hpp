@@ -65,7 +65,7 @@ struct RenderPass {
 class App
 {
     private:
-        ColliderInteriorBox box{vec3(-1.5f), vec3(1.5f)};
+        ColliderInteriorBox box{Vector3f(-1.5f, -0.5f, -1.5f), vec3(1.5f)};
         // const size_t objectsToGen = this->box.volume() * 0.01f;
         const size_t objectsToGen = 5u;
         const float frameRate = 60.0f;
@@ -104,6 +104,7 @@ class App
         entt::entity eSelectPoint;
         entt::entity eDragArrow;
         entt::entity eSpotLight;
+        entt::entity eSpringMesh;
 
         Vector3f selectPoint;
         entt::entity eSelected = entt::null;

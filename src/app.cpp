@@ -281,8 +281,8 @@ App::App(cxxopts::ParseResult& args) {
 
         const MeshData& meshData = this->meshes.add("dragon", springMesh.surfaceVertices, springMesh.surfaceElems);
         uMaterial& material = this->meshes.getMaterial("dragon.mat");
-        // material.emissionColor = {1.0f, 1.0f, 1.0f};
-        // material.emissionFactor = 1.0f;
+        material.ambientColor = {1.0f, 1.0f, 1.0f};
+        material.ambientFactor = 0.15f;
 
         Model& model = this->reg.emplace<Model>(e, meshData);
         model.pivot = Vector3f::Zero();
@@ -291,6 +291,8 @@ App::App(cxxopts::ParseResult& args) {
         this->reg.emplace<ObjRef>(e, this->makeObj(meshRef));
         
         this->reg.emplace<ModelTransform>(e);
+
+        this->eSpringMesh = e;
     }
     { // Create a point to visualize mouse select
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -1093,6 +1095,15 @@ void App::composeUI() {
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
     ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
     ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
+
+    SpringMesh& springMesh = this->reg.get<SpringMesh>(this->eSpringMesh);
+    ImGui::SliderFloat("Stiffness", &springMesh.stiffness, 0.0f, 1.0f);
+    ImGui::SliderFloat("Damping", &springMesh.damping, 0.0f, 0.2f);
+
+    if (ImGui::Button("Reset Forces")) {
+        springMesh.resetForces();
+    }
+
     ImGui::Checkbox("Draw Debug", &this->doDrawDebug);
 
     ImGui::PopFont();
