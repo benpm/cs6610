@@ -121,23 +121,25 @@ private:
 public:
     std::vector<Vector3f> surfaceVertices;
     std::vector<size_t> surfaceElems;
-    std::vector<Vector3f> particles;
+    VectorXf particles;
     VectorXf velocities;
-    VectorXf forces;
+    VectorXf gravityF;
+    VectorXf impulseF;
     std::vector<Spring> springs;
-    float stiffness = 0.5f;
-    float damping = 0.01f;
+    float stiffness = 150.0f;
+    float damping = 0.1f;
     // Stiffness matrix
     SparseMatrix<float> stiffnessMat;
     // Mass matrix
     SparseMatrix<float> massMat;
-    // Forces from springs
-    VectorXf springForces;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
     void simulate(float dt);
     void resetForces();
+    void evalForces(const VectorXf& V, const VectorXf& X, VectorXf& F) const;
+    void applyImpulse(const Vector3f& point, const Vector3f& impulse);
+    std::optional<Vector3f> intersect(const Ray& ray) const;
 };
 
 namespace Physics {

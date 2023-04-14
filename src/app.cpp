@@ -240,14 +240,6 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.clone("sphere", "light_ball");
     this->meshes.setMaterial("light_ball", lightMatID);
 
-    uMaterial planeRefl {
-        .diffuseColor = Vector3f::Zero(),
-        .shininess = 1000.0f,
-        .flatReflectionTexID = (int)this->texReflections,
-    };
-    this->meshes.createMaterial("plane_reflection", planeRefl);
-    // this->meshes.setMaterial("quad", "plane_reflection");
-
     uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
     skyRefl.shininess = 1000.0f;
     skyRefl.diffuseColor = Vector3f::Zero();
@@ -276,7 +268,7 @@ App::App(cxxopts::ParseResult& args) {
 
     {
         entt::entity e = this->reg.create();
-        SpringMesh s ("resources/vmodels/cube.ele", "resources/vmodels/cube.node");
+        SpringMesh s ("resources/vmodels/dragon.ele", "resources/vmodels/dragon.node");
         SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,s);
 
         const MeshData& meshData = this->meshes.add("dragon", springMesh.surfaceVertices, springMesh.surfaceElems);
@@ -611,9 +603,16 @@ void App::onClick(int button, bool pressed) {
     } else {
         if (button == GLFW_MOUSE_BUTTON_RIGHT && this->eSelected != entt::null) {
             auto [debugRay, debugColor] = this->reg.get<DebugRay, DebugColor>(this->eDragArrow);
-            auto [rb, pb] = this->reg.get<RigidBody, PhysicsBody>(this->eSelected);
-            rb.applyImpulse(pb, this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length * 0.2f);
             debugColor.color.w() = 0.0f;
+
+            // Apply force from click interaction
+            if (this->reg.try_get<PhysicsBody>(this->eSelected)) {
+                auto [rb, pb] = this->reg.get<RigidBody, PhysicsBody>(this->eSelected);
+                rb.applyImpulse(pb, this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length * 0.2f);
+            } else if (this->reg.try_get<SpringMesh>(this->eSelected)) {
+                SpringMesh &sm = this->reg.get<SpringMesh>(this->eSelected);
+                sm.applyImpulse(this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length * 50.0f);
+            }
         }
     }
 }
@@ -692,6 +691,14 @@ void App::simulate(float dt) {
                 this->eSelected = e;
             }
         }
+        /* for (const auto& e : this->reg.view<SpringMesh>()) {
+            const SpringMesh& springMesh = this->reg.get<SpringMesh>(e);
+            std::optional<Vector3f> hit = springMesh.intersect(camRay);
+            if (hit && (!nearestHit || (camRay.origin - *hit).norm() < (camRay.origin - *nearestHit).norm())) {
+                nearestHit = hit;
+                this->eSelected = e;
+            }
+        } */
         if (nearestHit) {
             this->hidden(this->eSelectPoint, false);
             selectPoint = *nearestHit;
@@ -1093,11 +1100,11 @@ void App::composeUI() {
     ImGui::Text(fmt::format("phi={} theta={}", this->cameraControl.orbitPhi(), this->cameraControl.orbitTheta()).c_str());
     Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
-    ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
+    ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 4.0f);
     ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
 
     SpringMesh& springMesh = this->reg.get<SpringMesh>(this->eSpringMesh);
-    ImGui::SliderFloat("Stiffness", &springMesh.stiffness, 0.0f, 1.0f);
+    ImGui::SliderFloat("Stiffness", &springMesh.stiffness, 0.0f, 200.0f);
     ImGui::SliderFloat("Damping", &springMesh.damping, 0.0f, 0.2f);
 
     if (ImGui::Button("Reset Forces")) {

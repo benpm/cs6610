@@ -121,7 +121,6 @@ template <typename T> struct fmt::formatter<std::vector<T>> {
     }
 };
 
-// Plane
 class Plane
 {
 public:
@@ -132,7 +131,14 @@ public:
     Plane(const Vector3f& origin, const Vector3f& normal);
 };
 
-// Ray
+class Triangle
+{
+public:
+    std::array<Vector3f, 3> verts;
+
+    Triangle(const std::array<Vector3f, 3>& verts) : verts(verts) {};
+};
+
 class Ray
 {
 public:
@@ -142,6 +148,7 @@ public:
     Ray(const Vector3f& origin, const Vector3f& direction);
 
     std::optional<Vector3f> intersect(const Plane& plane) const;
+    std::optional<Vector3f> intersect(const Triangle& tri) const;
     // Returns transformed ray
     Ray transformed(const Matrix4f& transform) const;
 };
@@ -293,6 +300,10 @@ Matrix4f transform(const Vector3f& translation, const Matrix3f& rotMatrix, const
 Vector3f transformPoint(const Vector3f& point, const Matrix4f& transform);
 // Applies transformation to a direction vector (ignores translation, normalizes)
 Vector3f transformDir(const Vector3f& direction, const Matrix4f& transform);
+
+std::optional<Vector3f> rayTriangleIntersect(
+    const Ray& ray,
+    const Vector3f &v0, const Vector3f &v1, const Vector3f &v2);
 
 Vector3f vec3(float v[3]);
 Vector3f vec3(const Vector2f& v, float z=0.0f);

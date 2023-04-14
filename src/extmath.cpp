@@ -375,6 +375,34 @@ std::optional<Vector3f> Ray::intersect(const Plane& plane) const {
     return this->origin + this->direction * t;
 }
 
+std::optional<Vector3f> rayTriangleIntersect(
+    const Ray& ray,
+    const Vector3f &v0, const Vector3f &v1, const Vector3f &v2)
+{
+    const Vector3f v0v1 = v1 - v0;
+    const Vector3f v0v2 = v2 - v0;
+    const Vector3f pvec = ray.direction.cross(v0v2);
+    const float det = v0v1.dot(pvec);
+    if (det < 1e-6) return std::nullopt;
+
+    const float invDet = 1 / det;
+
+    const Vector3f tvec = ray.origin - v0;
+    const float u = tvec.dot(pvec) * invDet;
+    if (u < 0 || u > 1) return std::nullopt;
+
+    const Vector3f qvec = tvec.cross(v0v1);
+    const float v = ray.direction.dot(qvec) * invDet;
+    if (v < 0 || u + v > 1) return std::nullopt;
+    
+    const float t = v0v2.dot(qvec) * invDet;
+    return ray.origin + ray.direction * t;
+}
+
+std::optional<Vector3f> Ray::intersect(const Triangle & tri) const {
+    return rayTriangleIntersect(*this, tri.verts[0], tri.verts[1], tri.verts[2]);
+}
+
 Ray Ray::transformed(const Matrix4f &transform) const {
     return Ray(
         (transform * vec4(this->origin, 1.0f)).head<3>(),
