@@ -60,9 +60,9 @@ int main(int argc, char const *argv[])
     // Parse arguments
     cxxopts::Options cliOptions("rendertool", "A tool for rendering 3D scenes");
     cliOptions.add_options()
-        ("m,model", "Path to .obj file to render into the scene",
-            cxxopts::value<std::string>()->default_value("resources/models/yoda/yoda.obj"))
+        ("m,model", "Model to load", cxxopts::value<std::string>()->default_value("resources/vmodels/cube.ele"))
         ("h,help", "Prints help");
+    cliOptions.parse_positional({"model"});
     cxxopts::ParseResult opts = cliOptions.parse(argc, argv);
     if (opts.count("help")) {
         std::cout << cliOptions.help() << std::endl;

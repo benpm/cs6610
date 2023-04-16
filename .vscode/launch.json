@@ -5,11 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "C++ Launch",
+            "name": "cube",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/app",
-            "args": [],
+            "args": [
+                "resources/vmodels/cube.ele"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
@@ -22,7 +24,29 @@
                     "ignoreFailures": false
                 }
             ],
-            "preLaunchTask": "C/C++: Build Main"
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            "name": "dragon",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/app",
+            "args": [
+                "resources/vmodels/dragon.ele"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ],
+            "preLaunchTask": "CMake: build"
         }
     ]
 }

@@ -129,38 +129,8 @@ App::App(cxxopts::ParseResult& args) {
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(GLDebugMessageCallback, NULL);
 
-    // Build and bind sky shader program
-    bool built = this->skyProg.BuildFiles(
-        "resources/shaders/sky.vert",
-        "resources/shaders/sky.frag");
-    if (!built) {
-        spdlog::error("Failed to build sky shader program");
-    } else {
-        this->skyProg.Bind();
-    }
-    glGenVertexArrays(1, &this->vaoSky); $gl_err();
-    glBindVertexArray(this->vaoSky); $gl_err();
-    glCreateBuffers(1, &this->vboSky); $gl_err();
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
-    std::vector<Vector3f> quadVerts = {
-        {-1.0f, -1.0f, 1.0f - 1e-4f},
-        { 1.0f, -1.0f, 1.0f - 1e-4f},
-        { 1.0f,  1.0f, 1.0f - 1e-4f},
-
-        { 1.0f,  1.0f, 1.0f - 1e-4f},
-        {-1.0f,  1.0f, 1.0f - 1e-4f},
-        {-1.0f, -1.0f, 1.0f - 1e-4f},
-    };
-    glBufferData(GL_ARRAY_BUFFER, quadVerts.size() * sizeof(Vector3f),
-        quadVerts.data(), GL_STATIC_DRAW); $gl_err();
-    GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
-    this->skyTextures.addCubemap("sky", "resources/textures/cubemap");
-    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
-
     // Build and bind wires shader program
-    built = this->wiresProg.BuildFiles(
+    bool built = this->wiresProg.BuildFiles(
         "resources/shaders/wires.vert",
         "resources/shaders/wires.frag");
     if (!built) {
@@ -225,9 +195,6 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.add("resources/models/cube.obj", "", true, false);
     this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
-    size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
-    // this->meshes.setMaterial("teapot", skyMatID);
-    // this->meshes.setMaterial("sphere", skyMatID);
     size_t whiteMatID = this->meshes.createMaterial("white", uMaterial{
         .diffuseColor = {0.8f, 0.8f, 0.8f},
         .shininess = 500.0f
@@ -239,10 +206,6 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.setMaterial("suzanne", whiteMatID);
     this->meshes.clone("sphere", "light_ball");
     this->meshes.setMaterial("light_ball", lightMatID);
-
-    uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
-    skyRefl.shininess = 1000.0f;
-    skyRefl.diffuseColor = Vector3f::Zero();
     
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
@@ -267,12 +230,16 @@ App::App(cxxopts::ParseResult& args) {
     }
 
     {
+        // Load tetrahedral model for mass spring
         entt::entity e = this->reg.create();
-        SpringMesh s ("resources/vmodels/dragon.ele", "resources/vmodels/dragon.node");
-        SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,s);
+        fs::path modelPath = args["model"].as<std::string>();
+        assert(fs::exists(modelPath));
+        SpringMesh &springMesh = this->reg.emplace<SpringMesh>(e,
+            modelPath.parent_path() / (modelPath.stem().string() + ".ele"),
+            modelPath.parent_path() / (modelPath.stem().string() + ".node"));
 
-        const MeshData& meshData = this->meshes.add("dragon", springMesh.surfaceVertices, springMesh.surfaceElems);
-        uMaterial& material = this->meshes.getMaterial("dragon.mat");
+        const MeshData& meshData = this->meshes.add("vmodel", springMesh.surfaceVertices, springMesh.surfaceElems);
+        uMaterial& material = this->meshes.getMaterial("vmodel.mat");
         material.ambientColor = {1.0f, 1.0f, 1.0f};
         material.ambientFactor = 0.15f;
 
@@ -527,10 +494,10 @@ void App::onKey(int key, bool pressed) {
                 break;
             case GLFW_KEY_F6: {
                 const char* progShaderNames[] = {
-                    "basic", "sky", "shadow"
+                    "basic", "shadow"
                 };
-                const std::array<cyGLSLProgram*, 3> progs = {
-                    &this->meshProg, &this->skyProg, &this->depthProg
+                const std::array<cyGLSLProgram*, 2> progs = {
+                    &this->meshProg, &this->depthProg
                 };
                 for (size_t i = 0; i < progs.size(); ++i) {
                     const std::string vertPath = fmt::format("resources/shaders/{}.vert", progShaderNames[i]);
@@ -747,7 +714,7 @@ void App::simulate(float dt) {
         SpringMesh& mesh = this->reg.get<SpringMesh>(e);
         this->box.collide(mesh);
         mesh.simulate(dt * this->simTimeStep);
-        this->meshes.updateVertices("dragon", mesh.surfaceVertices);
+        this->meshes.updateVertices("vmodel", mesh.surfaceVertices);
     }
 
     // Update model transforms from various sources
@@ -800,26 +767,6 @@ void App::simulate(float dt) {
     }
 }
 
-void App::drawSky(const Camera& cam, const Vector2f& viewport) {
-    const Matrix4f view = cam.getView();
-    const Matrix4f proj = cam.getProj(viewport);
-    this->skyProg.Bind();
-    glBindVertexArray(this->vaoSky); $gl_err();
-
-    this->skyProg.SetUniformMatrix4("uTInvViewProj", Transform3f(proj * view).inverse().matrix().data());
-    this->skyTextures.bind(this->skyProg, "sky", "uSkyTex");
-
-    glBindBuffer(GL_ARRAY_BUFFER, this->vboSky); $gl_err();
-
-    glDepthMask(GL_FALSE);
-    glDrawArrays(GL_TRIANGLES, 0, 6); $gl_err();
-    glDepthMask(GL_TRUE);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
-}
-
 void App::drawMeshesDepth(const Camera& cam, const Vector2f& viewport) {
     const Matrix4f view = cam.getView();
     const Matrix4f proj = cam.getProj(viewport);
@@ -851,7 +798,6 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Draw models in scene
-    this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.textures.bind(this->meshProg, "shadow_map", "uCubeShadowMaps");
     this->meshes.textures.bind(this->meshProg, "spot_shadow_map", "u2DShadowMaps");
     this->meshes.textures.bind(this->meshProg, "refl_maps", "uReflectionMaps");
@@ -1104,7 +1050,7 @@ void App::composeUI() {
     ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
 
     SpringMesh& springMesh = this->reg.get<SpringMesh>(this->eSpringMesh);
-    ImGui::SliderFloat("Stiffness", &springMesh.stiffness, 0.0f, 200.0f);
+    ImGui::SliderFloat("Stiffness Multiplier", &springMesh.stiffnessFactor, 0.0f, 4.0f);
     ImGui::SliderFloat("Damping", &springMesh.damping, 0.0f, 0.2f);
 
     if (ImGui::Button("Reset Forces")) {

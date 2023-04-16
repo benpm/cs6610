@@ -95,7 +95,6 @@ class App
         CameraControl lightControl;
         cyGLSLProgram meshProg;
         cyGLSLProgram wiresProg;
-        cyGLSLProgram skyProg;
         cyGLSLProgram depthProg;
         std::shared_ptr<Light> sunlight;
 
@@ -121,9 +120,6 @@ class App
         GLuint vaoMeshes;
         MeshCollection meshes;
 
-        GLuint vaoSky;
-        GLuint vboSky;
-
         GLuint vaoWires;
         GLuint vboWires;
         GLuint vboPath;
@@ -133,7 +129,6 @@ class App
         // ID of arrow colors SSBO
         GLuint ssboArrowColors;
 
-        TextureCollection skyTextures;
 
         GLuint fboReflections;
         GLuint rboReflections;
@@ -196,9 +191,6 @@ class App
          * @brief Draw the scene
          */
         void draw(float dt);
-
-        // Draws the sky shader program to the current framebuffer
-        void drawSky(const Camera& cam, const Vector2f& viewport);
 
         // Draws the meshes shader program to the current framebuffer
         void drawMeshes(const Camera& cam, const Vector2f& viewport);

@@ -126,15 +126,20 @@ public:
     VectorXf gravityF;
     VectorXf impulseF;
     std::vector<Spring> springs;
-    float stiffness = 150.0f;
-    float damping = 0.1f;
+    float stiffnessFactor = 0.5f;
+    float damping = 0.01f;
     // Stiffness matrix
     SparseMatrix<float> stiffnessMat;
     // Mass matrix
     SparseMatrix<float> massMat;
+    // Inverse of mass matrix
+    SparseMatrix<float> invMassMat;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
+    inline float stiffness() const {
+        return this->stiffnessFactor * this->springs.size() * 0.5f;
+    }
     void simulate(float dt);
     void resetForces();
     void evalForces(const VectorXf& V, const VectorXf& X, VectorXf& F) const;
@@ -144,5 +149,4 @@ public:
 
 namespace Physics {
     void simulate(float dt, RigidBody& rb, PhysicsBody& b);
-    void collide(float dt, entt::registry& reg);
 };
