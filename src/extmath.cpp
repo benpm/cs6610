@@ -329,6 +329,24 @@ std::array<Vector3f, 8> AABB::vertices() const {
     return arr;
 }
 
+std::array<std::pair<Vector3f, Vector3f>, 12> AABB::edges() const {
+    const std::array<Vector3f, 8> v = this->vertices();
+    return {
+        std::pair<Vector3f, Vector3f>(v[0], v[1]),
+        std::pair<Vector3f, Vector3f>(v[1], v[2]),
+        std::pair<Vector3f, Vector3f>(v[2], v[3]),
+        std::pair<Vector3f, Vector3f>(v[3], v[0]),
+        std::pair<Vector3f, Vector3f>(v[4], v[5]),
+        std::pair<Vector3f, Vector3f>(v[5], v[6]),
+        std::pair<Vector3f, Vector3f>(v[6], v[7]),
+        std::pair<Vector3f, Vector3f>(v[7], v[4]),
+        std::pair<Vector3f, Vector3f>(v[0], v[4]),
+        std::pair<Vector3f, Vector3f>(v[1], v[5]),
+        std::pair<Vector3f, Vector3f>(v[2], v[6]),
+        std::pair<Vector3f, Vector3f>(v[3], v[7]),
+    };
+}
+
 std::optional<Vector3f> AABB::intersect(const Ray &ray) const {
     const float eps = 1e-6f;
 

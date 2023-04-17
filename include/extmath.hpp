@@ -192,6 +192,8 @@ public:
     float volume() const;
     // Returns vertices of AABB
     std::array<Vector3f, 8> vertices() const;
+    // Returns pairs of vertices that make up edges
+    std::array<std::pair<Vector3f, Vector3f>, 12> edges() const;
     // Returns the intersection point between this AABB and a ray
     std::optional<Vector3f> intersect(const Ray& ray) const;
     // Returns if point is inside AABB

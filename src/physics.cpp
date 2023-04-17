@@ -99,10 +99,9 @@ bool ColliderInteriorBox::collide(SpringMesh &mesh) const {
 
             // Project vertex onto inverted face normal
             const float penetration = -(p - facePositions[i]).dot(faceNormal);
-            const Vector3f v = mesh.velocities.segment<3>(j*3);
             if (penetration > 0.0f) {
                 p += penetration * faceNormal;
-                mesh.impulseF.segment<3>(j*3) = -v.dot(faceNormal) * faceNormal * 0.5f;
+                mesh.impulseF.segment<3>(j*3) += 0.25f * penetration * faceNormal;
             }
         }
     }
@@ -338,10 +337,13 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
             for (int l = 0; l < 3; l++) {
                 this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = m(k, l);
                 this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = m(k, l);
+                // this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = m(k, l);
+                // this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = m(k, l);
             }
         }
     }
     this->stiffnessMat.makeCompressed();
+    spdlog::debug("stiffness matrix has {} non-zero entries", this->stiffnessMat.nonZeros());
 
     // Generate mass matrix M
     this->massMat = SparseMatrix<float>(vertices.size() * 3, vertices.size() * 3);
@@ -354,6 +356,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     }
     this->massMat.makeCompressed();
     this->invMassMat = this->massMat.cwiseInverse();
+    this->invMassMat.makeCompressed();
 
     // Push vertices to particles, initialize global vectors
     this->particles.resize(vertices.size() * 3);
@@ -429,25 +432,45 @@ std::optional<Vector3f> SpringMesh::intersect(const Ray &ray) const {
 
 void SpringMesh::simulate(float dt) {
     // Compute stiffness matrix
+    this->stiffnessMat *= 0.0f;
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
         const Vector3f u = this->particles.segment<3>(j * 3) - this->particles.segment<3>(i * 3);
-        const Matrix3f m = dFdX(u, spring.restLength, this->stiffness(), this->damping, dt);
+        const Matrix3f Kij = dFdX(u, spring.restLength, this->stiffness(), this->damping, dt);
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = m(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -m(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = Kij(k, l);
+                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -Kij(k, l);
+                // this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) += Kii(k, l);
+                // this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) += Kjj(k, l);
             }
         }
     }
 
+    const VectorXf externalF = this->impulseF + this->gravityF;
+    switch (this->solver) {
+        case Solver::newton:
+            this->solveNewton(dt, externalF);
+            break;
+        case Solver::conjgrad:
+            this->solveConjGrad(dt, externalF);
+            break;
+    }
+
+    this->particles += this->velocities * dt;
+    for (const auto [pIdx, sIdx] : this->bdryIdxMap) {
+        this->surfaceVertices.at(sIdx) = this->particles.segment<3>(pIdx * 3);
+    }
+    this->impulseF.setZero();
+}
+
+void SpringMesh::solveNewton(float dt, const VectorXf& externalF) {
     // Evaluate spring and damping forces at current state
     VectorXf internalF = VectorXf::Zero(this->particles.size());
     this->evalForces(this->velocities, this->particles, internalF);
 
     // Compute velocities by solving linear system of equations
-    const VectorXf externalF = this->impulseF + this->gravityF;
     const VectorXf F = externalF + internalF;
     const SparseMatrix<float> A = this->massMat - (dt*dt) * this->stiffnessMat;
     BiCGSTAB<SparseMatrix<float>> solver(A);
@@ -467,7 +490,7 @@ void SpringMesh::simulate(float dt) {
         auto tStart = std::chrono::high_resolution_clock::now();
         const VectorXf dv = solver.solve(
             this->massMat * this->velocities + dt * F + nvel * (dt*dt * this->stiffnessMat - this->massMat));
-        diff = dv.norm();
+        diff = dv.cwiseAbs().maxCoeff();
         nvel += dv;
         auto tEnd = std::chrono::high_resolution_clock::now();
 
@@ -494,19 +517,37 @@ void SpringMesh::simulate(float dt) {
 
         iter += 1;
     } while (err > 0.1 && iter < 10 && diff > 1e-6);
+
     this->velocities = nvel;
-    if (iter > 0) {        
-        spdlog::debug("solved in {} newton steps", iter);
+}
+
+void SpringMesh::solveConjGrad(float dt, const VectorXf& externalF) {
+    // Evaluate spring and damping forces at current state
+    VectorXf internalF(this->particles.size());
+    this->evalForces(this->velocities, this->particles, internalF);
+
+    const VectorXf F = externalF + internalF;
+    ConjugateGradient<SparseMatrix<float>> solver;
+    solver.compute(this->massMat - (dt*dt) * this->stiffnessMat);
+    if (solver.info() != Success) {
+        spdlog::warn("decomposition failed");
     }
 
-    // Update positions
-    this->particles += this->velocities * dt;
-    for (const auto [pIdx, sIdx] : this->bdryIdxMap) {
-        this->surfaceVertices.at(sIdx) = this->particles.segment<3>(pIdx * 3);
-    }
+    // Iterative solve with guess
+    auto tStart = std::chrono::high_resolution_clock::now();
+    this->velocities = solver.solveWithGuess(
+        this->massMat * this->velocities + dt * F, this->velocities);
+    auto tEnd = std::chrono::high_resolution_clock::now();
 
-    // Reset impulse force
-    this->impulseF.setZero();
+    if (solver.info() != Success) {
+        spdlog::warn("solving failed");
+    } else if (this->velocities.hasNaN()) {
+        spdlog::warn("solving produced NaN");
+    } else {
+        spdlog::debug("solved in {} iters, {} ms, error: {:.4e}",
+            solver.iterations(), std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart).count(),
+            solver.error());
+    }
 }
 
 void SpringMesh::resetForces() {

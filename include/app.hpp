@@ -122,7 +122,7 @@ class App
 
         GLuint vaoWires;
         GLuint vboWires;
-        GLuint vboPath;
+        GLuint vboLines;
         GLuint vboBox;
         // ID of arrow model transform matrices SSBO
         GLuint ssboArrows;
@@ -143,6 +143,10 @@ class App
         std::vector<GLsizei> vCounts;
         // Element offsets
         std::vector<size_t> vOffsets;
+
+        // Wire debug shader lines
+        std::vector<Vector3f> wireLines;
+        size_t wireBufSize = 16;
 
         struct UI {
             ImFont* font = nullptr;
@@ -213,6 +217,8 @@ class App
         void hidden(entt::entity e, bool hidden);
 
         ObjRef makeObj(const MeshRef& mesh);
+
+        void addDebugLine(const Vector3f& start, const Vector3f& end);
 
         entt::entity makeParticle();
         entt::entity makeModel(const std::string& name);

@@ -116,6 +116,8 @@ struct Spring
 class SpringMesh
 {
 private:
+    void solveNewton(float dt, const VectorXf& externalF);
+    void solveConjGrad(float dt, const VectorXf& externalF);
 
     std::unordered_map<size_t, size_t> bdryIdxMap;
 public:
@@ -135,10 +137,15 @@ public:
     // Inverse of mass matrix
     SparseMatrix<float> invMassMat;
 
+    enum class Solver {
+        newton,
+        conjgrad
+    } solver = Solver::conjgrad;
+
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
     inline float stiffness() const {
-        return this->stiffnessFactor * this->springs.size() * 0.5f;
+        return this->stiffnessFactor * 100.0f;
     }
     void simulate(float dt);
     void resetForces();

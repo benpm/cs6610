@@ -159,7 +159,9 @@ App::App(cxxopts::ParseResult& args) {
     glBufferData(GL_ARRAY_BUFFER, arrowVerts.size() * sizeof(Vector3f),
         arrowVerts.data(), GL_STATIC_DRAW); $gl_err();
 
-    glCreateBuffers(1, &this->vboPath); $gl_err();
+    glCreateBuffers(1, &this->vboLines); $gl_err();
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboLines); $gl_err();
+    glBufferData(GL_ARRAY_BUFFER, this->wireBufSize * sizeof(Vector3f), nullptr, GL_DYNAMIC_DRAW); $gl_err();
     glCreateBuffers(1, &this->vboBox); $gl_err();
     glCreateBuffers(1, &this->ssboArrows); $gl_err();
     glCreateBuffers(1, &this->ssboArrowColors); $gl_err();
@@ -300,6 +302,11 @@ App::App(cxxopts::ParseResult& args) {
         DebugColor& debugColor = this->reg.emplace<DebugColor>(e);
         debugColor.color = {0.0f, 0.0f, 0.0f, 1.0f};
         debugColor.color[i] = 1.0f;
+    }
+
+    // Box to show contained area
+    for (const auto& [a, b] : this->box.edges()) {
+        this->addDebugLine(a, b);
     }
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
@@ -835,6 +842,12 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
         glDrawArraysInstanced(GL_LINES, 0, 6, arrowsStorage.size()); $gl_err();
     }
 
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboLines); $gl_err();
+    glEnableVertexAttribArray(attrib_vPos); $gl_err();
+    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+
+    glDrawArrays(GL_LINES, 0, this->wireLines.size()); $gl_err();
+
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
@@ -1082,6 +1095,22 @@ ObjRef App::makeObj(const MeshRef& mesh) {
     this->vCounts.push_back(mesh.elemCount);
     this->vOffsets.push_back(mesh.elemByteOffset);
     return objRef;
+}
+
+void App::addDebugLine(const Vector3f &start, const Vector3f &end) {
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboLines); $gl_err();
+    const size_t n = this->wireLines.size();
+    this->wireLines.push_back(start);
+    this->wireLines.push_back(end);
+    if (this->wireLines.size() > this->wireBufSize) {
+        this->wireBufSize *= 2;
+        glBufferData(GL_ARRAY_BUFFER,
+            this->wireBufSize * sizeof(Vector3f), this->wireLines.data(), GL_DYNAMIC_DRAW); $gl_err();
+    } else {
+        glBufferSubData(GL_ARRAY_BUFFER,
+            n * sizeof(Vector3f), 2 * sizeof(Vector3f), &this->wireLines[n]); $gl_err();
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, GL_NONE); $gl_err();
 }
 
 entt::entity App::makeParticle() {
