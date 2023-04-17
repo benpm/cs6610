@@ -128,7 +128,7 @@ public:
     VectorXf gravityF;
     VectorXf impulseF;
     std::vector<Spring> springs;
-    float stiffnessFactor = 0.5f;
+    float stiffnessFactor = 0.35f;
     float damping = 0.01f;
     // Stiffness matrix
     SparseMatrix<float> stiffnessMat;
@@ -145,7 +145,7 @@ public:
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
     inline float stiffness() const {
-        return this->stiffnessFactor * 100.0f;
+        return this->stiffnessFactor * 1000.0f;
     }
     void simulate(float dt);
     void resetForces();

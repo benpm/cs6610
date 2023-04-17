@@ -332,13 +332,12 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
-        const Matrix3f m = Matrix3f::Identity();
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = m(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = m(k, l);
-                // this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = m(k, l);
-                // this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = m(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = 1.0f;
+                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = 1.0f;
+                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = 1.0f;
+                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = 1.0f;
             }
         }
     }
@@ -432,18 +431,21 @@ std::optional<Vector3f> SpringMesh::intersect(const Ray &ray) const {
 
 void SpringMesh::simulate(float dt) {
     // Compute stiffness matrix
-    this->stiffnessMat *= 0.0f;
+    this->stiffnessMat.coeffs().setZero();
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
         const Vector3f u = this->particles.segment<3>(j * 3) - this->particles.segment<3>(i * 3);
-        const Matrix3f Kij = dFdX(u, spring.restLength, this->stiffness(), this->damping, dt);
+        const Matrix3f Kii = dFdX(u, spring.restLength, this->stiffness(), this->damping, dt);
+        const Matrix3f& Kjj = Kii;
+        const Matrix3f Kij = -Kii;
+        const Matrix3f& Kji = Kij;
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = Kij(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = -Kij(k, l);
-                // this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) += Kii(k, l);
-                // this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) += Kjj(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) += Kij(k, l);
+                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) += Kji(k, l);
+                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) += Kii(k, l);
+                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) += Kjj(k, l);
             }
         }
     }
