@@ -58,10 +58,10 @@ namespace gfx {
         constexpr GLuint wireModelTransforms = 3u;
         constexpr GLuint arrowColors = 4u;
         
-        constexpr GLuint voxelData = 0u;
-        constexpr GLuint voxelVertIdx = 1u;
-        constexpr GLuint voxelVerts = 2u;
-        constexpr GLuint voxelElems = 3u;
         constexpr GLuint atomicCounts = 4u;
+    };
+    namespace imgUnits {
+        constexpr GLuint voxData = 0u;
+        constexpr GLuint idxGrid = 1u;
     };
 };

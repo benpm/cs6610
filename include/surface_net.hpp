@@ -3,7 +3,7 @@
 #include <bitset>
 #include <extmath.hpp>
 
-constexpr size_t chunkSize = 16u;
+constexpr size_t chunkSize = 64u;
 constexpr size_t chunkCells = chunkSize * chunkSize * chunkSize;
 
 inline size_t flatIdx(uint16_t x, uint16_t y) {

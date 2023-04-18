@@ -110,12 +110,65 @@ void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t byte
     glBindBuffer(buf.target, 0); $gl_err();
 }
 
-void ComputeShader::bindBuffers()
+void ComputeShader::bind()
 {
     glUseProgram(this->programID); $gl_err();
     for (const auto& [bindingIdx, buf] : this->bufBindIdxMap) {
         glBindBufferBase(buf.target, bindingIdx, buf.glID); $gl_err();
     }
+    for (const auto& [imgUnit, img] : this->imgBindIdxMap) {
+        glBindImageTexture(imgUnit, img.texID, 0, GL_TRUE, 0, img.access, img.format); $gl_err();
+    }
+}
+
+
+const std::unordered_map<GLenum, GLenum> formatToStorage = {
+    {GL_R8UI, GL_BYTE},
+    {GL_R8I, GL_BYTE},
+};
+const std::unordered_map<GLenum, GLenum> imgToTexFormat = {
+    {GL_R8UI, GL_RED},
+    {GL_R8I, GL_RED},
+};
+
+GLuint ComputeShader::createImage(GLuint imgUnit, GLenum format, GLenum access, const Vector3i &size)
+{
+    glUseProgram(this->programID); $gl_err();
+    GLuint texID = GL_INVALID_INDEX;
+    glCreateTextures(GL_TEXTURE_3D, 1, &texID); $gl_err();
+    glTextureStorage3D(texID, 1, format, size.x(), size.y(), size.z()); $gl_err();
+    glBindImageTexture(imgUnit, texID, 0, GL_TRUE, 0, access, format); $gl_err();
+    this->imgBindIdxMap[imgUnit] = {
+        .texID = texID, .format = format, .access = access};
+    return texID;
+}
+
+void ComputeShader::setImageData(GLuint imgUnit, const void *data, const Vector3i &size, const Vector3i &offset)
+{
+    spdlog::assrt(this->imgBindIdxMap.count(imgUnit),
+        "ComputeShader::setImageData: image unit {} not mapped", imgUnit);
+    const ImageObject& img = this->imgBindIdxMap[imgUnit];
+
+    glBindTexture(GL_TEXTURE_3D, img.texID); $gl_err();
+    glTexSubImage3D(GL_TEXTURE_3D, 0,
+        offset.x(), offset.y(), offset.z(),
+        size.x(), size.y(), size.z(),
+        GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, data); $gl_err();
+    glBindTexture(GL_TEXTURE_3D, 0); $gl_err();
+}
+
+void ComputeShader::zeroImageData(GLuint imgUnit, const Vector3i &size, const Vector3i &offset)
+{
+    spdlog::assrt(this->imgBindIdxMap.count(imgUnit),
+        "ComputeShader::zeroImageData: image unit {} not mapped", imgUnit);
+    const ImageObject& img = this->imgBindIdxMap[imgUnit];
+
+    glBindTexture(GL_TEXTURE_3D, img.texID); $gl_err();
+    glClearTexSubImage(img.texID, 0,
+        offset.x(), offset.y(), offset.z(),
+        size.x(), size.y(), size.z(),
+        imgToTexFormat.at(img.format), formatToStorage.at(img.format), nullptr); $gl_err();
+    glBindTexture(GL_TEXTURE_3D, 0); $gl_err();
 }
 
 void ComputeShader::run(const Vector3i& groups)
@@ -136,16 +189,18 @@ GLuint ComputeShader::bufId(GLuint bindingIdx)
 GLuint ComputeShader::bufBindingIdx(const char *name, GLenum target)
 {
     glUseProgram(this->programID); $gl_err();
-    GLenum resourceTarget;
+    GLenum resourceTarget, programInterface;
     switch (target) {
         default:
             spdlog::error("ComputeShader::bufBindingIdx: invalid target");
             return GL_INVALID_INDEX;
         case GL_SHADER_STORAGE_BUFFER:
             resourceTarget = GL_SHADER_STORAGE_BLOCK;
+            programInterface = GL_SHADER_STORAGE_BLOCK;
             break;
         case GL_UNIFORM_BUFFER:
             resourceTarget = GL_UNIFORM_BLOCK;
+            programInterface = GL_UNIFORM_BLOCK;
             break;
     }
     const GLuint resourceIdx = glGetProgramResourceIndex(this->programID, resourceTarget, name); $gl_err();
@@ -155,7 +210,7 @@ GLuint ComputeShader::bufBindingIdx(const char *name, GLenum target)
     GLsizei len = 1;
     GLint bindingIdx;
     glGetProgramResourceiv(
-        this->programID, GL_SHADER_STORAGE_BLOCK,
+        this->programID, programInterface,
         resourceIdx, 1, &prop, 1, &len, &bindingIdx); $gl_err();
     return bindingIdx;
 }

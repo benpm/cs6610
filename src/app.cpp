@@ -426,35 +426,35 @@ App::App(cxxopts::ParseResult& args) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
 
     // Create surface nets mesh
-    std::vector<GLuint> voxelData(chunkCells);
+    std::vector<GLubyte> voxelData(chunkCells);
     const float r = (float)(chunkSize - 2)/2.0f;
     for (size_t x = 0; x < chunkSize; x++) {
         for (size_t y = 0; y < chunkSize; y++) {
             for (size_t z = 0; z < chunkSize; z++) {
                 Vector3f p(Vector3f(x, y, z) - vec3((float)chunkSize/2.0f));
                 float v = 1.0 - (p.norm() / r);
-                voxelData[flatIdx(x, y, z)] = (GLuint)(v > 0.0f);
+                voxelData[flatIdx(x, y, z)] = (GLubyte)(v > 0.0f);
             }
         }
     }
     this->csSurfaceNets.compile("resources/shaders/surface_net.comp");
     // Input voxel data
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
-    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, voxelData.data(), 0u, voxelData.size() * sizeof(GLuint));
+    this->csSurfaceNets.createImage(gfx::imgUnits::voxData, GL_R8UI, GL_READ_ONLY, {chunkSize, chunkSize, chunkSize});
+    this->csSurfaceNets.setImageData(gfx::imgUnits::voxData, voxelData.data(), {chunkSize, chunkSize, chunkSize});
     // Output vertices
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, chunkCells * sizeof(Vector4f));
+    this->csSurfaceNets.createBuffer("VoxelVerts", chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVertIdx, 0u, chunkCells * sizeof(int32_t));
+    this->csSurfaceNets.createImage(gfx::imgUnits::idxGrid, GL_R8I, GL_READ_WRITE, {chunkSize, chunkSize, chunkSize});
+    this->csSurfaceNets.zeroImageData(gfx::imgUnits::idxGrid, {chunkSize, chunkSize, chunkSize});
     // Output indices
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * 2 * sizeof(GLuint));
+    this->csSurfaceNets.createBuffer("VoxelElems", chunkCells * 3 * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
 
     this->csSurfaceNets.setUniform("chunkSize", chunkSize);
     
-    this->csSurfaceNets.bindBuffers();
+    this->csSurfaceNets.bind();
     this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
 
     const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
@@ -462,15 +462,13 @@ App::App(cxxopts::ParseResult& args) {
     const uint32_t nElems = nQuads * 6;
     spdlog::info("Surface verts: {}, elems: {}", nVerts, nElems);
 
-    std::vector<Vector4f> v = this->csSurfaceNets.readBufferDataArray<Vector4f>(
-        gfx::ssbo::voxelVerts, nVerts);
+    std::vector<Vector4f> v = this->csSurfaceNets.readBufferDataArray<Vector4f>("VoxelVerts", nVerts);
     std::vector<Vector3f> verts;
     verts.reserve(nVerts);
     for (const Vector4f& vert : v) {
         verts.push_back(vert.head<3>());
     }
-    std::vector<GLuint> elems = this->csSurfaceNets.readBufferDataArray<GLuint>(
-        gfx::ssbo::voxelElems, nElems);
+    std::vector<GLuint> elems = this->csSurfaceNets.readBufferDataArray<GLuint>("VoxelElems", nElems);
     this->meshes.add("voxel_mesh", verts, elems);
     this->meshes.setMaterial("voxel_mesh", whiteMatID);
     {
