@@ -12,6 +12,7 @@
     #define uint uint32_t
 #endif
 #include <cyVector.h>
+#include <spdlog/spdlog.h>
 #include <spdlog/fmt/bundled/format.h>
 
 using namespace Eigen;
@@ -39,6 +40,16 @@ template<typename T> struct EigenFormatter {
         std::stringstream ss;
         ss << wf;
         return ss.str();
+    }
+};
+
+namespace spdlog {
+    template <typename... Args>
+    void assrt(bool condition, std::string_view fmt, Args&& ...args)
+    {
+        if (!condition) {
+            spdlog::error(fmt::runtime(fmt), std::forward<Args>(args)...);
+        }
     }
 };
 

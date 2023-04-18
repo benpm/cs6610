@@ -426,7 +426,7 @@ App::App(cxxopts::ParseResult& args) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
 
     // Create surface nets mesh
-    Vector<GLuint, chunkCells> voxelData;
+    std::vector<GLuint> voxelData(chunkCells);
     const float r = (float)(chunkSize - 2)/2.0f;
     for (size_t x = 0; x < chunkSize; x++) {
         for (size_t y = 0; y < chunkSize; y++) {
@@ -438,15 +438,24 @@ App::App(cxxopts::ParseResult& args) {
         }
     }
     this->csSurfaceNets.compile("resources/shaders/surface_net.comp");
+    // Input voxel data
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
-    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, voxelData.data(), 0u, chunkCells * sizeof(GLuint));
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, 65536 * sizeof(Vector4f));
+    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, voxelData.data(), 0u, voxelData.size() * sizeof(GLuint));
+    // Output vertices
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, chunkCells * sizeof(Vector4f));
+    // Grid of vertex indices used during build mesh
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVertIdx, 0u, chunkCells * sizeof(int32_t));
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, 65536 * sizeof(GLuint));
+    // Output indices
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * 2 * sizeof(GLuint));
+    // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-    this->csSurfaceNets.run();
+    this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
+
+    this->csSurfaceNets.setUniform("chunkSize", chunkSize);
+    
+    this->csSurfaceNets.bindBuffers();
+    this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
 
     const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
@@ -466,6 +475,8 @@ App::App(cxxopts::ParseResult& args) {
     this->meshes.setMaterial("voxel_mesh", whiteMatID);
     {
         entt::entity e = this->makeModel("voxel_mesh");
+        Model& model = this->reg.get<Model>(e);
+        model.scale = Vector3f::Ones() * 0.15f;
     }
 
     this->meshProg.Bind();
@@ -552,30 +563,7 @@ void App::onKey(int key, bool pressed) {
                 glfwSetWindowShouldClose(this->window, GL_TRUE);
                 break;
             case GLFW_KEY_F6: {
-                const char* progShaderNames[] = {
-                    "basic", "sky", "shadow"
-                };
-                const std::array<cyGLSLProgram*, 3> progs = {
-                    &this->meshProg, &this->skyProg, &this->depthProg
-                };
-                for (size_t i = 0; i < progs.size(); ++i) {
-                    const std::string vertPath = fmt::format("resources/shaders/{}.vert", progShaderNames[i]);
-                    const std::string fragPath = fmt::format("resources/shaders/{}.frag", progShaderNames[i]);
-                    cyGLSLShader vertShader;
-                    cyGLSLShader fragShader;
-                    bool success = false;
-                    success |= vertShader.CompileFile(vertPath.c_str(), GL_VERTEX_SHADER);
-                    success |= fragShader.CompileFile(fragPath.c_str(), GL_FRAGMENT_SHADER);
-                    if (success) {
-                        bool built = progs[i]->Build(&vertShader, &fragShader);
-                        if (!built) {
-                            spdlog::error("Failed to build {} shader program", progShaderNames[i]);
-                        }
-                        spdlog::info("Rebuilt {} shader program", progShaderNames[i]);
-                    } else {
-                        spdlog::warn("Failed to build {} shader program", progShaderNames[i]);
-                    }
-                }
+                this->buildShaders();
             } break;
             case GLFW_KEY_1: {
                 this->cameraControl.mode = CameraControl::Mode::orbit;

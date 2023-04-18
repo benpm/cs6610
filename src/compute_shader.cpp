@@ -51,45 +51,117 @@ void ComputeShader::compile(const std::string &path) {
 
 GLuint ComputeShader::createBuffer(GLuint bindingIdx, size_t bytes, GLenum target) {
     glUseProgram(this->programID); $gl_err();
-    GLuint bufferID;
+    GLuint bufferID = GL_INVALID_INDEX;
     glCreateBuffers(1, &bufferID); $gl_err();
     glBindBuffer(target, bufferID); $gl_err();
     glBufferData(target, bytes, nullptr, GL_DYNAMIC_DRAW); $gl_err();
     glBindBufferBase(target, bindingIdx, bufferID); $gl_err();
     glBindBuffer(target, 0); $gl_err();
-    this->bufBindIdxMap[bindingIdx] = bufferID;
+    this->bufBindIdxMap[bindingIdx] = {.glID = bufferID, .target = target};
     return bufferID;
 }
 
-void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t offset, size_t bytes, GLenum target)
-{
-    assert(this->bufBindIdxMap.count(bindingIdx) && "ComputeShader::setBufferData: bindingIdx not found");
-
-    glBindBuffer(target, this->bufBindIdxMap[bindingIdx]); $gl_err();
-    glBufferSubData(target, offset, bytes, data); $gl_err();
-    glBindBuffer(target, 0); $gl_err();
-}
-
-void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes, GLenum target)
-{
-    assert(this->bufBindIdxMap.count(bindingIdx) && "ComputeShader::zeroBufferData: bindingIdx not found");
-
-    glBindBuffer(target, this->bufBindIdxMap[bindingIdx]); $gl_err();
-    const std::vector<uint8_t> zeros(bytes, 0);
-    glBufferSubData(target, offset, bytes, zeros.data()); $gl_err();
-    glBindBuffer(target, 0); $gl_err();
-}
-
-void ComputeShader::run()
+GLuint ComputeShader::createBuffer(const char *name, size_t bytes, GLenum target)
 {
     glUseProgram(this->programID); $gl_err();
-    glDispatchCompute(1, 1, 1); $gl_err();
+    return this->createBuffer(bufBindingIdx(name, target), bytes);
+}
+
+void ComputeShader::assocBuffer(GLuint bindingIdx, GLuint bufferID, GLenum target)
+{
+    glUseProgram(this->programID); $gl_err();
+    glBindBufferBase(target, bindingIdx, bufferID); $gl_err();
+    this->bufBindIdxMap[bindingIdx] = {.glID = bufferID, .target = target};
+}
+
+void ComputeShader::assocBuffer(const char *name, GLuint bufferID, GLenum target)
+{
+    glUseProgram(this->programID); $gl_err();
+    this->assocBuffer(bufBindingIdx(name, target), bufferID);
+}
+
+void ComputeShader::bindAs(GLuint bindingIdx, GLenum target)
+{
+    spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
+        "ComputeShader::setBufferData: bindingIdx not found");
+    glBindBuffer(target, this->bufBindIdxMap[bindingIdx].glID); $gl_err();
+}
+
+void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t offset, size_t bytes)
+{
+    spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
+        "ComputeShader::setBufferData: bindingIdx not found");
+    const BufferObject& buf = this->bufBindIdxMap[bindingIdx];
+
+    glBindBuffer(buf.target, buf.glID); $gl_err();
+    glBufferSubData(buf.target, offset, bytes, data); $gl_err();
+    glBindBuffer(buf.target, 0); $gl_err();
+}
+
+void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes)
+{
+    spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
+        "ComputeShader::zeroBufferData: bindingIdx not found");
+    const BufferObject& buf = this->bufBindIdxMap[bindingIdx];
+
+    glBindBuffer(buf.target, buf.glID); $gl_err();
+    const std::vector<uint8_t> zeros(bytes, 0);
+    glBufferSubData(buf.target, offset, bytes, zeros.data()); $gl_err();
+    glBindBuffer(buf.target, 0); $gl_err();
+}
+
+void ComputeShader::bindBuffers()
+{
+    glUseProgram(this->programID); $gl_err();
+    for (const auto& [bindingIdx, buf] : this->bufBindIdxMap) {
+        glBindBufferBase(buf.target, bindingIdx, buf.glID); $gl_err();
+    }
+}
+
+void ComputeShader::run(const Vector3i& groups)
+{
+    glUseProgram(this->programID); $gl_err();
+    glDispatchCompute(groups.x(), groups.y(), groups.z()); $gl_err();
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT); $gl_err();
 }
 
 GLuint ComputeShader::bufId(GLuint bindingIdx)
 {
-    assert(this->bufBindIdxMap.count(bindingIdx) && "ComputeShader::bufId: bindingIdx not found");
+    spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
+        "ComputeShader::bufId: bindingIdx not found");
 
-    return this->bufBindIdxMap[bindingIdx];
+    return this->bufBindIdxMap[bindingIdx].glID;
+}
+
+GLuint ComputeShader::bufBindingIdx(const char *name, GLenum target)
+{
+    glUseProgram(this->programID); $gl_err();
+    GLenum resourceTarget;
+    switch (target) {
+        default:
+            spdlog::error("ComputeShader::bufBindingIdx: invalid target");
+            return GL_INVALID_INDEX;
+        case GL_SHADER_STORAGE_BUFFER:
+            resourceTarget = GL_SHADER_STORAGE_BLOCK;
+            break;
+        case GL_UNIFORM_BUFFER:
+            resourceTarget = GL_UNIFORM_BLOCK;
+            break;
+    }
+    const GLuint resourceIdx = glGetProgramResourceIndex(this->programID, resourceTarget, name); $gl_err();
+    spdlog::assrt(resourceIdx != GL_INVALID_INDEX,
+        "ComputeShader::bufBindingIdx: resource '{}' not found", name);
+    const GLenum prop = GL_BUFFER_BINDING;
+    GLsizei len = 1;
+    GLint bindingIdx;
+    glGetProgramResourceiv(
+        this->programID, GL_SHADER_STORAGE_BLOCK,
+        resourceIdx, 1, &prop, 1, &len, &bindingIdx); $gl_err();
+    return bindingIdx;
+}
+
+void ComputeShader::setUniform(const char *name, GLuint value)
+{
+    glUseProgram(this->programID); $gl_err();
+    glUniform1ui(glGetUniformLocation(this->programID, name), value); $gl_err();
 }
