@@ -124,20 +124,28 @@ void ComputeShader::bind()
 
 const std::unordered_map<GLenum, GLenum> formatToStorage = {
     {GL_R8UI, GL_UNSIGNED_BYTE},
-    {GL_R8I, GL_BYTE},
+    {GL_R32I, GL_INT},
 };
 const std::unordered_map<GLenum, GLenum> imgToTexFormat = {
     {GL_R8UI, GL_RED},
-    {GL_R8I, GL_RED},
+    {GL_R32I, GL_RED},
 };
 
-GLuint ComputeShader::createImage(GLuint imgUnit, GLenum format, GLenum access, const Vector3i &size)
+GLuint ComputeShader::createImage(GLuint imgUnit, GLenum format, GLenum access, const Vector3i &size, bool initStorage)
 {
     glUseProgram(this->programID); $gl_err();
     GLuint texID = GL_INVALID_INDEX;
     glCreateTextures(GL_TEXTURE_3D, 1, &texID); $gl_err();
-    // glTextureStorage3D(texID, 1, format, size.x(), size.y(), size.z()); $gl_err();
-    // glBindImageTexture(imgUnit, texID, 0, GL_TRUE, 0, access, format); $gl_err();
+    if (initStorage) {
+        glTextureStorage3D(texID, 1, format, size.x(), size.y(), size.z()); $gl_err();
+    }
+    glBindTexture(GL_TEXTURE_3D, texID); $gl_err();
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); $gl_err();
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); $gl_err();
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); $gl_err();
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); $gl_err();
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); $gl_err();
+    glBindTexture(GL_TEXTURE_3D, GL_NONE); $gl_err();
     this->imgBindIdxMap[imgUnit] = {
         .texID = texID, .format = format, .access = access};
     return texID;

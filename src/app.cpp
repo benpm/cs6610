@@ -433,7 +433,7 @@ App::App(cxxopts::ParseResult& args) {
             for (size_t z = 0; z < chunkSize; z++) {
                 Vector3f p(Vector3f(x, y, z) - vec3((float)chunkSize/2.0f));
                 float v = 1.0 - (p.norm() / r);
-                voxelData[flatIdx(x, y, z)] = (GLubyte)(v > 0.0f);
+                voxelData[flatIdx(x, y, z)] = (GLubyte)((v > 0.0f) * 255u);
             }
         }
     }
@@ -444,8 +444,7 @@ App::App(cxxopts::ParseResult& args) {
     // Output vertices
     this->csSurfaceNets.createBuffer("VoxelVerts", chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
-    this->csSurfaceNets.createImage(gfx::imgUnits::idxGrid, GL_R8I, GL_READ_WRITE, {chunkSize, chunkSize, chunkSize});
-    // this->csSurfaceNets.zeroImageData(gfx::imgUnits::idxGrid, {chunkSize, chunkSize, chunkSize});
+    this->csSurfaceNets.createImage(gfx::imgUnits::idxGrid, GL_R32I, GL_READ_WRITE, {chunkSize, chunkSize, chunkSize}, true);
     // Output indices
     this->csSurfaceNets.createBuffer("VoxelElems", chunkCells * 3 * sizeof(GLuint));
     // Vertex and element atomic counters

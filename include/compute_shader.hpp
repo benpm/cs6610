@@ -46,7 +46,7 @@ public:
     // Binds all associated buffers and images
     void bind();
     // Creates a new image object and associates it with the given binding index
-    GLuint createImage(GLuint imgUnit, GLenum format, GLenum access, const Vector3i& size);
+    GLuint createImage(GLuint imgUnit, GLenum format, GLenum access, const Vector3i& size, bool initStorage=false);
     // Sets the data of the image associated with the given binding index
     void setImageData(GLuint imgUnit, const void* data, const Vector3i &size, const Vector3i &offset = {0,0,0});
     // Zeros the data of the image associated with the given binding index
