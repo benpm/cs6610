@@ -445,7 +445,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createBuffer("VoxelVerts", chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
     this->csSurfaceNets.createImage(gfx::imgUnits::idxGrid, GL_R8I, GL_READ_WRITE, {chunkSize, chunkSize, chunkSize});
-    this->csSurfaceNets.zeroImageData(gfx::imgUnits::idxGrid, {chunkSize, chunkSize, chunkSize});
+    // this->csSurfaceNets.zeroImageData(gfx::imgUnits::idxGrid, {chunkSize, chunkSize, chunkSize});
     // Output indices
     this->csSurfaceNets.createBuffer("VoxelElems", chunkCells * 3 * sizeof(GLuint));
     // Vertex and element atomic counters

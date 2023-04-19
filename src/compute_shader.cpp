@@ -123,7 +123,7 @@ void ComputeShader::bind()
 
 
 const std::unordered_map<GLenum, GLenum> formatToStorage = {
-    {GL_R8UI, GL_BYTE},
+    {GL_R8UI, GL_UNSIGNED_BYTE},
     {GL_R8I, GL_BYTE},
 };
 const std::unordered_map<GLenum, GLenum> imgToTexFormat = {
@@ -136,8 +136,8 @@ GLuint ComputeShader::createImage(GLuint imgUnit, GLenum format, GLenum access, 
     glUseProgram(this->programID); $gl_err();
     GLuint texID = GL_INVALID_INDEX;
     glCreateTextures(GL_TEXTURE_3D, 1, &texID); $gl_err();
-    glTextureStorage3D(texID, 1, format, size.x(), size.y(), size.z()); $gl_err();
-    glBindImageTexture(imgUnit, texID, 0, GL_TRUE, 0, access, format); $gl_err();
+    // glTextureStorage3D(texID, 1, format, size.x(), size.y(), size.z()); $gl_err();
+    // glBindImageTexture(imgUnit, texID, 0, GL_TRUE, 0, access, format); $gl_err();
     this->imgBindIdxMap[imgUnit] = {
         .texID = texID, .format = format, .access = access};
     return texID;
@@ -150,10 +150,9 @@ void ComputeShader::setImageData(GLuint imgUnit, const void *data, const Vector3
     const ImageObject& img = this->imgBindIdxMap[imgUnit];
 
     glBindTexture(GL_TEXTURE_3D, img.texID); $gl_err();
-    glTexSubImage3D(GL_TEXTURE_3D, 0,
-        offset.x(), offset.y(), offset.z(),
+    glTexImage3D(GL_TEXTURE_3D, 0, imgToTexFormat.at(img.format),
         size.x(), size.y(), size.z(),
-        GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, data); $gl_err();
+        0, imgToTexFormat.at(img.format), formatToStorage.at(img.format), data); $gl_err();
     glBindTexture(GL_TEXTURE_3D, 0); $gl_err();
 }
 
