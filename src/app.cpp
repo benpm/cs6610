@@ -447,7 +447,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVertIdx, 0u, chunkCells * sizeof(int32_t));
     // Output indices
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * 6 * sizeof(GLuint));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
