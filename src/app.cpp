@@ -447,7 +447,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVertIdx, 0u, chunkCells * sizeof(int32_t));
     // Output indices
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * 2 * sizeof(GLuint));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * 6 * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
@@ -455,7 +455,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.setUniform("chunkSize", chunkSize);
     
     this->csSurfaceNets.bindBuffers();
-    this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
+    this->csSurfaceNets.run({chunkSize-1, chunkSize-1, chunkSize-1});
 
     const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
