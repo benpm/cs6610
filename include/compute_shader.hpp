@@ -42,7 +42,9 @@ public:
     // Sets the data of the buffer associated with the given binding index
     void setBufferData(GLuint bindingIdx, const void* data, size_t offset, size_t bytes);
     // Sets all data of the buffer associated with the given binding index to zero
-    void zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes);
+    void zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes, GLubyte value = 0u);
+    // Sets the data of the buffer associated with the given buffer name to zero
+    void zeroBufferData(const char* name, size_t offset, size_t bytes, GLubyte value = 0u);
     // Binds all associated buffers and images
     void bind();
     // Creates a new image object and associates it with the given binding index

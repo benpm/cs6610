@@ -447,6 +447,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createImage(gfx::imgUnits::idxGrid, GL_R32I, GL_READ_WRITE, {chunkSize, chunkSize, chunkSize}, true);
     // Output indices
     this->csSurfaceNets.createBuffer("VoxelElems", chunkCells * 3 * sizeof(GLuint));
+    this->csSurfaceNets.zeroBufferData("VoxelElems", 0u, 2 * sizeof(GLuint), 69u);
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
@@ -454,7 +455,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.setUniform("chunkSize", chunkSize);
     
     this->csSurfaceNets.bind();
-    this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
+    this->csSurfaceNets.run({chunkSize-1, chunkSize-1, chunkSize-1});
 
     const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);

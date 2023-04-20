@@ -98,16 +98,22 @@ void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t of
     glBindBuffer(buf.target, 0); $gl_err();
 }
 
-void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes)
+void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes, GLubyte value)
 {
     spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
         "ComputeShader::zeroBufferData: bindingIdx not found");
     const BufferObject& buf = this->bufBindIdxMap[bindingIdx];
 
     glBindBuffer(buf.target, buf.glID); $gl_err();
-    const std::vector<uint8_t> zeros(bytes, 0);
+    const std::vector<uint8_t> zeros(bytes, value);
     glBufferSubData(buf.target, offset, bytes, zeros.data()); $gl_err();
     glBindBuffer(buf.target, 0); $gl_err();
+}
+
+void ComputeShader::zeroBufferData(const char *name, size_t offset, size_t bytes, GLubyte value)
+{
+    glUseProgram(this->programID); $gl_err();
+    this->zeroBufferData(bufBindingIdx(name), offset, bytes, value);
 }
 
 void ComputeShader::bind()
@@ -182,7 +188,11 @@ void ComputeShader::run(const Vector3i& groups)
 {
     glUseProgram(this->programID); $gl_err();
     glDispatchCompute(groups.x(), groups.y(), groups.z()); $gl_err();
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT); $gl_err();
+    glMemoryBarrier(
+        GL_BUFFER_UPDATE_BARRIER_BIT |
+        GL_SHADER_STORAGE_BARRIER_BIT |
+        GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+        GL_ATOMIC_COUNTER_BARRIER_BIT); $gl_err();
 }
 
 GLuint ComputeShader::bufId(GLuint bindingIdx)
