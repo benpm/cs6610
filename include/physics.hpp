@@ -108,7 +108,7 @@ struct Spring
 {
     static constexpr std::size_t page_size = 65536u;
 
-    float restLength;
+    double restLength;
     size_t startIdx;
     size_t endIdx;
 };
@@ -116,42 +116,49 @@ struct Spring
 class SpringMesh
 {
 private:
-    void solveNewton(float dt, const VectorXf& externalF);
-    void solveConjGrad(float dt, const VectorXf& externalF);
+    void solveNewton(float dt, const VectorXd& externalF);
+    void solveConjGrad(float dt, const VectorXd& externalF);
 
     std::unordered_map<size_t, size_t> bdryIdxMap;
+    VectorXd initParticles;
 public:
     std::vector<Vector3f> surfaceVertices;
     std::vector<size_t> surfaceElems;
-    VectorXf particles;
-    VectorXf velocities;
-    VectorXf gravityF;
-    VectorXf impulseF;
+    VectorXd x;
+    VectorXd v;
+    VectorXd gravityF;
+    VectorXd impulseF;
     std::vector<Spring> springs;
-    float stiffnessFactor = 0.35f;
+    float stiffnessFactor = 0.11f;
     float damping = 0.01f;
-    // Stiffness matrix
-    SparseMatrix<float> stiffnessMat;
+    // Stiffness matrix (dF/dx)
+    SparseMatrix<double> K;
     // Mass matrix
-    SparseMatrix<float> massMat;
+    SparseMatrix<double> M;
     // Inverse of mass matrix
-    SparseMatrix<float> invMassMat;
+    SparseMatrix<double> invMassMat;
 
     enum class Solver {
         newton,
         conjgrad
-    } solver = Solver::conjgrad;
+    } solver = Solver::newton;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
     inline float stiffness() const {
-        return this->stiffnessFactor * 1000.0f;
+        switch (this->solver) {
+            case Solver::newton:
+                return this->stiffnessFactor * 1.0f;
+            case Solver::conjgrad:
+                return this->stiffnessFactor * 10000.0f;
+        }
     }
     void simulate(float dt);
     void resetForces();
-    void evalForces(const VectorXf& V, const VectorXf& X, VectorXf& F) const;
-    void applyImpulse(const Vector3f& point, const Vector3f& impulse);
+    void evalForces(const VectorXd& V, const VectorXd& X, VectorXd& F) const;
+    void applyImpulse(const Vector3d& point, const Vector3d& impulse);
     std::optional<Vector3f> intersect(const Ray& ray) const;
+    void reset();
 };
 
 namespace Physics {

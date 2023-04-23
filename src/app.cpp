@@ -585,7 +585,9 @@ void App::onClick(int button, bool pressed) {
                 rb.applyImpulse(pb, this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length * 0.2f);
             } else if (this->reg.try_get<SpringMesh>(this->eSelected)) {
                 SpringMesh &sm = this->reg.get<SpringMesh>(this->eSelected);
-                sm.applyImpulse(this->selectPoint, this->selectPoint + direction(debugRay.rot) * debugRay.length * 50.0f);
+                sm.applyImpulse(
+                    this->selectPoint.cast<double>(),
+                    (this->selectPoint + direction(debugRay.rot) * debugRay.length * 50.0f).cast<double>());
             }
         }
     }
@@ -1059,15 +1061,15 @@ void App::composeUI() {
     ImGui::Text(fmt::format("phi={} theta={}", this->cameraControl.orbitPhi(), this->cameraControl.orbitTheta()).c_str());
     Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
     ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
-    ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 4.0f);
+    ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 0.25f, "%.5f");
     ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
 
     SpringMesh& springMesh = this->reg.get<SpringMesh>(this->eSpringMesh);
     ImGui::SliderFloat("Stiffness Multiplier", &springMesh.stiffnessFactor, 0.0f, 4.0f);
     ImGui::SliderFloat("Damping", &springMesh.damping, 0.0f, 0.2f);
 
-    if (ImGui::Button("Reset Forces")) {
-        springMesh.resetForces();
+    if (ImGui::Button("Reset Simulation")) {
+        springMesh.reset();
     }
 
     ImGui::Checkbox("Draw Debug", &this->doDrawDebug);

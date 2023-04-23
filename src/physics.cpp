@@ -83,25 +83,25 @@ bool ColliderInteriorBox::collide(RigidBody& rb, PhysicsBody& pb, ColliderBox& c
 }
 
 bool ColliderInteriorBox::collide(SpringMesh &mesh) const {
-    const std::array<Vector3f, 6u> facePositions = {
-        Vector3f(this->max.x(), 0.0f, 0.0f),
-        Vector3f(this->min.x(), 0.0f, 0.0f),
-        Vector3f(0.0f, this->max.y(), 0.0f),
-        Vector3f(0.0f, this->min.y(), 0.0f),
-        Vector3f(0.0f, 0.0f, this->max.z()),
-        Vector3f(0.0f, 0.0f, this->min.z())
+    const std::array<Vector3d, 6u> facePositions = {
+        Vector3d(this->max.x(), 0.0f, 0.0f),
+        Vector3d(this->min.x(), 0.0f, 0.0f),
+        Vector3d(0.0f, this->max.y(), 0.0f),
+        Vector3d(0.0f, this->min.y(), 0.0f),
+        Vector3d(0.0f, 0.0f, this->max.z()),
+        Vector3d(0.0f, 0.0f, this->min.z())
     };
     // Create transform matrix to translate and rotate collider vertices
     for (size_t i = 0; i < 6; i++) {
-        const Vector3f faceNormal = -AABB::faceNormals[i];
-        for (size_t j = 0; j < mesh.particles.size() / 3; j++) {
-            Ref<Vector3f> p = mesh.particles.segment<3>(j*3);
+        const Vector3d faceNormal = -AABB::faceNormals[i].cast<double>();
+        for (size_t j = 0; j < mesh.x.size() / 3; j++) {
+            Ref<Vector3d> p = mesh.x.segment<3>(j*3);
 
             // Project vertex onto inverted face normal
-            const float penetration = -(p - facePositions[i]).dot(faceNormal);
+            const double penetration = -(p - facePositions[i]).dot(faceNormal);
             if (penetration > 0.0f) {
                 p += penetration * faceNormal;
-                mesh.impulseF.segment<3>(j*3) += 0.25f * penetration * faceNormal;
+                mesh.impulseF.segment<3>(j*3) += 0.25 * penetration * faceNormal;
             }
         }
     }
@@ -315,7 +315,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
             if (springPairs.count({edge.second, edge.first})) continue;
             springPairs.insert(edge);
             this->springs.push_back(Spring{
-                .restLength=(vertices.at(edge.second) - vertices.at(edge.first)).norm(),
+                .restLength=(double)(vertices.at(edge.second) - vertices.at(edge.first)).norm(),
                 .startIdx=edge.first, .endIdx=edge.second});
         }
 
@@ -327,52 +327,53 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     }
 
     // Initialize stiffness matrix
-    this->stiffnessMat = SparseMatrix<float>(vertices.size() * 3, vertices.size() * 3);
-    this->stiffnessMat.reserve(Eigen::VectorXi::Constant(vertices.size() * 3, 6 * 9));
+    this->K = SparseMatrix<double>(vertices.size() * 3, vertices.size() * 3);
+    this->K.reserve(Eigen::VectorXi::Constant(vertices.size() * 3, 6 * 9));
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) = 1.0f;
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) = 1.0f;
-                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) = 1.0f;
-                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) = 1.0f;
+                this->K.coeffRef(i*3 + k, j*3 + l) = 1.0;
+                this->K.coeffRef(j*3 + k, i*3 + l) = 1.0;
+                this->K.coeffRef(i*3 + k, i*3 + l) = 1.0;
+                this->K.coeffRef(j*3 + k, j*3 + l) = 1.0;
             }
         }
     }
-    this->stiffnessMat.makeCompressed();
-    spdlog::debug("stiffness matrix has {} non-zero entries", this->stiffnessMat.nonZeros());
+    this->K.makeCompressed();
+    spdlog::debug("stiffness matrix has {} non-zero entries", this->K.nonZeros());
 
     // Generate mass matrix M
-    this->massMat = SparseMatrix<float>(vertices.size() * 3, vertices.size() * 3);
-    this->massMat.reserve(Eigen::VectorXi::Constant(vertices.size() * 3, 1));
-    const float mass = 1.0f;
+    this->M = SparseMatrix<double>(vertices.size() * 3, vertices.size() * 3);
+    this->M.reserve(Eigen::VectorXi::Constant(vertices.size() * 3, 1));
+    const double mass = 1.0;
     for (size_t i = 0; i < vertices.size(); i++) {
-        this->massMat.coeffRef(i*3 + 0, i*3 + 0) = mass;
-        this->massMat.coeffRef(i*3 + 1, i*3 + 1) = mass;
-        this->massMat.coeffRef(i*3 + 2, i*3 + 2) = mass;
+        this->M.coeffRef(i*3 + 0, i*3 + 0) = mass;
+        this->M.coeffRef(i*3 + 1, i*3 + 1) = mass;
+        this->M.coeffRef(i*3 + 2, i*3 + 2) = mass;
     }
-    this->massMat.makeCompressed();
-    this->invMassMat = this->massMat.cwiseInverse();
+    this->M.makeCompressed();
+    this->invMassMat = this->M.cwiseInverse();
     this->invMassMat.makeCompressed();
 
     // Push vertices to particles, initialize global vectors
-    this->particles.resize(vertices.size() * 3);
-    this->gravityF = VectorXf::Zero(this->particles.size());
-    this->impulseF = VectorXf::Zero(this->particles.size());
-    this->velocities = VectorXf::Zero(this->particles.size());
+    this->x.resize(vertices.size() * 3);
+    this->gravityF = VectorXd::Zero(this->x.size());
+    this->impulseF = VectorXd::Zero(this->x.size());
+    this->v = VectorXd::Zero(this->x.size());
     for (size_t i = 0; i < vertices.size(); i++) {
-        this->particles.segment<3>(i * 3) = vertices.at(i);
-        this->gravityF[i * 3 + 1] = -0.25f;
+        this->x.segment<3>(i * 3) = vertices.at(i).cast<double>();
+        this->gravityF[i * 3 + 1] = -0.25;
     }
+    this->initParticles = this->x;
 
     spdlog::debug("built tet mesh: {} tets, {} springs, {} triangles, {} boundary vertices",
         numTet, this->springs.size(), this->surfaceElems.size() / 3u, this->surfaceVertices.size());
 }
 
-Matrix3f dFdX(const Vector3f& X, const float l0, const float kS, const float kD, const float dt) {
-    const Matrix3f I = Matrix3f::Identity();
+Matrix3d dFdX(const Vector3d& X, const double l0, const double kS, const double kD, const double dt) {
+    const Matrix3d I = Matrix3d::Identity();
     return
         // dF/dX for spring forces
         kS * (-I + (l0 / X.norm()) * (I - (X * X.transpose()) / X.squaredNorm())) -
@@ -380,27 +381,27 @@ Matrix3f dFdX(const Vector3f& X, const float l0, const float kS, const float kD,
         kD * ((X * X.transpose()) / X.squaredNorm()) * (I / dt);
 }
 
-void SpringMesh::evalForces(const VectorXf& V, const VectorXf& X, VectorXf& F) const {
+void SpringMesh::evalForces(const VectorXd& V, const VectorXd& X, VectorXd& F) const {
     F.setZero();
     for (const Spring& s : this->springs) {
         const size_t i = s.startIdx;
         const size_t j = s.endIdx;
-        const Vector3f u = X.segment<3>(j * 3) - X.segment<3>(i * 3);
-        const Vector3f vi = V.segment<3>(i*3);
-        const Vector3f vj = V.segment<3>(j*3);
-        const Vector3f springForce =
+        const Vector3d u = X.segment<3>(j * 3) - X.segment<3>(i * 3);
+        const Vector3d vi = V.segment<3>(i*3);
+        const Vector3d vj = V.segment<3>(j*3);
+        const Vector3d springForce =
             (this->stiffness() * (u.norm() - s.restLength)) * u.normalized();
-        const Vector3f dampingForce = 
+        const Vector3d dampingForce = 
             this->damping * (vj - vi).dot(u.normalized()) * u.normalized();
         F.segment<3>(i*3) += springForce + dampingForce;
         F.segment<3>(j*3) -= springForce + dampingForce;
     }
 }
 
-void SpringMesh::applyImpulse(const Vector3f &point, const Vector3f &impulse) {
-    for (size_t i = 0; i < this->particles.size() / 3; i++) {
-        const Vector3f p = this->particles.segment<3>(i * 3);
-        this->velocities.segment<3>(i * 3) += impulse * (p - point).norm();
+void SpringMesh::applyImpulse(const Vector3d &point, const Vector3d &impulse) {
+    for (size_t i = 0; i < this->x.size() / 3; i++) {
+        const Vector3d p = this->x.segment<3>(i * 3);
+        this->v.segment<3>(i * 3) += impulse * (p - point).norm();
     }
 }
 
@@ -431,26 +432,27 @@ std::optional<Vector3f> SpringMesh::intersect(const Ray &ray) const {
 
 void SpringMesh::simulate(float dt) {
     // Compute stiffness matrix
-    this->stiffnessMat.coeffs().setZero();
+    this->K.coeffs().setZero();
     for (const Spring& spring : this->springs) {
         const size_t i = spring.startIdx;
         const size_t j = spring.endIdx;
-        const Vector3f u = this->particles.segment<3>(j * 3) - this->particles.segment<3>(i * 3);
-        const Matrix3f Kii = dFdX(u, spring.restLength, this->stiffness(), this->damping, dt);
-        const Matrix3f& Kjj = Kii;
-        const Matrix3f Kij = -Kii;
-        const Matrix3f& Kji = Kij;
+        const Vector3d u = this->x.segment<3>(j * 3) - this->x.segment<3>(i * 3);
+        const Matrix3d Kii = dFdX(u, spring.restLength, this->stiffness(), this->damping, dt);
+        const Matrix3d& Kjj = Kii;
+        const Matrix3d Kij = -Kii;
+        const Matrix3d& Kji = Kij;
         for (int k = 0; k < 3; k++) {
             for (int l = 0; l < 3; l++) {
-                this->stiffnessMat.coeffRef(i*3 + k, j*3 + l) += Kij(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, i*3 + l) += Kji(k, l);
-                this->stiffnessMat.coeffRef(i*3 + k, i*3 + l) += Kii(k, l);
-                this->stiffnessMat.coeffRef(j*3 + k, j*3 + l) += Kjj(k, l);
+                this->K.coeffRef(i*3 + k, j*3 + l) += Kij(k, l);
+                this->K.coeffRef(j*3 + k, i*3 + l) += Kji(k, l);
+                this->K.coeffRef(i*3 + k, i*3 + l) += Kii(k, l);
+                this->K.coeffRef(j*3 + k, j*3 + l) += Kjj(k, l);
             }
         }
     }
 
-    const VectorXf externalF = this->impulseF + this->gravityF;
+    // Implicit Euler: solve system for new velocities
+    const VectorXd externalF = this->impulseF + this->gravityF;
     switch (this->solver) {
         case Solver::newton:
             this->solveNewton(dt, externalF);
@@ -460,90 +462,86 @@ void SpringMesh::simulate(float dt) {
             break;
     }
 
-    this->particles += this->velocities * dt;
+    this->x += this->v * dt;
     for (const auto [pIdx, sIdx] : this->bdryIdxMap) {
-        this->surfaceVertices.at(sIdx) = this->particles.segment<3>(pIdx * 3);
+        this->surfaceVertices.at(sIdx) = this->x.segment<3>(pIdx * 3).cast<float>();
     }
     this->impulseF.setZero();
 }
 
-void SpringMesh::solveNewton(float dt, const VectorXf& externalF) {
-    // Evaluate spring and damping forces at current state
-    VectorXf internalF = VectorXf::Zero(this->particles.size());
-    this->evalForces(this->velocities, this->particles, internalF);
-
-    // Compute velocities by solving linear system of equations
-    const VectorXf F = externalF + internalF;
-    const SparseMatrix<float> A = this->massMat - (dt*dt) * this->stiffnessMat;
-    BiCGSTAB<SparseMatrix<float>> solver(A);
-    if (solver.info() != Success) {
-        spdlog::warn("decomposition failed");
-    }
+void SpringMesh::solveNewton(float dt, const VectorXd& externalF) {
+    // Guess for next velocity, init with current velocity
+    VectorXd nvel = this->v;
+    // Internal forces evaluated at x + nvel*dt
+    VectorXd inFnx = VectorXd::Zero(this->x.size());
+    this->evalForces(nvel, this->x + nvel * dt, inFnx);
+    // Force at current time
+    const VectorXd F = externalF + inFnx;
 
     // Newton-raphson method
+    SimplicialLDLT<SparseMatrix<double>> solver(this->M - (dt*dt) * this->K);
+    if (solver.info() != Success) {
+        spdlog::error("coeff matrix decomposition failed");
+    }
     size_t iter = 0;
-    float err = 0.0f;
-    float diff = 0.0f;
-    // Guess for next velocity, init with explicit euler
-    VectorXf nvel = this->velocities + this->invMassMat * (dt * F);
-    VectorXf nInternalF = internalF;
+    double err = 0.0f;
     do {
         // Attempt iterative solve
         auto tStart = std::chrono::high_resolution_clock::now();
-        const VectorXf dv = solver.solve(
-            this->massMat * this->velocities + dt * F + nvel * (dt*dt * this->stiffnessMat - this->massMat));
-        diff = dv.cwiseAbs().maxCoeff();
-        nvel += dv;
+        const VectorXd dv = solver.solve(
+            this->M * this->v + dt * F - this->M * nvel);
         auto tEnd = std::chrono::high_resolution_clock::now();
 
         if (solver.info() != Success) {
             spdlog::warn("solving failed");
-            this->resetForces();
             break;
         } else if (nvel.hasNaN()) {
             spdlog::warn("solving produced NaN");
-            this->resetForces();
             break;
         } else {
-            // Evaluate forces at new position and velocity
-            this->evalForces(nvel, this->particles + nvel, nInternalF);
+            // Update velocity guess, evaluate forces at new guess
+            nvel += dv;
+            this->evalForces(nvel, this->x + nvel * dt, inFnx);
+
             // Compute error
-            const auto errMat = (this->massMat * nvel - this->massMat * this->velocities - dt * (nInternalF + externalF)).cwiseAbs();
+            const auto errMat = (this->M * nvel - this->M * this->v - dt * (inFnx + externalF)).cwiseAbs();
             err = errMat.squaredNorm();
 
-            spdlog::debug("  [{}] {} iters, {} ms, err = {:.3e}, largest err = {:.3e}, diff = {:.3e}",
-                iter, solver.iterations(),
+            spdlog::debug("  [{}] {} ms, err = {:.3e}, largest err = {:.3e}, max diff = {:.3e}",
+                iter,
                 std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart).count(),
-                err, errMat.maxCoeff(), diff);
+                err, errMat.maxCoeff(), dv.cwiseAbs().maxCoeff());
         }
 
         iter += 1;
-    } while (err > 0.1 && iter < 10 && diff > 1e-6);
+    } while (err > 0.1 && iter < 10);
+    spdlog::debug("solved in {} newton-raphson steps with err {:.3e}", iter, err);
 
-    this->velocities = nvel;
+    // Update velocity
+    this->v = nvel;
 }
 
-void SpringMesh::solveConjGrad(float dt, const VectorXf& externalF) {
+void SpringMesh::solveConjGrad(float dt, const VectorXd& externalF) {
     // Evaluate spring and damping forces at current state
-    VectorXf internalF(this->particles.size());
-    this->evalForces(this->velocities, this->particles, internalF);
+    VectorXd internalF(this->x.size());
+    this->evalForces(this->v, this->x, internalF);
 
-    const VectorXf F = externalF + internalF;
-    ConjugateGradient<SparseMatrix<float>> solver;
-    solver.compute(this->massMat - (dt*dt) * this->stiffnessMat);
+    const VectorXd F = externalF + internalF;
+    ConjugateGradient<SparseMatrix<double>> solver;
+    solver.compute(this->M - (dt*dt) * this->K);
     if (solver.info() != Success) {
         spdlog::warn("decomposition failed");
     }
 
     // Iterative solve with guess
     auto tStart = std::chrono::high_resolution_clock::now();
-    this->velocities = solver.solveWithGuess(
-        this->massMat * this->velocities + dt * F, this->velocities);
+    this->v = solver.solveWithGuess(
+        this->M * this->v + dt * F, this->v);
     auto tEnd = std::chrono::high_resolution_clock::now();
 
     if (solver.info() != Success) {
         spdlog::warn("solving failed");
-    } else if (this->velocities.hasNaN()) {
+    } else if (this->v.hasNaN()) {
         spdlog::warn("solving produced NaN");
     } else {
         spdlog::debug("solved in {} iters, {} ms, error: {:.4e}",
@@ -552,6 +550,13 @@ void SpringMesh::solveConjGrad(float dt, const VectorXf& externalF) {
     }
 }
 
+void SpringMesh::reset() {
+    this->x = this->initParticles;
+    this->v.setZero();
+    this->impulseF.setZero();
+    this->K.coeffs().setZero();
+}
+
 void SpringMesh::resetForces() {
-    this->velocities.fill(0.0f);
+    this->v.fill(0.0f);
 }
