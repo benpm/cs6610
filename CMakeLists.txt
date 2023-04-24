@@ -57,4 +57,6 @@ endif()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-target_link_libraries(app glfw ${OPENGL_LIBRARIES} spdlog imgui EnTT spng cxxopts)
+find_package(OpenMP)
+
+target_link_libraries(app glfw ${OPENGL_LIBRARIES} spdlog imgui EnTT spng cxxopts OpenMP::OpenMP_CXX)

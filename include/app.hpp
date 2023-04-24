@@ -73,7 +73,7 @@ class App
 
         float t = 0.0f;
         float lastFrameTime = 0.0f;
-        float simTimeStep = 0.0001f;
+        float simTimeStep = 0.025f;
         int simTimeIters = 1u;
 
         // Input

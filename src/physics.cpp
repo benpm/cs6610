@@ -96,12 +96,13 @@ bool ColliderInteriorBox::collide(SpringMesh &mesh) const {
         const Vector3d faceNormal = -AABB::faceNormals[i].cast<double>();
         for (size_t j = 0; j < mesh.x.size() / 3; j++) {
             Ref<Vector3d> p = mesh.x.segment<3>(j*3);
+            Ref<Vector3d> v = mesh.v.segment<3>(j*3);
 
             // Project vertex onto inverted face normal
             const double penetration = -(p - facePositions[i]).dot(faceNormal);
             if (penetration > 0.0f) {
                 p += penetration * faceNormal;
-                mesh.impulseF.segment<3>(j*3) += 0.25 * penetration * faceNormal;
+                mesh.impulseF.segment<3>(j*3) += 0.75 * faceNormal * v.norm() * 2.0;
             }
         }
     }
@@ -270,7 +271,7 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
         int idx, t[4];
         eleFile >> idx;
         std::vector<size_t> triIdxs;
-        Vector3f inner;
+        Vector3f inner = Vector3f::Zero();
         for (int i = 0; i < 4; i++) {
             eleFile >> t[i];
             t[i] -= 1;
@@ -474,15 +475,19 @@ void SpringMesh::solveNewton(float dt, const VectorXd& externalF) {
     VectorXd nvel = this->v;
     // Internal forces evaluated at x + nvel*dt
     VectorXd inFnx = VectorXd::Zero(this->x.size());
-    this->evalForces(nvel, this->x + nvel * dt, inFnx);
+    this->evalForces(this->v, this->x, inFnx);
     // Force at current time
     const VectorXd F = externalF + inFnx;
 
     // Newton-raphson method
-    SimplicialLDLT<SparseMatrix<double>> solver(this->M - (dt*dt) * this->K);
+    auto tStart = std::chrono::high_resolution_clock::now();
+    const auto A = this->M - (dt*dt) * this->K;
+    SparseLU<SparseMatrix<double>> solver(A);
     if (solver.info() != Success) {
         spdlog::error("coeff matrix decomposition failed");
     }
+    auto tEnd = std::chrono::high_resolution_clock::now();
+    spdlog::debug("decomposition took {} ms", std::chrono::duration_cast<std::chrono::milliseconds>(tEnd - tStart).count());
     size_t iter = 0;
     double err = 0.0f;
     do {
@@ -527,7 +532,7 @@ void SpringMesh::solveConjGrad(float dt, const VectorXd& externalF) {
     this->evalForces(this->v, this->x, internalF);
 
     const VectorXd F = externalF + internalF;
-    ConjugateGradient<SparseMatrix<double>> solver;
+    LeastSquaresConjugateGradient<SparseMatrix<double>> solver;
     solver.compute(this->M - (dt*dt) * this->K);
     if (solver.info() != Success) {
         spdlog::warn("decomposition failed");

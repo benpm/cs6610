@@ -129,7 +129,7 @@ public:
     VectorXd gravityF;
     VectorXd impulseF;
     std::vector<Spring> springs;
-    float stiffnessFactor = 0.11f;
+    float stiffnessFactor = 0.50f;
     float damping = 0.01f;
     // Stiffness matrix (dF/dx)
     SparseMatrix<double> K;
@@ -148,7 +148,7 @@ public:
     inline float stiffness() const {
         switch (this->solver) {
             case Solver::newton:
-                return this->stiffnessFactor * 1.0f;
+                return this->stiffnessFactor * 10.0f;
             case Solver::conjgrad:
                 return this->stiffnessFactor * 10000.0f;
         }

@@ -90,6 +90,8 @@ int main(int argc, char const *argv[])
 
     gleqInit();
 
+    spdlog::debug("eigen using {} threads", Eigen::nbThreads());
+
     App app(opts);
 
     // Get and display version information
