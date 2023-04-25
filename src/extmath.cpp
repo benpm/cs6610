@@ -393,7 +393,7 @@ std::optional<Vector3f> Ray::intersect(const Plane& plane) const {
     return this->origin + this->direction * t;
 }
 
-std::optional<Vector3f> rayTriangleIntersect(
+std::optional<RayHit> rayTriangleIntersect(
     const Ray& ray,
     const Vector3f &v0, const Vector3f &v1, const Vector3f &v2)
 {
@@ -414,10 +414,14 @@ std::optional<Vector3f> rayTriangleIntersect(
     if (v < 0 || u + v > 1) return std::nullopt;
     
     const float t = v0v2.dot(qvec) * invDet;
-    return ray.origin + ray.direction * t;
+    return RayHit {
+        .point = ray.origin + ray.direction * t,
+        .normal = v0v1.cross(v0v2).normalized(),
+        .distance = t
+    };
 }
 
-std::optional<Vector3f> Ray::intersect(const Triangle & tri) const {
+std::optional<RayHit> Ray::intersect(const Triangle & tri) const {
     return rayTriangleIntersect(*this, tri.verts[0], tri.verts[1], tri.verts[2]);
 }
 

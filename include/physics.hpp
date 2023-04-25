@@ -148,7 +148,7 @@ public:
     inline float stiffness() const {
         switch (this->solver) {
             case Solver::newton:
-                return this->stiffnessFactor * 10.0f;
+                return this->stiffnessFactor * 10000.0f;
             case Solver::conjgrad:
                 return this->stiffnessFactor * 10000.0f;
         }
@@ -157,7 +157,7 @@ public:
     void resetForces();
     void evalForces(const VectorXd& V, const VectorXd& X, VectorXd& F) const;
     void applyImpulse(const Vector3d& point, const Vector3d& impulse);
-    std::optional<Vector3f> intersect(const Ray& ray) const;
+    std::optional<RayHit> intersect(const Ray& ray) const;
     void reset();
 };
 

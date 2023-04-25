@@ -406,29 +406,20 @@ void SpringMesh::applyImpulse(const Vector3d &point, const Vector3d &impulse) {
     }
 }
 
-std::optional<Vector3f> SpringMesh::intersect(const Ray &ray) const {
-    bool hit = false;
-    Vector3f nearest;
-    float nearestDist;
+std::optional<RayHit> SpringMesh::intersect(const Ray &ray) const {
+    std::optional<RayHit> nearest = std::nullopt;
     for (size_t i = 0; i < this->surfaceElems.size(); i += 3) {
-        const std::optional<Vector3f> intersect = rayTriangleIntersect(ray,
-            this->surfaceVertices[this->surfaceElems[i + 0] * 3],
-            this->surfaceVertices[this->surfaceElems[i + 1] * 3],
-            this->surfaceVertices[this->surfaceElems[i + 2] * 3]);
-        if (intersect) {
-            float dist = (*intersect - ray.origin).norm();
-            if (!hit || dist < nearestDist) {
-                nearestDist = dist;
-                nearest = *intersect;
-                hit = true;
+        const std::optional<RayHit> h = rayTriangleIntersect(ray,
+            this->surfaceVertices[this->surfaceElems[i + 0]],
+            this->surfaceVertices[this->surfaceElems[i + 1]],
+            this->surfaceVertices[this->surfaceElems[i + 2]]);
+        if (h) {
+            if (!nearest || h->distance < nearest->distance) {
+                nearest = h;
             }
         }
     }
-    if (hit) {
-        return {nearest};
-    } else {
-        return std::nullopt;
-    }
+    return nearest;
 }
 
 void SpringMesh::simulate(float dt) {

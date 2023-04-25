@@ -305,6 +305,7 @@ App::App(cxxopts::ParseResult& args) {
     }
 
     // Box to show contained area
+    this->wiresProg.Bind();
     for (const auto& [a, b] : this->box.edges()) {
         this->addDebugLine(a, b);
     }
@@ -667,14 +668,14 @@ void App::simulate(float dt) {
                 this->eSelected = e;
             }
         }
-        /* for (const auto& e : this->reg.view<SpringMesh>()) {
+        for (const auto& e : this->reg.view<SpringMesh>()) {
             const SpringMesh& springMesh = this->reg.get<SpringMesh>(e);
-            std::optional<Vector3f> hit = springMesh.intersect(camRay);
-            if (hit && (!nearestHit || (camRay.origin - *hit).norm() < (camRay.origin - *nearestHit).norm())) {
-                nearestHit = hit;
+            std::optional<RayHit> hit = springMesh.intersect(camRay);
+            if (hit && (!nearestHit || (camRay.origin - hit->point).norm() < (camRay.origin - *nearestHit).norm())) {
+                nearestHit = hit->point;
                 this->eSelected = e;
             }
-        } */
+        }
         if (nearestHit) {
             this->hidden(this->eSelectPoint, false);
             selectPoint = *nearestHit;
