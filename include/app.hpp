@@ -122,6 +122,7 @@ class App
         GLuint ssboLights;
 
         GLuint vaoMeshes;
+        GLuint vaoVoxels;
         MeshCollection meshes;
 
         GLuint vaoSky;
@@ -144,6 +145,10 @@ class App
         GLuint texCubeShadows;
         GLuint fboShadows;
         GLuint texSpotShadows;
+
+        std::vector<GLuint> voxelData;
+        size_t voxelVerts = 0u;
+        size_t voxelElems = 0u;
 
         std::vector<RenderPass> renderPasses;
 

@@ -36,6 +36,8 @@ public:
     void zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes);
     // Binds all associated buffers
     void bindBuffers();
+    // Bind shader program
+    void bind();
     // Runs compute shader, blocking until complete
     void run(const Vector3i& groups = {1, 1, 1});
     // Returns buffer id from binding index
@@ -44,6 +46,7 @@ public:
     GLuint bufBindingIdx(const char* name, GLenum target = GL_SHADER_STORAGE_BUFFER);
     // Sets a uniform value
     void setUniform(const char* name, GLuint value);
+    void setUniform(const char* name, GLfloat value);
     // Reads a single value from the buffer associated with the given binding index
     template<typename T> T readBufferData(GLuint bindingIdx, size_t offset = 0u, GLenum target = GL_SHADER_STORAGE_BUFFER) {
         glUseProgram(this->programID); $gl_err();

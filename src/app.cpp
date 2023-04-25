@@ -149,9 +149,11 @@ App::App(cxxopts::ParseResult& args) {
     };
     glBufferData(GL_ARRAY_BUFFER, quadVerts.size() * sizeof(Vector3f),
         quadVerts.data(), GL_STATIC_DRAW); $gl_err();
-    GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
-    glEnableVertexAttribArray(attrib_vPos); $gl_err();
-    glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    {
+        GLuint attrib_vPos = this->skyProg.AttribLocation("vPos"); $gl_err();
+        glEnableVertexAttribArray(attrib_vPos); $gl_err();
+        glVertexAttribPointer(attrib_vPos, 3, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    }
     this->skyTextures.addCubemap("sky", "resources/textures/cubemap");
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
 
@@ -190,18 +192,13 @@ App::App(cxxopts::ParseResult& args) {
     // Create and bind VAO
     this->meshProg.Bind();
     glGenVertexArrays(1, &this->vaoMeshes); $gl_err();
+    glGenVertexArrays(1, &this->vaoVoxels); $gl_err();
     glBindVertexArray(this->vaoMeshes); $gl_err();
 
     // Load and construct models
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
-    this->meshes.add("resources/models/teapot.obj");
-    this->meshes.add("resources/models/cube.obj", "", true, false);
-    this->meshes.add("resources/models/suzanne.obj");
     this->meshes.add("resources/models/sphere.obj");
-    size_t skyMatID = this->meshes.createSkyMaterial("resources/textures/cubemap");
-    // this->meshes.setMaterial("teapot", skyMatID);
-    // this->meshes.setMaterial("sphere", skyMatID);
     size_t whiteMatID = this->meshes.createMaterial("white", uMaterial{
         .diffuseColor = {0.8f, 0.8f, 0.8f},
         .shininess = 500.0f
@@ -210,22 +207,9 @@ App::App(cxxopts::ParseResult& args) {
         .emissionColor = {1.0f, 1.0f, 1.0f},
         .emissionFactor = 1.0f
     });
-    this->meshes.setMaterial("suzanne", whiteMatID);
     this->meshes.clone("sphere", "light_ball");
     this->meshes.setMaterial("light_ball", lightMatID);
 
-    uMaterial planeRefl {
-        .diffuseColor = Vector3f::Zero(),
-        .shininess = 1000.0f,
-        .flatReflectionTexID = (int)this->texReflections,
-    };
-    this->meshes.createMaterial("plane_reflection", planeRefl);
-    // this->meshes.setMaterial("quad", "plane_reflection");
-
-    uMaterial& skyRefl = this->meshes.getMaterial(skyMatID);
-    skyRefl.shininess = 1000.0f;
-    skyRefl.diffuseColor = Vector3f::Zero();
-    
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
     spdlog::info("Loaded meshes");
@@ -425,61 +409,31 @@ App::App(cxxopts::ParseResult& args) {
     glCreateBuffers(1, &this->ssboLights); $gl_err();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
 
-    // Create surface nets mesh
-    std::vector<GLuint> voxelData(chunkCells);
-    const float r = (float)(chunkSize - 2)/2.0f;
-    for (size_t x = 0; x < chunkSize; x++) {
-        for (size_t y = 0; y < chunkSize; y++) {
-            for (size_t z = 0; z < chunkSize; z++) {
-                Vector3f p(Vector3f(x, y, z) - vec3((float)chunkSize/2.0f));
-                float v = 1.0 - (p.norm() / r);
-                voxelData[flatIdx(x, y, z)] = (GLuint)(v > 0.0f);
-            }
-        }
-    }
+    // Initialize surface nets mesh generator
     this->csSurfaceNets.compile("resources/shaders/surface_net.comp");
+    this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     // Input voxel data
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
-    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, voxelData.data(), 0u, voxelData.size() * sizeof(GLuint));
     // Output vertices
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVertIdx, 0u, chunkCells * sizeof(int32_t));
     // Output indices
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
 
-    this->csSurfaceNets.setUniform("chunkSize", chunkSize);
-    
-    this->csSurfaceNets.bindBuffers();
-    this->csSurfaceNets.run({chunkSize-1, chunkSize-1, chunkSize-1});
-
-    const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
-        gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
-    const uint32_t nElems = nQuads * 6;
-    spdlog::info("Surface verts: {}, elems: {}", nVerts, nElems);
-
-    std::vector<Vector4f> v = this->csSurfaceNets.readBufferDataArray<Vector4f>(
-        gfx::ssbo::voxelVerts, nVerts);
-    std::vector<Vector3f> verts;
-    verts.reserve(nVerts);
-    for (const Vector4f& vert : v) {
-        verts.push_back(vert.head<3>());
-    }
-    std::vector<GLuint> elems = this->csSurfaceNets.readBufferDataArray<GLuint>(
-        gfx::ssbo::voxelElems, nElems);
-    this->meshes.add("voxel_mesh", verts, elems);
-    this->meshes.setMaterial("voxel_mesh", whiteMatID);
-    {
-        entt::entity e = this->makeModel("voxel_mesh");
-        Model& model = this->reg.get<Model>(e);
-        model.scale = Vector3f::Ones() * 0.15f;
-    }
+    this->voxelData.resize(chunkCells);
 
     this->meshProg.Bind();
+    glBindVertexArray(this->vaoVoxels); $gl_err();
+    {
+        GLuint attrib_vPos = this->meshProg.AttribLocation("vPos"); $gl_err();
+        glEnableVertexAttribArray(attrib_vPos); $gl_err();
+        glVertexAttribPointer(attrib_vPos, 4, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    }
+
+    glBindVertexArray(this->vaoMeshes); $gl_err();
     this->meshes.build(this->meshProg);
 }
 
@@ -789,6 +743,21 @@ void App::simulate(float dt) {
             cam == nullptr ? this->camera : *cam,
             light.type == LightType::point ? shadowMapLayers[0] : shadowMapLayers[1]);
     }
+
+    this->csSurfaceNets.bind();
+    // Vertex and element atomic counters
+    this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
+
+    this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
+    this->csSurfaceNets.setUniform("time", this->t);
+    
+    this->csSurfaceNets.bindBuffers();
+    this->csSurfaceNets.run({chunkSize-1, chunkSize-1, chunkSize-1});
+
+    const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
+        gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
+    this->voxelVerts = nVerts;
+    this->voxelElems = nQuads * 6;
 }
 
 void App::drawSky(const Camera& cam, const Vector2f& viewport) {
@@ -842,7 +811,6 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoMeshes); $gl_err();
     
     // Draw models in scene
-    this->meshes.textures.bind(this->meshProg, "sky_cubemap", "uEnvTex");
     this->meshes.textures.bind(this->meshProg, "shadow_map", "uCubeShadowMaps");
     this->meshes.textures.bind(this->meshProg, "spot_shadow_map", "u2DShadowMaps");
     this->meshes.textures.bind(this->meshProg, "refl_maps", "uReflectionMaps");
@@ -856,6 +824,20 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
+    
+    glBindVertexArray(this->vaoVoxels); $gl_err();
+    this->csSurfaceNets.bindAs(gfx::ssbo::voxelVerts, GL_ARRAY_BUFFER); $gl_err();
+    this->csSurfaceNets.bindAs(gfx::ssbo::voxelElems, GL_ELEMENT_ARRAY_BUFFER); $gl_err();
+    {
+        GLuint attrib_vPos = this->meshProg.AttribLocation("vPos"); $gl_err();
+        glEnableVertexAttribArray(attrib_vPos); $gl_err();
+        glVertexAttribPointer(attrib_vPos, 4, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    }
+    glDrawElements(GL_TRIANGLES, this->voxelElems, GL_UNSIGNED_INT, nullptr); $gl_err();
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();

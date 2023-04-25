@@ -118,6 +118,11 @@ void ComputeShader::bindBuffers()
     }
 }
 
+void ComputeShader::bind()
+{
+    glUseProgram(this->programID); $gl_err();
+}
+
 void ComputeShader::run(const Vector3i& groups)
 {
     glUseProgram(this->programID); $gl_err();
@@ -164,4 +169,10 @@ void ComputeShader::setUniform(const char *name, GLuint value)
 {
     glUseProgram(this->programID); $gl_err();
     glUniform1ui(glGetUniformLocation(this->programID, name), value); $gl_err();
+}
+
+void ComputeShader::setUniform(const char *name, GLfloat value)
+{
+    glUseProgram(this->programID); $gl_err();
+    glUniform1f(glGetUniformLocation(this->programID, name), value); $gl_err();
 }
