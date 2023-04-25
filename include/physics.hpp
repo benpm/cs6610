@@ -120,7 +120,7 @@ private:
     void solveConjGrad(float dt, const VectorXd& externalF);
 
     std::unordered_map<size_t, size_t> bdryIdxMap;
-    VectorXd initParticles;
+    VectorXd initx;
 public:
     std::vector<Vector3f> surfaceVertices;
     std::vector<size_t> surfaceElems;
@@ -128,32 +128,33 @@ public:
     VectorXd v;
     VectorXd gravityF;
     VectorXd impulseF;
+    std::unordered_set<size_t> fixed;
     std::vector<Spring> springs;
-    float stiffnessFactor = 0.50f;
+    float stiffnessFactor = 0.908f;
     float damping = 0.01f;
+    bool fixedParticles = false;
     // Stiffness matrix (dF/dx)
     SparseMatrix<double> K;
     // Mass matrix
     SparseMatrix<double> M;
-    // Inverse of mass matrix
-    SparseMatrix<double> invMassMat;
 
     enum class Solver {
         newton,
         conjgrad
-    } solver = Solver::newton;
+    } solver = Solver::conjgrad;
 
     SpringMesh(const std::string& elePath, const std::string& nodePath);
 
     inline float stiffness() const {
         switch (this->solver) {
             case Solver::newton:
-                return this->stiffnessFactor * 10000.0f;
+                return this->stiffnessFactor * 1000.0f;
             case Solver::conjgrad:
-                return this->stiffnessFactor * 10000.0f;
+                return this->stiffnessFactor * 1000.0f;
         }
     }
     void simulate(float dt);
+    void updateSurfaceMesh();
     void resetForces();
     void evalForces(const VectorXd& V, const VectorXd& X, VectorXd& F) const;
     void applyImpulse(const Vector3d& point, const Vector3d& impulse);

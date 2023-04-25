@@ -263,7 +263,7 @@ App::App(cxxopts::ParseResult& args) {
         this->eSelectPoint = e;
 
         Model& model = this->reg.get<Model>(e);
-        model.scale = Vector3f::Ones() * 0.2f;
+        model.scale = Vector3f::Ones() * 0.025f;
     }
     { // Create an arrow to visualize added forces
         entt::entity e = this->reg.create();
@@ -724,6 +724,7 @@ void App::simulate(float dt) {
         SpringMesh& mesh = this->reg.get<SpringMesh>(e);
         this->box.collide(mesh);
         mesh.simulate(dt * this->simTimeStep);
+        mesh.updateSurfaceMesh();
         this->meshes.updateVertices("vmodel", mesh.surfaceVertices);
     }
 
@@ -1068,6 +1069,7 @@ void App::composeUI() {
     SpringMesh& springMesh = this->reg.get<SpringMesh>(this->eSpringMesh);
     ImGui::SliderFloat("Stiffness Multiplier", &springMesh.stiffnessFactor, 0.0f, 4.0f);
     ImGui::SliderFloat("Damping", &springMesh.damping, 0.0f, 0.2f);
+    ImGui::Checkbox("Fixed Particles", &springMesh.fixedParticles);
 
     if (ImGui::Button("Reset Simulation")) {
         springMesh.reset();

@@ -348,15 +348,13 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     // Generate mass matrix M
     this->M = SparseMatrix<double>(vertices.size() * 3, vertices.size() * 3);
     this->M.reserve(Eigen::VectorXi::Constant(vertices.size() * 3, 1));
-    const double mass = 1.0;
+    const double mass = 100.0 / vertices.size();
     for (size_t i = 0; i < vertices.size(); i++) {
         this->M.coeffRef(i*3 + 0, i*3 + 0) = mass;
         this->M.coeffRef(i*3 + 1, i*3 + 1) = mass;
         this->M.coeffRef(i*3 + 2, i*3 + 2) = mass;
     }
     this->M.makeCompressed();
-    this->invMassMat = this->M.cwiseInverse();
-    this->invMassMat.makeCompressed();
 
     // Push vertices to particles, initialize global vectors
     this->x.resize(vertices.size() * 3);
@@ -365,9 +363,16 @@ SpringMesh::SpringMesh(const std::string& elePath, const std::string& nodePath) 
     this->v = VectorXd::Zero(this->x.size());
     for (size_t i = 0; i < vertices.size(); i++) {
         this->x.segment<3>(i * 3) = vertices.at(i).cast<double>();
-        this->gravityF[i * 3 + 1] = -0.25;
+        this->gravityF[i * 3 + 1] = -0.05;
     }
-    this->initParticles = this->x;
+    this->initx = this->x;
+
+    // Make some particles fixed
+    for (size_t i = 0; i < vertices.size(); i++) {
+        if ((vertices[i] - Vector3f(0.0f, -0.25f, 0.0f)).norm() < 0.25f) {
+            this->fixed.insert(i);
+        }
+    }
 
     spdlog::debug("built tet mesh: {} tets, {} springs, {} triangles, {} boundary vertices",
         numTet, this->springs.size(), this->surfaceElems.size() / 3u, this->surfaceVertices.size());
@@ -454,11 +459,19 @@ void SpringMesh::simulate(float dt) {
             break;
     }
 
+    if (this->fixedParticles) {
+        for (size_t i : this->fixed) {
+            this->v.segment<3>(i * 3).setZero();
+        }
+    }
     this->x += this->v * dt;
+    this->impulseF.setZero();
+}
+
+void SpringMesh::updateSurfaceMesh() {
     for (const auto [pIdx, sIdx] : this->bdryIdxMap) {
         this->surfaceVertices.at(sIdx) = this->x.segment<3>(pIdx * 3).cast<float>();
     }
-    this->impulseF.setZero();
 }
 
 void SpringMesh::solveNewton(float dt, const VectorXd& externalF) {
@@ -524,6 +537,7 @@ void SpringMesh::solveConjGrad(float dt, const VectorXd& externalF) {
 
     const VectorXd F = externalF + internalF;
     LeastSquaresConjugateGradient<SparseMatrix<double>> solver;
+    solver.setMaxIterations(50);
     solver.compute(this->M - (dt*dt) * this->K);
     if (solver.info() != Success) {
         spdlog::warn("decomposition failed");
@@ -547,7 +561,7 @@ void SpringMesh::solveConjGrad(float dt, const VectorXd& externalF) {
 }
 
 void SpringMesh::reset() {
-    this->x = this->initParticles;
+    this->x = this->initx;
     this->v.setZero();
     this->impulseF.setZero();
     this->K.coeffs().setZero();
