@@ -218,15 +218,15 @@ App::App(cxxopts::ParseResult& args) {
 
     // Construct scene
     this->loadingScreen("constructing scene");
-    for (size_t i = 0; i < 1; i++) {
+    {
         int reflLayer = reflectionLayer++;
 
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
             .reflectionLayer = reflLayer
         }));
         Model& model = this->reg.get<Model>(e);
-        model.scale = Vector3f::Ones() * rng.range(0.2f, 2.0f);
-        model.pos = rng.vec(this->box);
+        model.scale = Vector3f::Ones() * 0.25f;
+        model.pos = -this->box.extents();
 
         ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
         reflProbe.layer = reflLayer;
@@ -414,8 +414,10 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     // Input voxel data
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
+    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelData, 0u, chunkCells * sizeof(GLuint));
     // Output vertices
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, chunkCells * sizeof(Vector4f));
+    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVerts, 0u, chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
     // Output indices
@@ -749,10 +751,11 @@ void App::simulate(float dt) {
     this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
 
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
+    this->csSurfaceNets.setUniform("smoothIters", this->smoothIters);
     this->csSurfaceNets.setUniform("time", this->t);
     
     this->csSurfaceNets.bindBuffers();
-    this->csSurfaceNets.run({chunkSize-1, chunkSize-1, chunkSize-1});
+    this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
 
     const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
@@ -874,6 +877,16 @@ void App::drawDebug(const Camera& cam, const Vector2f& viewport) {
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
+    
+    glBindVertexArray(this->vaoVoxels); $gl_err();
+    this->csSurfaceNets.bindAs(gfx::ssbo::voxelVerts, GL_ARRAY_BUFFER); $gl_err();
+    this->csSurfaceNets.bindAs(gfx::ssbo::voxelElems, GL_ELEMENT_ARRAY_BUFFER); $gl_err();
+    {
+        GLuint attrib_vPos = this->pointsProg.AttribLocation("vPos"); $gl_err();
+        glEnableVertexAttribArray(attrib_vPos); $gl_err();
+        glVertexAttribPointer(attrib_vPos, 4, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    }
+    glDrawElements(GL_TRIANGLES, this->voxelElems, GL_UNSIGNED_INT, nullptr); $gl_err();
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
     glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
@@ -1076,20 +1089,9 @@ void App::composeUI() {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(500, this->windowSize.y()));
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-    ImGui::Text("Left Click: Pan");
-    ImGui::Text("Right Click: Drag Object");
-    ImGui::Text("Shift + Left Click: Move light");
-    ImGui::Text("Wheel: Zoom");
-    ImGui::Text("1: Orbit camera");
-    ImGui::Text("2: Fly camera");
-    ImGui::Text("F6: Reload shaders");
-    ImGui::Text(fmt::format("camera pos: {}", this->cameraControl.pos).c_str());
-    ImGui::Text(fmt::format("camera rot: {}", this->cameraControl.rot).c_str());
-    ImGui::Text(fmt::format("phi={} theta={}", this->cameraControl.orbitPhi(), this->cameraControl.orbitTheta()).c_str());
-    Model& selectModel = this->reg.get<Model>(this->eSelectPoint);
-    ImGui::Text(fmt::format("select point: {}", selectModel.pos).c_str());
-    ImGui::SliderFloat("Sim Time Step", &this->simTimeStep, 0.0f, 1.0f);
-    ImGui::SliderInt("Sim Iterations", &this->simTimeIters, 1, 20);
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("Verts: %d", this->voxelVerts);
+    ImGui::Text("Quads: %d", this->voxelElems / 6);
     ImGui::Checkbox("Draw Debug", &this->doDrawDebug);
 
     ImGui::PopFont();

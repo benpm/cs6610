@@ -20,6 +20,7 @@ layout(binding = 4, offset = 4) uniform atomic_uint nQuads;
 
 uniform uint chunkSize;
 uniform float time;
+uniform uint smoothIters;
 
 const uint vOrder[6] = {0,2,3,0,3,1};
 
@@ -29,17 +30,24 @@ uint flatIdx(uvec3 c) {
 
 void main() {
     uvec3 c = gl_WorkGroupID;
+    const uint C = flatIdx(c);
 
     // Generate voxels
-    const float r = (sin(time * 0.1)*0.5 + 1.0) * float(chunkSize - 2) / 2.0;
+    const float r = (sin(time * 0.1)*0.5 + 1.0) * (float(chunkSize - 2) / 2.0);
+    // const float r = (float(chunkSize - 2) / 4.0);
     vec3 p = vec3(c) - vec3(chunkSize) / 2.0;
-    if (1.0 - p.length() / r > 0.0) {
-        data[flatIdx(c)] = 1;
-    } else {
-        data[flatIdx(c)] = 0;
+    data[C] = 0;
+    // if (1.0 - (p.length() / r) > 0.0) {
+    //     data[C] = 1;
+    // }
+    if (c.x > chunkSize/2) {
+        data[C] = 1;
     }
+    idxBuf[C] = -1;
+    elems[C] = 0;
 
     memoryBarrierBuffer();
+    if (c.x == chunkSize-1 || c.y == chunkSize-1 || c.z == chunkSize-1) return;
 
     // Find surface voxels
     uint occupancy = 0;
@@ -49,7 +57,7 @@ void main() {
         occupancy += data[flatIdx(c + uvec3(i,j,k))];
     }
     if (occupancy == 8 || occupancy == 0) {
-        idxBuf[flatIdx(c)] = -1;
+        idxBuf[C] = -1;
         return;
     }
     vec3 v = vec3(0.0);
@@ -67,12 +75,12 @@ void main() {
 
     // Add the vertex
     uint idx = atomicCounterIncrement(vertsLength);
-    idxBuf[flatIdx(c)] = int(idx);
+    idxBuf[C] = int(idx);
     verts[idx] = vec4(v, 1.0);
 
     memoryBarrierBuffer();
 
-    for (int r = 0; r < 20; r++) {
+    for (int r = 0; r < smoothIters; r++) {
         // Relaxation step
         vec3 dv = vec3(0.0);
         float d = 0.0;
@@ -96,7 +104,7 @@ void main() {
     }
 
     // Generate quads
-    uint voxHere = data[flatIdx(c)];
+    uint voxHere = data[C];
     for (int axis = 0; axis < 3; axis++) {
         // If two empty voxels or two filled voxels are sharing a face, there is no surface so no quad
         uvec3 nc = uvec3(0);

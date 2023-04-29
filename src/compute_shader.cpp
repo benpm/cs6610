@@ -112,7 +112,7 @@ void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t byte
 
 void ComputeShader::bindBuffers()
 {
-    glUseProgram(this->programID); $gl_err();
+    this->bind();
     for (const auto& [bindingIdx, buf] : this->bufBindIdxMap) {
         glBindBufferBase(buf.target, bindingIdx, buf.glID); $gl_err();
     }
@@ -125,7 +125,7 @@ void ComputeShader::bind()
 
 void ComputeShader::run(const Vector3i& groups)
 {
-    glUseProgram(this->programID); $gl_err();
+    this->bind();
     glDispatchCompute(groups.x(), groups.y(), groups.z()); $gl_err();
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT); $gl_err();
 }
@@ -140,7 +140,7 @@ GLuint ComputeShader::bufId(GLuint bindingIdx)
 
 GLuint ComputeShader::bufBindingIdx(const char *name, GLenum target)
 {
-    glUseProgram(this->programID); $gl_err();
+    this->bind();
     GLenum resourceTarget;
     switch (target) {
         default:
@@ -167,12 +167,12 @@ GLuint ComputeShader::bufBindingIdx(const char *name, GLenum target)
 
 void ComputeShader::setUniform(const char *name, GLuint value)
 {
-    glUseProgram(this->programID); $gl_err();
+    this->bind();
     glUniform1ui(glGetUniformLocation(this->programID, name), value); $gl_err();
 }
 
 void ComputeShader::setUniform(const char *name, GLfloat value)
 {
-    glUseProgram(this->programID); $gl_err();
+    this->bind();
     glUniform1f(glGetUniformLocation(this->programID, name), value); $gl_err();
 }
