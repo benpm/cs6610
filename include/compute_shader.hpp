@@ -18,9 +18,12 @@ private:
     GLuint programID = GL_INVALID_INDEX;
     // Maps binding indices to buffer IDs
     std::unordered_map<GLuint, BufferObject> bufBindIdxMap;
+    fs::path path;
 public:
     // Compiles compute shader from file at given path
     void compile(const std::string& path);
+    // Recompiles compute shader from last path given
+    void recompile();
     // Creates a new buffer object and associates it with the given binding index
     GLuint createBuffer(GLuint bindingIdx, size_t bytes, GLenum target = GL_SHADER_STORAGE_BUFFER);
     // Creates a new SSBO and associates it with the given named binding

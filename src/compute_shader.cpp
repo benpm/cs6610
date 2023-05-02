@@ -28,6 +28,7 @@ void checkProgramLinkErr(GLuint programID, const std::string& path) {
 
 void ComputeShader::compile(const std::string &path) {
     assert(fs::exists(path) && "ComputeShader::compile: path does not exist");
+    this->path = fs::path(path);
 
     // Read shader source
     std::ifstream stream(path);
@@ -45,6 +46,23 @@ void ComputeShader::compile(const std::string &path) {
 
     this->programID = glCreateProgram(); $gl_err();
     glAttachShader(this->programID, this->shaderID); $gl_err();
+    glLinkProgram(this->programID); $gl_err();
+    checkProgramLinkErr(this->programID, "compute shader");
+}
+
+void ComputeShader::recompile() {
+    // Read shader source
+    std::ifstream stream(path);
+    std::stringstream buffer;
+    buffer << stream.rdbuf();
+    stream.close();
+    std::string source = buffer.str();
+
+    const char *sourcePtr = source.c_str();
+    glShaderSource(this->shaderID, 1, &sourcePtr, nullptr); $gl_err();
+    glCompileShader(this->shaderID); $gl_err();
+    checkShaderCompileErr(this->shaderID, path);
+    
     glLinkProgram(this->programID); $gl_err();
     checkProgramLinkErr(this->programID, "compute shader");
 }

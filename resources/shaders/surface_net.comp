@@ -70,8 +70,8 @@ bool genVertices() {
         // Add the vertex
         uint idx = atomicCounterIncrement(vertsLength);
         idxBuf[flatIdx(c)] = int(idx);
-        // verts[idx] = vec4(v / float(occupancy), 1.0);
-        verts[idx] = vec4(vec3(c) + vec3(0.5), 1.0);
+        verts[idx] = vec4(v/float(occupancy) + vec3(0.5), 1.0);
+        // verts[idx] = vec4(vec3(c) + vec3(0.5), 1.0);
 
         return true;
     }
@@ -80,17 +80,16 @@ bool genVertices() {
 // Smooths generated vertices
 void smoothSurf() {
     const uvec3 c = gl_WorkGroupID;
-    const uint idx = idxBuf[flatIdx(c)];
-    vec3 v = verts[idx].xyz;
+    const uint C = idxBuf[flatIdx(c)];
+    vec3 v = verts[C].xyz;
 
     for (int r = 0; r < smoothIters; r++) {
         // Relaxation step
         vec3 dv = vec3(0.0);
         float d = 0.0;
-        for (int i = -1; i <= 0; i++)
-        for (int j = -1; j <= 0; j++)
-        for (int k = -1; k <= 0; k++) {
-            if (i == -1 && j == -1 && k == -1) continue;
+        for (int i = -1; i <= 1; i++)
+        for (int j = -1; j <= 1; j++)
+        for (int k = -1; k <= 1; k++) {
             int vIdx = idxBuf[flatIdx(c + ivec3(i,j,k))];
             if (vIdx >= 0) {
                 dv += verts[vIdx].xyz - v;
@@ -101,7 +100,7 @@ void smoothSurf() {
         memoryBarrierBuffer();
 
         v += dv * 0.025;
-        verts[idx] = vec4(v, 1.0);
+        verts[C] = vec4(v, 1.0);
 
         memoryBarrierBuffer();
     }
@@ -131,18 +130,24 @@ void genQuads() {
 }
 
 void main() {
+    const uvec3 c = gl_WorkGroupID;
+
     // Generate voxel for this position
-    genVoxel(gl_WorkGroupID);
+    genVoxel(c);
+    idxBuf[flatIdx(c)] = -1;
     memoryBarrier();
 
     // Generate surface vertices
     bool onSurface = genVertices();
-    if (!onSurface) return;
     memoryBarrier();
 
-    // Surface smoothing step
-    smoothSurf();
-
-    // Generate quads referencing final vertex positions
-    genQuads();
+    if (onSurface
+        && c.x < chunkSize-1 && c.y < chunkSize-1 && c.z < chunkSize-1
+        && c.x > 0 && c.y > 0 && c.z > 0) {
+        // Surface smoothing step
+        smoothSurf();
+        memoryBarrier();
+        // Generate quads referencing final vertex positions
+        genQuads();
+    }
 }

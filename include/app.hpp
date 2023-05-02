@@ -149,7 +149,8 @@ class App
         size_t voxelVerts = 0u;
         size_t voxelElems = 0u;
 
-        GLuint smoothIters = 0u;
+        int smoothIters = 0u;
+        float timeScale = 1.0f;
 
         std::vector<RenderPass> renderPasses;
 

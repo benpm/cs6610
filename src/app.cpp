@@ -475,6 +475,7 @@ void App::onKey(int key, bool pressed) {
                 break;
             case GLFW_KEY_F6: {
                 this->buildShaders();
+                this->csSurfaceNets.recompile();
             } break;
             case GLFW_KEY_1: {
                 this->cameraControl.mode = CameraControl::Mode::orbit;
@@ -698,24 +699,11 @@ void App::simulate(float dt) {
     this->csSurfaceNets.bind();
     // Vertex and element atomic counters
     this->csSurfaceNets.clearBufferData(gfx::ssbo::atomicCounts, (GLuint)0u);
-    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelData, (GLuint)0u);
-    this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVertIdx, (GLint)(-1));
-    // std::vector<GLuint> V(chunkCells, 0u);
-    // const float k = std::sin((this->t + 1.0f) / 2.0f);
-    // const float r = (k * 0.5f + 0.5f) * (float)(chunkSize - 2) / 2.0f;
-    // const Vector3f center = Vector3f::Ones() * (float)(chunkSize) / 2.0f;
-    // for (size_t x = 0; x < chunkSize; x++) {
-    //     for (size_t y = 0; y < chunkSize; y++) {
-    //         for (size_t z = 0; z < chunkSize; z++) {
-    //             V[flatIdx(x, y, z)] = (GLuint)((Vector3f(x, y, z) - center).norm() < r);
-    //         }
-    //     }
-    // }
-    // this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, V.data(), 0u, V.size() * sizeof(GLuint));
+    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVertIdx, (GLint)(-1));
 
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
-    this->csSurfaceNets.setUniform("smoothIters", this->smoothIters);
-    this->csSurfaceNets.setUniform("time", this->t);
+    this->csSurfaceNets.setUniform("smoothIters", (GLuint)this->smoothIters);
+    this->csSurfaceNets.setUniform("time", this->t * this->timeScale);
     
     this->csSurfaceNets.bindBuffers();
     this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
@@ -1059,6 +1047,8 @@ void App::composeUI() {
     ImGui::Text("Verts: %d", this->voxelVerts);
     ImGui::Text("Quads: %d", this->voxelElems / 6);
     ImGui::Checkbox("Draw Debug", &this->doDrawDebug);
+    ImGui::SliderFloat("Time Scale", &this->timeScale, 0.0f, 2.0f);
+    ImGui::SliderInt("Smooth Iters", &this->smoothIters, 0, 100);
 
     ImGui::PopFont();
     ImGui::End();
