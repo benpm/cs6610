@@ -29,21 +29,23 @@ uint flatIdx(uvec3 c) {
 }
 
 bool shapeSphere(vec3 p) {
-    float r = (sin(time) * 0.5 + 0.5) * (float(chunkSize-2) / 2.0);
-    return 1.0 - (p.length() / r) > 0.0;
+    float r = ((sin(time) + 1.0) / 4.0) * float(chunkSize-2);
+    return length(p) < r;
 }
 
 bool shapeCube(vec3 p) {
-    float r = (sin(time) * 0.5 + 0.5) * (float(chunkSize-2) / 2.0);
+    float r = ((sin(time) + 1.0) / 4.0) * float(chunkSize-2);
     return abs(p.x) < r && abs(p.y) < r && abs(p.z) < r;
 }
 
-void genVoxel() {
-    const uvec3 c = gl_WorkGroupID;
-    const uint C = flatIdx(c);
+uint genVoxel(uvec3 c) {
+    uint v = uint(shapeSphere(vec3(c) - vec3(chunkSize/2)) ? 1 : 0);
+    data[flatIdx(c)] = v;
+    return v;
+}
 
-    // data[C] = uint(shapeSphere(vec3(c) - vec3(chunkSize/2)));
-    data[C] = data[flatIdx(gl_WorkGroupID)];
+uint getVoxel(uvec3 c) {
+    return genVoxel(c);
 }
 
 // Generate vertices for surface voxels, returns true if this is a surface voxel
@@ -57,7 +59,7 @@ bool genVertices() {
     for (uint j = 0; j < 2; j++)
     for (uint k = 0; k < 2; k++) {
         const uvec3 cc = c + uvec3(i,j,k);
-        if (data[flatIdx(cc)] > 0) {
+        if (getVoxel(cc) > 0) {
             occupancy += 1;
             v += vec3(cc);
         }
@@ -69,7 +71,7 @@ bool genVertices() {
         uint idx = atomicCounterIncrement(vertsLength);
         idxBuf[flatIdx(c)] = int(idx);
         // verts[idx] = vec4(v / float(occupancy), 1.0);
-        verts[idx] = vec4(vec3(c), 1.0);
+        verts[idx] = vec4(vec3(c) + vec3(0.5), 1.0);
 
         return true;
     }
@@ -109,12 +111,12 @@ void smoothSurf() {
 void genQuads() {
     const uvec3 c = gl_WorkGroupID;
 
-    uint voxHere = data[flatIdx(c)];
+    uint voxHere = getVoxel(c);
     for (int axis = 0; axis < 3; axis++) {
         // If two empty voxels or two filled voxels are sharing a face, there is no surface so no quad
         uvec3 nc = uvec3(0);
         nc[axis] = 1;
-        if (data[flatIdx(c+nc)] != voxHere) {
+        if (getVoxel(c + nc) != voxHere) {
             uint elemOffset = atomicCounterIncrement(nQuads) * 6;
             for (uint i = 0; i < 6; i++) {
                 uint j = vOrder[voxHere > 0 ? i : 5-i];
@@ -130,10 +132,7 @@ void genQuads() {
 
 void main() {
     // Generate voxel for this position
-    genVoxel();
-    if (gl_WorkGroupID.x >= chunkSize-1 ||
-        gl_WorkGroupID.y >= chunkSize-1 ||
-        gl_WorkGroupID.z >= chunkSize-1) return;
+    genVoxel(gl_WorkGroupID);
     memoryBarrier();
 
     // Generate surface vertices
@@ -145,8 +144,5 @@ void main() {
     smoothSurf();
 
     // Generate quads referencing final vertex positions
-    if (gl_WorkGroupID.x == 0 ||
-        gl_WorkGroupID.y == 0 ||
-        gl_WorkGroupID.z == 0) return;
     genQuads();
 }
