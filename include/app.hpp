@@ -146,7 +146,6 @@ class App
         GLuint fboShadows;
         GLuint texSpotShadows;
 
-        std::vector<GLuint> voxelData;
         size_t voxelVerts = 0u;
         size_t voxelElems = 0u;
 

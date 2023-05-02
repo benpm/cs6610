@@ -8,6 +8,7 @@ struct BufferObject
 {
     GLuint glID = GL_INVALID_INDEX;
     GLenum target;
+    size_t bytes = 0u;
 };
 
 class ComputeShader
@@ -33,7 +34,16 @@ public:
     // Sets the data of the buffer associated with the given binding index
     void setBufferData(GLuint bindingIdx, const void* data, size_t offset, size_t bytes);
     // Sets all data of the buffer associated with the given binding index to zero
-    void zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes);
+    template <typename T> void clearBufferData(GLuint bindingIdx, T value = {}) {
+        spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
+            "ComputeShader::zeroBufferData: bindingIdx not found");
+        const BufferObject& buf = this->bufBindIdxMap[bindingIdx];
+
+        glBindBuffer(buf.target, buf.glID); $gl_err();
+        const std::vector<T> values(buf.bytes / sizeof(T), value);
+        glBufferSubData(buf.target, 0u, buf.bytes, values.data()); $gl_err();
+        glBindBuffer(buf.target, 0); $gl_err();
+    }
     // Binds all associated buffers
     void bindBuffers();
     // Bind shader program

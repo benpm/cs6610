@@ -57,7 +57,8 @@ GLuint ComputeShader::createBuffer(GLuint bindingIdx, size_t bytes, GLenum targe
     glBufferData(target, bytes, nullptr, GL_DYNAMIC_DRAW); $gl_err();
     glBindBufferBase(target, bindingIdx, bufferID); $gl_err();
     glBindBuffer(target, 0); $gl_err();
-    this->bufBindIdxMap[bindingIdx] = {.glID = bufferID, .target = target};
+    this->bufBindIdxMap[bindingIdx] = {
+        .glID = bufferID, .target = target, .bytes = bytes};
     return bufferID;
 }
 
@@ -98,18 +99,6 @@ void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t of
     glBindBuffer(buf.target, 0); $gl_err();
 }
 
-void ComputeShader::zeroBufferData(GLuint bindingIdx, size_t offset, size_t bytes)
-{
-    spdlog::assrt(this->bufBindIdxMap.count(bindingIdx),
-        "ComputeShader::zeroBufferData: bindingIdx not found");
-    const BufferObject& buf = this->bufBindIdxMap[bindingIdx];
-
-    glBindBuffer(buf.target, buf.glID); $gl_err();
-    const std::vector<uint8_t> zeros(bytes, 0);
-    glBufferSubData(buf.target, offset, bytes, zeros.data()); $gl_err();
-    glBindBuffer(buf.target, 0); $gl_err();
-}
-
 void ComputeShader::bindBuffers()
 {
     this->bind();
@@ -126,8 +115,9 @@ void ComputeShader::bind()
 void ComputeShader::run(const Vector3i& groups)
 {
     this->bind();
+    glMemoryBarrier(GL_ALL_BARRIER_BITS); $gl_err();
     glDispatchCompute(groups.x(), groups.y(), groups.z()); $gl_err();
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT); $gl_err();
+    glMemoryBarrier(GL_ALL_BARRIER_BITS); $gl_err();
 }
 
 GLuint ComputeShader::bufId(GLuint bindingIdx)

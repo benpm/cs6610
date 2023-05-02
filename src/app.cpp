@@ -414,19 +414,14 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     // Input voxel data
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelData, 0u, chunkCells * sizeof(GLuint));
     // Output vertices
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, chunkCells * sizeof(Vector4f));
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::voxelVerts, 0u, chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(int32_t));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVertIdx, chunkCells * sizeof(GLint));
     // Output indices
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-
-    this->voxelData.resize(chunkCells);
-
     this->meshProg.Bind();
     glBindVertexArray(this->vaoVoxels); $gl_err();
     {
@@ -748,7 +743,9 @@ void App::simulate(float dt) {
 
     this->csSurfaceNets.bind();
     // Vertex and element atomic counters
-    this->csSurfaceNets.zeroBufferData(gfx::ssbo::atomicCounts, 0u, 2 * sizeof(GLuint));
+    this->csSurfaceNets.clearBufferData(gfx::ssbo::atomicCounts, (GLuint)0u);
+    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelData, (GLuint)0u);
+    this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVertIdx, (GLint)(-1));
 
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     this->csSurfaceNets.setUniform("smoothIters", this->smoothIters);
@@ -835,6 +832,7 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoVoxels); $gl_err();
     this->csSurfaceNets.bindAs(gfx::ssbo::voxelVerts, GL_ARRAY_BUFFER); $gl_err();
     this->csSurfaceNets.bindAs(gfx::ssbo::voxelElems, GL_ELEMENT_ARRAY_BUFFER); $gl_err();
+    glMemoryBarrier(GL_ELEMENT_ARRAY_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT); $gl_err();
     {
         GLuint attrib_vPos = this->meshProg.AttribLocation("vPos"); $gl_err();
         glEnableVertexAttribArray(attrib_vPos); $gl_err();
