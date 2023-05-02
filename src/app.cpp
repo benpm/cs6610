@@ -199,16 +199,6 @@ App::App(cxxopts::ParseResult& args) {
     this->loadingScreen("loading meshes");
     this->meshes.add("resources/models/quad.obj", "", false);
     this->meshes.add("resources/models/sphere.obj");
-    size_t whiteMatID = this->meshes.createMaterial("white", uMaterial{
-        .diffuseColor = {0.8f, 0.8f, 0.8f},
-        .shininess = 500.0f
-    });
-    size_t lightMatID = this->meshes.createMaterial("light", uMaterial{
-        .emissionColor = {1.0f, 1.0f, 1.0f},
-        .emissionFactor = 1.0f
-    });
-    this->meshes.clone("sphere", "light_ball");
-    this->meshes.setMaterial("light_ball", lightMatID);
 
     glGenFramebuffers(1, &this->fboShadows); $gl_err();
 
@@ -218,18 +208,12 @@ App::App(cxxopts::ParseResult& args) {
 
     // Construct scene
     this->loadingScreen("constructing scene");
-    {
-        int reflLayer = reflectionLayer++;
-
-        entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
-            .reflectionLayer = reflLayer
-        }));
-        Model& model = this->reg.get<Model>(e);
-        model.scale = Vector3f::Ones() * 0.25f;
-        model.pos = -this->box.extents();
-
-        ReflectionProbe& reflProbe = this->reg.emplace<ReflectionProbe>(e);
-        reflProbe.layer = reflLayer;
+    { // Model transform for voxel data
+        entt::entity e = this->reg.create();
+        Model& model = this->reg.emplace<Model>(e);
+        model.pivot = vec3(chunkSize) / 2.0f;
+        model.scale = vec3(1.0f / (float)(chunkSize));
+        this->reg.emplace<ModelTransform>(e);
     }
     { // Create a point to visualize mouse select
         entt::entity e = this->makeModel(this->meshes.clone("sphere", uMaterial {
@@ -257,7 +241,7 @@ App::App(cxxopts::ParseResult& args) {
         entt::entity e = this->reg.create();
         DebugRay& debugRay = this->reg.emplace<DebugRay>(e);
         debugRay.rot = dirToRot(Vector3f::Unit(i));
-        debugRay.pos = {0.0f, 2.5f, 0.0f};
+        debugRay.pos = {0.0f, 0.0f, 0.0f};
         debugRay.length = 1.0f;
         RayTransform& rayTransform = this->reg.emplace<RayTransform>(e);
         rayTransform.transform = debugRay.transform();
@@ -268,36 +252,8 @@ App::App(cxxopts::ParseResult& args) {
 
     spdlog::debug("placed {} objects", this->reg.view<Model>().size());
 
+    this->cameraControl.orbitTarget({0.0f, 0.0f, 0.0f});
     this->cameraControl.orbitDist(3.0f);
-
-    // Add lights
-    this->makeLight(
-        Vector3f(2.0f, 3.0f, 1.0f),
-        Vector3f(1.0f, 1.0f, 0.9f),
-        8.0f, 3.0f,
-        LightType::point);
-    this->makeLight(
-        Vector3f(-2.0f, 3.0f, -1.0f),
-        Vector3f(0.1f, 0.2f, 0.9f),
-        8.0f, 3.0f,
-        LightType::point);
-    {
-        this->eSpotLight = this->makeSpotLight(
-            Vector3f::Zero(),
-            Vector3f::Zero(),
-            Vector3f(0.5f, 1.0f, 0.6f),
-            24.0f, 1.0f);
-        this->lightControl.orbitDist(8.0f);
-        this->lightControl.orbitTheta(tau4);
-        this->lightControl.orbitPhi(0.0f);
-        this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
-        this->lightControl.update(this->reg.get<Camera>(this->eSpotLight));
-    }
-    this->makeSpotLight(
-        Vector3f(4.0f, 6.0f, 4.0f),
-        Vector3f(-4.0f, -6.0f, -4.0f),
-        Vector3f(1.0f, 0.2f, 0.6f),
-        24.0f, 1.0f);
 
     // Shadows cube map
     int nPointLights = 0;
@@ -318,7 +274,7 @@ App::App(cxxopts::ParseResult& args) {
         .storageType = GL_FLOAT,
         .shadow = true,
         .filter = GL_NEAREST,
-        .layers = nPointLights,
+        .layers = std::max(1, nPointLights),
     });
     this->meshes.textures.add("shadow_map", this->texCubeShadows, GL_TEXTURE_CUBE_MAP_ARRAY, TextureSampler::shadow);
 
@@ -332,7 +288,7 @@ App::App(cxxopts::ParseResult& args) {
         .storageType = GL_FLOAT,
         .shadow = true,
         .filter = GL_NEAREST,
-        .layers = nSpotLights,
+        .layers = std::max(1, nSpotLights),
     });
     this->meshes.textures.add("spot_shadow_map", this->texSpotShadows, GL_TEXTURE_2D_ARRAY, TextureSampler::shadow);
 
@@ -346,7 +302,7 @@ App::App(cxxopts::ParseResult& args) {
         .storageType = GL_UNSIGNED_BYTE,
         .mipmap = true,
         .filter = GL_LINEAR,
-        .layers = reflectionLayer,
+        .layers = std::max(1, reflectionLayer),
     });
     glGenFramebuffers(1, &this->fboReflections); $gl_err();
     glBindFramebuffer(GL_FRAMEBUFFER, this->fboReflections); $gl_err();
@@ -422,13 +378,17 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-    this->meshProg.Bind();
-    glBindVertexArray(this->vaoVoxels); $gl_err();
-    {
-        GLuint attrib_vPos = this->meshProg.AttribLocation("vPos"); $gl_err();
-        glEnableVertexAttribArray(attrib_vPos); $gl_err();
-        glVertexAttribPointer(attrib_vPos, 4, GL_FLOAT, GL_FALSE, 0u, (void*)0u); $gl_err();
+    std::vector<GLuint> V(chunkCells, 0u);
+    const float r = (float)(chunkSize - 2) / 2.0f;
+    const Vector3f center = Vector3f::Ones() * (float)(chunkSize) / 2.0f;
+    for (size_t x = 0; x < chunkSize; x++) {
+        for (size_t y = 0; y < chunkSize; y++) {
+            for (size_t z = 0; z < chunkSize; z++) {
+                V[flatIdx(x, y, z)] = (GLuint)((Vector3f(x, y, z) - center).norm() < r);
+            }
+        }
     }
+    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, V.data(), 0u, V.size() * sizeof(GLuint));
 
     glBindVertexArray(this->vaoMeshes); $gl_err();
     this->meshes.build(this->meshProg);
@@ -673,14 +633,8 @@ void App::simulate(float dt) {
         dragDelta = panDelta * 2.0f;
         dragDelta.y() *= -1.0f;
     }
-    if (this->pressedKeys.count(GLFW_KEY_LEFT_SHIFT)) {
-        this->lightControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 4.0f);
-        this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
-    } else {
-        this->cameraControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 4.0f);
-    }
+    this->cameraControl.control(-this->mouseDeltaPos * dt * 0.15f, dragDelta, keyboardDelta * dt * 4.0f);
     this->cameraControl.update(this->camera);
-    this->lightControl.update(this->reg.get<Light>(this->eSpotLight));
 
     // Simulate rigid body dynamics
     for (auto e : this->reg.view<PhysicsBody, RigidBody, ColliderBox>()) {
@@ -745,7 +699,7 @@ void App::simulate(float dt) {
     // Vertex and element atomic counters
     this->csSurfaceNets.clearBufferData(gfx::ssbo::atomicCounts, (GLuint)0u);
     // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelData, (GLuint)0u);
-    this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVertIdx, (GLint)(-1));
+    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVertIdx, (GLint)(-1));
 
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     this->csSurfaceNets.setUniform("smoothIters", this->smoothIters);
@@ -900,9 +854,11 @@ void App::updateBuffers() {
     // Update lights buffer
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssboLights); $gl_err();
     auto& lightsStorage = this->reg.view<uLight>().storage<uLight>();
-    glBufferData(GL_SHADER_STORAGE_BUFFER,
-        lightsStorage.size() * sizeof(uLight), *lightsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
+    if (lightsStorage.size() > 0) {
+        glBufferData(GL_SHADER_STORAGE_BUFFER,
+            lightsStorage.size() * sizeof(uLight), *lightsStorage.raw(), GL_DYNAMIC_DRAW); $gl_err();
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, gfx::ssbo::lights, this->ssboLights); $gl_err();
+    }
     this->meshProg.SetUniform("nLights", (GLuint)lightsStorage.size());
 
     // Update model transforms buffer

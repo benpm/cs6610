@@ -29,7 +29,7 @@ uint flatIdx(uvec3 c) {
 }
 
 bool shapeSphere(vec3 p) {
-    float r = (float(chunkSize-2) / 2.0);
+    float r = (sin(time) * 0.5 + 0.5) * (float(chunkSize-2) / 2.0);
     return 1.0 - (p.length() / r) > 0.0;
 }
 
@@ -42,7 +42,7 @@ void genVoxel() {
     const uvec3 c = gl_WorkGroupID;
     const uint C = flatIdx(c);
 
-    data[C] = uint(shapeCube(vec3(c) - vec3(chunkSize/2)));
+    data[C] = uint(shapeSphere(vec3(c) - vec3(chunkSize/2)));
 }
 
 // Generate vertices for surface voxels, returns true if this is a surface voxel
@@ -67,7 +67,8 @@ bool genVertices() {
         // Add the vertex
         uint idx = atomicCounterIncrement(vertsLength);
         idxBuf[flatIdx(c)] = int(idx);
-        verts[idx] = vec4(v / float(occupancy), 1.0);
+        // verts[idx] = vec4(v / float(occupancy), 1.0);
+        verts[idx] = vec4(vec3(c), 1.0);
 
         return true;
     }
@@ -127,15 +128,12 @@ void genQuads() {
 }
 
 void main() {
-    data[flatIdx(gl_WorkGroupID)] = 0;
-    memoryBarrier();
-
     // Generate voxel for this position
-    genVoxel();
-    if (gl_WorkGroupID.x >= chunkSize-1 ||
-        gl_WorkGroupID.y >= chunkSize-1 ||
-        gl_WorkGroupID.z >= chunkSize-1) return;
-    memoryBarrier();
+    // genVoxel();
+    // if (gl_WorkGroupID.x >= chunkSize-1 ||
+    //     gl_WorkGroupID.y >= chunkSize-1 ||
+    //     gl_WorkGroupID.z >= chunkSize-1) return;
+    // memoryBarrier();
 
     // Generate surface vertices
     bool onSurface = genVertices();
