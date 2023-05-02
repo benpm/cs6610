@@ -42,7 +42,8 @@ void genVoxel() {
     const uvec3 c = gl_WorkGroupID;
     const uint C = flatIdx(c);
 
-    data[C] = uint(shapeSphere(vec3(c) - vec3(chunkSize/2)));
+    // data[C] = uint(shapeSphere(vec3(c) - vec3(chunkSize/2)));
+    data[C] = data[flatIdx(gl_WorkGroupID)];
 }
 
 // Generate vertices for surface voxels, returns true if this is a surface voxel
@@ -129,11 +130,11 @@ void genQuads() {
 
 void main() {
     // Generate voxel for this position
-    // genVoxel();
-    // if (gl_WorkGroupID.x >= chunkSize-1 ||
-    //     gl_WorkGroupID.y >= chunkSize-1 ||
-    //     gl_WorkGroupID.z >= chunkSize-1) return;
-    // memoryBarrier();
+    genVoxel();
+    if (gl_WorkGroupID.x >= chunkSize-1 ||
+        gl_WorkGroupID.y >= chunkSize-1 ||
+        gl_WorkGroupID.z >= chunkSize-1) return;
+    memoryBarrier();
 
     // Generate surface vertices
     bool onSurface = genVertices();
