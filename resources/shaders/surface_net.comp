@@ -45,6 +45,7 @@ uint genVoxel(uvec3 c) {
 }
 
 uint getVoxel(uvec3 c) {
+    // return data[flatIdx(c)];
     return genVoxel(c);
 }
 
@@ -70,7 +71,7 @@ bool genVertices() {
         // Add the vertex
         uint idx = atomicCounterIncrement(vertsLength);
         idxBuf[flatIdx(c)] = int(idx);
-        verts[idx] = vec4(v/float(occupancy) + vec3(0.5), 1.0);
+        verts[idx] = vec4(v/float(occupancy), 1.0);
         // verts[idx] = vec4(vec3(c) + vec3(0.5), 1.0);
 
         return true;
@@ -97,12 +98,12 @@ void smoothSurf() {
             }
         }
 
-        memoryBarrierBuffer();
+        memoryBarrier();
 
-        v += dv * 0.025;
+        v += dv * 0.005;
         verts[C] = vec4(v, 1.0);
 
-        memoryBarrierBuffer();
+        memoryBarrier();
     }
 }
 
@@ -116,13 +117,23 @@ void genQuads() {
         uvec3 nc = uvec3(0);
         nc[axis] = 1;
         if (getVoxel(c + nc) != voxHere) {
-            uint elemOffset = atomicCounterIncrement(nQuads) * 6;
-            for (uint i = 0; i < 6; i++) {
-                uint j = vOrder[voxHere > 0 ? i : 5-i];
+            bool valid = true;
+            int faceIdx[4];
+            for (uint i = 0; i < 4; i++) {
                 ivec3 fc = ivec3(0);
-                fc[(axis + 1) % 3] -= int(j) / 2;
-                fc[(axis + 2) % 3] -= int(j) % 2;
-                elems[elemOffset + i] = idxBuf[flatIdx(c + fc)].r;
+                fc[(axis + 1) % 3] -= int(i) / 2;
+                fc[(axis + 2) % 3] -= int(i) % 2;
+                faceIdx[i] = idxBuf[flatIdx(c + fc)];
+                if (faceIdx[i] < 0) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) {
+                uint elemOffset = atomicCounterIncrement(nQuads) * 6;
+                for (uint i = 0; i < 6; i++) {
+                    elems[elemOffset + i] = faceIdx[vOrder[voxHere > 0 ? i : 5-i]];
+                }
             }
         }
 

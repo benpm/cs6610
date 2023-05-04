@@ -699,7 +699,7 @@ void App::simulate(float dt) {
     this->csSurfaceNets.bind();
     // Vertex and element atomic counters
     this->csSurfaceNets.clearBufferData(gfx::ssbo::atomicCounts, (GLuint)0u);
-    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVertIdx, (GLint)(-1));
+    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVerts, Vector4f(0.0f, 0.0f, 0.0f, 0.0f));
 
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     this->csSurfaceNets.setUniform("smoothIters", (GLuint)this->smoothIters);
@@ -786,7 +786,6 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
     glBindVertexArray(this->vaoVoxels); $gl_err();
     this->csSurfaceNets.bindAs(gfx::ssbo::voxelVerts, GL_ARRAY_BUFFER); $gl_err();
     this->csSurfaceNets.bindAs(gfx::ssbo::voxelElems, GL_ELEMENT_ARRAY_BUFFER); $gl_err();
-    glMemoryBarrier(GL_ELEMENT_ARRAY_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT); $gl_err();
     {
         GLuint attrib_vPos = this->meshProg.AttribLocation("vPos"); $gl_err();
         glEnableVertexAttribArray(attrib_vPos); $gl_err();

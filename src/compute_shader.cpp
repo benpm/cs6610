@@ -133,6 +133,7 @@ void ComputeShader::bind()
 void ComputeShader::run(const Vector3i& groups)
 {
     this->bind();
+    glMemoryBarrier(GL_ALL_BARRIER_BITS); $gl_err();
     glDispatchCompute(groups.x(), groups.y(), groups.z()); $gl_err();
     glMemoryBarrier(GL_ALL_BARRIER_BITS); $gl_err();
 }
