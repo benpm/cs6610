@@ -6,6 +6,7 @@
 #include <cassert>
 #include <functional>
 #include <algorithm>
+#include <chrono>
 #include <app.hpp>
 #define GLEQ_IMPLEMENTATION
 #include <gleq.h>
@@ -369,7 +370,7 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.compile("resources/shaders/surface_net.comp");
     this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
     // Input voxel data
-    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLuint));
+    this->csSurfaceNets.createBuffer(gfx::ssbo::voxelData, chunkCells * sizeof(GLfloat));
     // Output vertices
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelVerts, chunkCells * sizeof(Vector4f));
     // Grid of vertex indices used during build mesh
@@ -378,17 +379,17 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-    std::vector<GLuint> V(chunkCells, 0u);
-    const float r = (float)(chunkSize - 2) / 2.0f;
-    const Vector3f center = Vector3f::Ones() * (float)(chunkSize) / 2.0f;
-    for (size_t x = 0; x < chunkSize; x++) {
-        for (size_t y = 0; y < chunkSize; y++) {
-            for (size_t z = 0; z < chunkSize; z++) {
-                V[flatIdx(x, y, z)] = (GLuint)((Vector3f(x, y, z) - center).norm() < r);
-            }
-        }
-    }
-    this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, V.data(), 0u, V.size() * sizeof(GLuint));
+    // std::vector<GLuint> V(chunkCells, 0u);
+    // const float r = (float)(chunkSize - 2) / 2.0f;
+    // const Vector3f center = Vector3f::Ones() * (float)(chunkSize) / 2.0f;
+    // for (size_t x = 0; x < chunkSize; x++) {
+    //     for (size_t y = 0; y < chunkSize; y++) {
+    //         for (size_t z = 0; z < chunkSize; z++) {
+    //             V[flatIdx(x, y, z)] = (GLuint)((Vector3f(x, y, z) - center).norm() < r);
+    //         }
+    //     }
+    // }
+    // this->csSurfaceNets.setBufferData(gfx::ssbo::voxelData, V.data(), 0u, V.size() * sizeof(GLfloat));
 
     glBindVertexArray(this->vaoMeshes); $gl_err();
     this->meshes.build(this->meshProg);
@@ -696,6 +697,10 @@ void App::simulate(float dt) {
             light.type == LightType::point ? shadowMapLayers[0] : shadowMapLayers[1]);
     }
 
+    // Execute mesh gen compute
+
+    auto t0 = std::chrono::high_resolution_clock::now();
+
     this->csSurfaceNets.bind();
     // Vertex and element atomic counters
     this->csSurfaceNets.clearBufferData(gfx::ssbo::atomicCounts, (GLuint)0u);
@@ -712,6 +717,9 @@ void App::simulate(float dt) {
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);
     this->voxelVerts = nVerts;
     this->voxelElems = nQuads * 6;
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+    this->surfNetTime = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
 }
 
 void App::drawSky(const Camera& cam, const Vector2f& viewport) {
@@ -1043,6 +1051,7 @@ void App::composeUI() {
     ImGui::SetNextWindowSize(ImVec2(500, this->windowSize.y()));
     ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("Compute µs: %d", this->surfNetTime);
     ImGui::Text("Verts: %d", this->voxelVerts);
     ImGui::Text("Quads: %d", this->voxelElems / 6);
     ImGui::Checkbox("Draw Debug", &this->doDrawDebug);

@@ -149,6 +149,8 @@ class App
         size_t voxelVerts = 0u;
         size_t voxelElems = 0u;
 
+        int64_t surfNetTime = 0;
+
         int smoothIters = 0u;
         float timeScale = 1.0f;
 
