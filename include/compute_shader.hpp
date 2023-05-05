@@ -60,6 +60,16 @@ public:
     // Sets a uniform value
     void setUniform(const char* name, GLuint value);
     void setUniform(const char* name, GLfloat value);
+    template<size_t L>
+    void setUniform(const char* name, const std::array<GLfloat, L>& array) {
+        glUseProgram(this->programID); $gl_err();
+        glUniform1fv(glGetUniformLocation(this->programID, name), L, array.data()); $gl_err();
+    }
+    template<size_t L>
+    void setUniform(const char* name, const std::array<GLuint, L>& array) {
+        glUseProgram(this->programID); $gl_err();
+        glUniform1uiv(glGetUniformLocation(this->programID, name), L, array.data()); $gl_err();
+    }
     // Reads a single value from the buffer associated with the given binding index
     template<typename T> T readBufferData(GLuint bindingIdx, size_t offset = 0u, GLenum target = GL_SHADER_STORAGE_BUFFER) {
         glUseProgram(this->programID); $gl_err();
