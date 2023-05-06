@@ -81,6 +81,7 @@ vec3 vertPos(uint mask, uvec3 p) {
 
     // Average crossings
     return vec3(p) + v / float(crossings);
+    // return vec3(p);
 }
 
 // Generate vertices for surface voxels, returns true if this is a surface voxel
