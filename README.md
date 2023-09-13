@@ -1,8 +1,8 @@
-# Rendertool
+# GL Playground
 
 ![](thumb.png)
 
-Assignments for Interactive Computer Graphics and Physics-Based Animation.
+Big mess of assignments for Interactive Computer Graphics, Physics-Based Animation, and Computational Geometry from spring 2023 at University of Utah. Check out the rat's nest of branches
 
 ## Features
 - Variety of lights, shadow mapping
