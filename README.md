@@ -2,12 +2,14 @@
 
 ![](thumb.png)
 
-Big mess of assignments for Interactive Computer Graphics, Physics-Based Animation, and Computational Geometry from spring 2023 at University of Utah. Check out the rat's nest of branches
+Big mess of things including assignments for Interactive Computer Graphics, Physics-Based Animation, and Computational Geometry courses from spring 2023 at University of Utah. Things are super spread out so take a look at some of the branches
 
 ## Features
-- Variety of lights, shadow mapping
+- Directional, spot, and point lights, all with basic shadow-mapping
 - Interactive rigid body physics
-- OBJ format materials, shading
+- Multi-material objects, basic shading
+- Surface nets generated in a compute shader
+- Really slow softbody physics solver
 
 ## Assets
 Before doing anything you need to download the externally-hosted assets. On Linux you can just run the `download_assets.sh` script. Otherwise, you'll have to [download](http://cs.utah.edu/~benpm/assets.zip) and unzip the archive manually.
