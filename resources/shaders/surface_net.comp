@@ -1,6 +1,6 @@
 #version 460
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout(std430, binding = 0) coherent buffer VoxelData {
     float voxelData[];
@@ -19,102 +19,30 @@ layout(binding = 4, offset = 0) uniform atomic_uint vertsLength;
 layout(binding = 4, offset = 4) uniform atomic_uint nQuads;
 
 uniform uint chunkSize;
-uniform float time;
 uniform uint smoothIters;
-uniform uint edgeTable[256];
 
 // Order of vertices for quad
 const uint vOrder[6] = {0,2,3,0,3,1};
-
-// Cube x,y,z order vertix indices per edge of cube
-const uint cubeEdges[24] = {
-    0,1, 0,2, 2,3, 1,3,
-    4,5, 4,6, 6,7, 5,7,
-    0,4, 1,5, 2,6, 3,7
-};
 
 uint flatIdx(uvec3 c) {
     return c.z * (chunkSize*chunkSize) + c.y * chunkSize + c.x;
 }
 
-float shapeSphere(vec3 p) {
-    float r = ((sin(time) + 1.0) / 4.0) * float(chunkSize-2);
-    return r - length(p);
-}
-
-float genVoxel(uvec3 c) {
-    float v = shapeSphere(vec3(c) - vec3(chunkSize/2));
-    voxelData[flatIdx(c)] = v;
-    return v;
-}
-
 float voxel(uvec3 c) {
-    return genVoxel(c);
+    return voxelData[flatIdx(c)];
 }
 
 bool voxSolid(uvec3 c) {
     return voxel(c) > 0;
 }
 
-// Find zero crossings along edges to position a vertex
-vec3 vertPos(uint mask, uvec3 p) {
-    // Sum all edge crossings together
-    vec3 v = vec3(0.0);
-    uint crossings = 0;
-    uint eMask = edgeTable[mask];
-    for (uint i = 0; i < 12; i++) {
-        if ((eMask & (1 << i)) == 0) {
-            continue;
-        }
-        uint j0 = cubeEdges[i*2 + 0];
-        uint j1 = cubeEdges[i*2 + 1];
-        uvec3 p0 = p + uvec3(j0 & 1, (j0>>1) & 1, (j0>>2) & 1);
-        uvec3 p1 = p + uvec3(j1 & 1, (j1>>1) & 1, (j1>>2) & 1);
-        float v0 = voxel(p0);
-        float v1 = voxel(p1);
-        // Crosses edge if sign difference
-        if (v0 * v1 < 0.0) {
-            v += v0 / (v0 - v1);
-            crossings += 1;
-        }
-    }
-
-    // Average crossings
-    return vec3(p) + v / float(crossings);
-    // return vec3(p);
-}
-
-// Generate vertices for surface voxels, returns true if this is a surface voxel
-bool genVertices() {
-    const uvec3 c = gl_WorkGroupID;
-
-    // Find surface voxels
-    uint mask = 0;
-    for (uint i = 0; i <= 1; i++)
-    for (uint j = 0; j <= 1; j++)
-    for (uint k = 0; k <= 1; k++) {
-        const uvec3 cc = c + uvec3(i,j,k);
-        if (voxSolid(cc)) {
-            mask |= 1 << (k<<2 | j<<1 | i);
-        }
-    }
-    if (mask == 0 || mask == 0xFF) {
-        return false;
-    } else {
-        // Add the vertex
-        uint idx = atomicCounterIncrement(vertsLength);
-        idxBuf[flatIdx(c)] = int(idx);
-        verts[idx] = vec4(vertPos(mask, c), 1.0);
-        return true;
-    }
-}
-
 // Smooths generated vertices
 void smoothSurf() {
-    const uvec3 c = gl_WorkGroupID;
-    const uint C = idxBuf[flatIdx(c)];
-    vec3 v = verts[C].xyz;
+    const uvec3 c = gl_GlobalInvocationID;
+    const int vIdx = idxBuf[flatIdx(c)];
+    if (vIdx < 0) return;
 
+    vec3 v = verts[vIdx].xyz;
     for (int r = 0; r < smoothIters; r++) {
         // Relaxation step
         vec3 dv = vec3(0.0);
@@ -122,17 +50,17 @@ void smoothSurf() {
         for (int i = -1; i <= 1; i++)
         for (int j = -1; j <= 1; j++)
         for (int k = -1; k <= 1; k++) {
-            int vIdx = idxBuf[flatIdx(c + ivec3(i,j,k))];
-            if (vIdx >= 0) {
-                dv += verts[vIdx].xyz - v;
+            int vIdxNbr = idxBuf[flatIdx(c + ivec3(i,j,k))];
+            if (vIdxNbr >= 0) {
+                dv += verts[vIdxNbr].xyz - v;
                 d += 1.0;
             }
         }
 
         memoryBarrier();
 
-        v += dv * 0.005;
-        verts[C] = vec4(v, 1.0);
+        v += (dv / d) * 0.01;
+        verts[vIdx] = vec4(v, 1.0);
 
         memoryBarrier();
     }
@@ -140,7 +68,7 @@ void smoothSurf() {
 
 // Generates quads on surface
 void genQuads() {
-    const uvec3 c = gl_WorkGroupID;
+    const uvec3 c = gl_GlobalInvocationID;
 
     bool solidHere = voxSolid(c);
     for (int axis = 0; axis < 3; axis++) {
@@ -172,24 +100,12 @@ void genQuads() {
 }
 
 void main() {
-    const uvec3 c = gl_WorkGroupID;
+    const uvec3 c = gl_GlobalInvocationID;
 
-    // Generate voxel for this position
-    genVoxel(c);
-    idxBuf[flatIdx(c)] = -1;
-    memoryBarrier();
-
-    // Generate surface vertices
-    bool onSurface = genVertices();
-    memoryBarrier();
-
-    if (onSurface
-        && c.x < chunkSize-1 && c.y < chunkSize-1 && c.z < chunkSize-1
-        && c.x > 0 && c.y > 0 && c.z > 0) {
-        // Surface smoothing step
+    if (c.x < chunkSize-1 && c.y < chunkSize-1 && c.z < chunkSize-1
+        && c.x > 0 && c.y > 0 && c.z > 0)
+    {
         smoothSurf();
-        memoryBarrier();
-        // Generate quads referencing final vertex positions
         genQuads();
     }
 }

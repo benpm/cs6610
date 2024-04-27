@@ -1,0 +1,113 @@
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+layout(std430, binding = 0) coherent buffer VoxelData {
+    float voxelData[];
+};
+layout(std430, binding = 1) coherent buffer VoxelVertIdx {
+    int idxBuf[];
+};
+layout(std430, binding = 2) coherent buffer VoxelVerts {
+    vec4 verts[];
+};
+layout(std430, binding = 3) coherent writeonly buffer VoxelElems {
+    uint elems[];
+};
+
+layout(binding = 4, offset = 0) uniform atomic_uint vertsLength;
+layout(binding = 4, offset = 4) uniform atomic_uint nQuads;
+
+uniform uint chunkSize;
+uniform float time;
+uniform uint edgeTable[256];
+
+// Order of vertices for quad
+const uint vOrder[6] = {0,2,3,0,3,1};
+
+// Cube x,y,z order vertix indices per edge of cube
+const uint cubeEdges[24] = {
+    0,1, 0,2, 2,3, 1,3,
+    4,5, 4,6, 6,7, 5,7,
+    0,4, 1,5, 2,6, 3,7
+};
+
+uint flatIdx(uvec3 c) {
+    return c.z * (chunkSize*chunkSize) + c.y * chunkSize + c.x;
+}
+
+float shapeSphere(vec3 p) {
+    float r = ((sin(time) + 1.0) / 4.0) * float(chunkSize-2);
+    return r - length(p);
+}
+
+float genVoxel(uvec3 c) {
+    float v = shapeSphere(vec3(c) - vec3(chunkSize/2));
+    voxelData[flatIdx(c)] = v;
+    return v;
+}
+
+float voxel(uvec3 c) {
+    return genVoxel(c);
+}
+
+bool voxSolid(uvec3 c) {
+    return voxel(c) > 0;
+}
+
+// Find zero crossings along edges to position a vertex
+vec3 vertPos(uint mask, uvec3 p) {
+    // Sum all edge crossings together
+    vec3 v = vec3(0.0);
+    uint crossings = 0;
+    uint eMask = edgeTable[mask];
+    for (uint i = 0; i < 12; i++) {
+        if ((eMask & (1 << i)) == 0) {
+            continue;
+        }
+        uint j0 = cubeEdges[i*2 + 0];
+        uint j1 = cubeEdges[i*2 + 1];
+        uvec3 p0 = p + uvec3(j0 & 1, (j0>>1) & 1, (j0>>2) & 1);
+        uvec3 p1 = p + uvec3(j1 & 1, (j1>>1) & 1, (j1>>2) & 1);
+        float v0 = voxel(p0);
+        float v1 = voxel(p1);
+        // Crosses edge if sign difference
+        if (v0 * v1 < 0.0) {
+            v += v0 / (v0 - v1);
+            crossings += 1;
+        }
+    }
+
+    // Average crossings
+    return vec3(p) + v / float(crossings);
+}
+
+// Generate vertices for surface voxels, returns true if this is a surface voxel
+void genVertices() {
+    const uvec3 c = gl_GlobalInvocationID;
+
+    // Find surface voxels
+    uint mask = 0;
+    for (uint i = 0; i <= 1; i++)
+    for (uint j = 0; j <= 1; j++)
+    for (uint k = 0; k <= 1; k++) {
+        const uvec3 cc = c + uvec3(i,j,k);
+        if (voxSolid(cc)) {
+            mask |= 1 << (k<<2 | j<<1 | i);
+        }
+    }
+    if (mask != 0 && mask != 0xFF) {
+        // Add the vertex
+        uint idx = atomicCounterIncrement(vertsLength);
+        idxBuf[flatIdx(c)] = int(idx);
+        verts[idx] = vec4(vertPos(mask, c), 1.0);
+    }
+}
+
+void main() {
+    const uvec3 c = gl_GlobalInvocationID;
+
+    genVoxel(c);
+    idxBuf[flatIdx(c)] = -1;
+    genVertices();
+}

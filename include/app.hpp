@@ -112,7 +112,7 @@ class App
         
         RNG rng{0u};
 
-        ComputeShader csSurfaceNets;
+        ComputeShader csSurfaceNets, csGenVertices;
 
         // ID of model transform matrices SSBO
         GLuint ssboModels;

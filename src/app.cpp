@@ -379,9 +379,10 @@ App::App(cxxopts::ParseResult& args) {
     this->csSurfaceNets.createBuffer(gfx::ssbo::voxelElems, chunkCells * sizeof(GLuint));
     // Vertex and element atomic counters
     this->csSurfaceNets.createBuffer(gfx::ssbo::atomicCounts, 2 * sizeof(GLuint), GL_ATOMIC_COUNTER_BUFFER);
-    // Constant uniforms: edge table and chunk size
-    this->csSurfaceNets.setUniform("edgeTable", generateEdgeTable());
-    this->csSurfaceNets.setUniform("chunkSize", (GLuint)chunkSize);
+
+    this->csGenVertices.compile("resources/shaders/gen_vertices.comp");
+    this->csGenVertices.setUniform("chunkSize", (GLuint)chunkSize);
+    this->csGenVertices.setUniform("edgeTable", generateEdgeTable());
 
     glBindVertexArray(this->vaoMeshes); $gl_err();
     this->meshes.build(this->meshProg);
@@ -693,16 +694,20 @@ void App::simulate(float dt) {
 
     auto t0 = std::chrono::high_resolution_clock::now();
 
-    this->csSurfaceNets.bind();
-    // Vertex and element atomic counters
+    // Generate voxel and vertex data
+    this->csSurfaceNets.bindBuffers();
     this->csSurfaceNets.clearBufferData(gfx::ssbo::atomicCounts, (GLuint)0u);
-    // this->csSurfaceNets.clearBufferData(gfx::ssbo::voxelVerts, Vector4f(0.0f, 0.0f, 0.0f, 0.0f));
 
+    this->csGenVertices.bind();
+    this->csGenVertices.setUniform("time", this->t * this->timeScale);
+    const Vector3i groups = Vector3i::Constant(chunkSize / 8);
+    this->csGenVertices.run(groups);
+
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    this->csSurfaceNets.bind();
     this->csSurfaceNets.setUniform("smoothIters", (GLuint)this->smoothIters);
     this->csSurfaceNets.setUniform("time", this->t * this->timeScale);
-    
-    this->csSurfaceNets.bindBuffers();
-    this->csSurfaceNets.run({chunkSize, chunkSize, chunkSize});
+    this->csSurfaceNets.run(groups);
 
     const auto [nVerts, nQuads] = this->csSurfaceNets.readBufferData<std::array<uint32_t, 2>>(
         gfx::ssbo::atomicCounts, 0u, GL_ATOMIC_COUNTER_BUFFER);

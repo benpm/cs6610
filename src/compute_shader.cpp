@@ -119,7 +119,6 @@ void ComputeShader::setBufferData(GLuint bindingIdx, const void *data, size_t of
 
 void ComputeShader::bindBuffers()
 {
-    this->bind();
     for (const auto& [bindingIdx, buf] : this->bufBindIdxMap) {
         glBindBufferBase(buf.target, bindingIdx, buf.glID); $gl_err();
     }
