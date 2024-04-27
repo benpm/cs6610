@@ -59,7 +59,7 @@ void smoothSurf() {
 
         memoryBarrier();
 
-        v += (dv / d) * 0.01;
+        v += (dv / d) * 1.0;
         verts[vIdx] = vec4(v, 1.0);
 
         memoryBarrier();
@@ -105,7 +105,8 @@ void main() {
     if (c.x < chunkSize-1 && c.y < chunkSize-1 && c.z < chunkSize-1
         && c.x > 0 && c.y > 0 && c.z > 0)
     {
-        smoothSurf();
-        genQuads();
+        if (idxBuf[flatIdx(c)] >= 0) {
+            genQuads();
+        }
     }
 }

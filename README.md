@@ -44,3 +44,6 @@ These dependencies are either included or managed by CMake and built locally:
 - glad
 - [EnTT](https://github.com/skypjack/entt)
 - [libspng](https://libspng.org)
+
+## Resources Used
+- https://github.com/mikolalysenko/mikolalysenko.github.com/blob/master/Isosurface/js/surfacenets.js

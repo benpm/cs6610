@@ -30,9 +30,9 @@ layout(std430, binding = 0) buffer ModelTransforms {
 };
 
 void main() {
-    const vec4 wnormal = tModel[v_in[0].drawID] * vec4(normalize(cross(
-        v_in[1].position - v_in[0].position,
-        v_in[2].position - v_in[0].position)), 0.0);
+    const vec4 wnormal = vec4(normalize(cross(
+        v_in[1].wposition - v_in[0].wposition,
+        v_in[2].wposition - v_in[0].wposition)), 0.0);
     const vec3 normal = normalize((uTView * wnormal).xyz);
 
     for (int i = 0; i < 3; ++i) {

@@ -11,7 +11,7 @@ std::array<GLuint, 256> generateEdgeTable() {
     std::array<GLuint, 256> table = {};
     for (GLuint i = 0; i < 256; i++) {
         GLuint em = 0;
-        for (GLuint j = 0; j < 23; j++) {
+        for (GLuint j = 0; j < 24; j += 2) {
             const GLuint a = !!(i & (1 << cubeEdges[j + 0]));
             const GLuint b = !!(i & (1 << cubeEdges[j + 1]));
             em |= (a != b) ? (1 << (j >> 1)) : 0;

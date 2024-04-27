@@ -155,5 +155,5 @@ void main() {
 
     C = mix(C, mat.emissionColor, mat.emissionFactor);
     
-    fColor = vec4(n, 1.0);
+    fColor = vec4(normalize(v_in.normal), 1.0);
 }

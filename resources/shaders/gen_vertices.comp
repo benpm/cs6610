@@ -57,7 +57,7 @@ bool voxSolid(uvec3 c) {
 
 // Find zero crossings along edges to position a vertex
 vec3 vertPos(uint mask, uvec3 p) {
-    // Sum all edge crossings together
+    // Use edge crossings to interpolate the vertex position
     vec3 v = vec3(0.0);
     uint crossings = 0;
     uint eMask = edgeTable[mask];
@@ -65,16 +65,27 @@ vec3 vertPos(uint mask, uvec3 p) {
         if ((eMask & (1 << i)) == 0) {
             continue;
         }
+        crossings += 1;
         uint j0 = cubeEdges[i*2 + 0];
         uint j1 = cubeEdges[i*2 + 1];
         uvec3 p0 = p + uvec3(j0 & 1, (j0>>1) & 1, (j0>>2) & 1);
         uvec3 p1 = p + uvec3(j1 & 1, (j1>>1) & 1, (j1>>2) & 1);
         float v0 = voxel(p0);
         float v1 = voxel(p1);
-        // Crosses edge if sign difference
-        if (v0 * v1 < 0.0) {
-            v += v0 / (v0 - v1);
-            crossings += 1;
+        float t = v0 - v1;
+        // Interpolate
+        if (abs(t) > 1e-6) {
+            t = v0 / t;
+            for (uint j = 0; j < 3; j++) {
+                uint k = 1 << j;
+                uint a = j0 & k;
+                uint b = j1 & k;
+                if (a != b) {
+                    v[j] += a != 0 ? 1.0 - t : t;
+                } else {
+                    v[j] += a != 0 ? 1.0 : 0.0;
+                }
+            }
         }
     }
 

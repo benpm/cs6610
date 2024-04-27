@@ -15,4 +15,5 @@ inline size_t flatIdx(uint16_t x, uint16_t y, uint16_t z) {
     return z * (chunkSize * chunkSize) + flatIdx(x, y);
 }
 
+// Generate a table mapping cube configuration to edge indices
 std::array<GLuint, 256> generateEdgeTable();
