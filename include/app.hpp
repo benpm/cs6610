@@ -87,7 +87,7 @@ class App
         bool mouseMoved = false;
         std::unordered_set<int> pressedKeys;
 
-        bool doDrawDebug = true;
+        bool doDrawDebug = false;
 
 
         Vector2i windowSize = {1280, 720};

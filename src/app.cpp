@@ -236,6 +236,12 @@ App::App(cxxopts::ParseResult& args) {
 
         this->eDragArrow = e;
     }
+    { // Create a directional light
+        entt::entity e = this->makeLight(
+            Vector3f::Zero(), Vector3f::Ones(), 1.0f, 10.0f, LightType::directional);
+        Light& light = this->reg.get<Light>(e);
+        light.dir = {0.0f, 0.25f, 0.75f};
+    }
 
     // Create debug axis arrows
     for (size_t i = 0; i < 3; i++) {
@@ -782,10 +788,6 @@ void App::drawMeshes(const Camera& cam, const Vector2f& viewport) {
         GL_UNSIGNED_INT,
         (const void**)this->vOffsets.data(),
         this->vCounts.size()); $gl_err();
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0); $gl_err();
-    glBindTexture(GL_TEXTURE_2D, 0); $gl_err();
-    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); $gl_err();
     
     glBindVertexArray(this->vaoVoxels); $gl_err();
     this->csSurfaceNets.bindAs(gfx::ssbo::voxelVerts, GL_ARRAY_BUFFER); $gl_err();
