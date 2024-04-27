@@ -1,8 +1,6 @@
 #pragma once
 
 #include <extmath.hpp>
-#undef near
-#undef far
 
 struct Model;
 struct Light;

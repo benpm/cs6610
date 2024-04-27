@@ -61,7 +61,7 @@ void ComputeShader::recompile() {
     const char *sourcePtr = source.c_str();
     glShaderSource(this->shaderID, 1, &sourcePtr, nullptr); $gl_err();
     glCompileShader(this->shaderID); $gl_err();
-    checkShaderCompileErr(this->shaderID, path);
+    checkShaderCompileErr(this->shaderID, path.filename().string());
     
     glLinkProgram(this->programID); $gl_err();
     checkProgramLinkErr(this->programID, "compute shader");

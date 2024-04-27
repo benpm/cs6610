@@ -10,6 +10,8 @@
 #ifdef PLATFORM_WINDOWS
     #include <cstdint>
     #define uint uint32_t
+    #undef near
+    #undef far
 #endif
 #include <cyVector.h>
 #include <spdlog/spdlog.h>

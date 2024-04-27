@@ -2,6 +2,8 @@
     "files.associations": {
         "*.shader": "glsl",
         "*.in": "cmake",
+        "*.spec": "python",
+        ".clang-uml": "yaml",
         "fg_gl2.h": "c",
         "fg_internal.h": "c",
         "math.h": "c",
@@ -108,6 +110,7 @@
         "cassert": "cpp",
         "GLAD.C": "cpp",
         "*.ipp": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "filesystem": "cpp"
     }
 }
