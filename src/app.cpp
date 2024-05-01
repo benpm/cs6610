@@ -222,6 +222,7 @@ App::App(cxxopts::ParseResult& args) {
                 .emissionFactor = 1.0f
             }));
         this->eSelectPoint = e;
+        this->hidden(this->eSelectPoint, true);
 
         Model& model = this->reg.get<Model>(e);
         model.scale = Vector3f::Ones() * 0.2f;
@@ -238,9 +239,13 @@ App::App(cxxopts::ParseResult& args) {
     }
     { // Create a directional light
         entt::entity e = this->makeLight(
-            Vector3f::Zero(), Vector3f::Ones(), 1.0f, 10.0f, LightType::directional);
+            Vector3f::Zero(), Vector3f::Ones(), 0.25f, 10.0f, LightType::directional);
         Light& light = this->reg.get<Light>(e);
         light.dir = {0.0f, 0.25f, 0.75f};
+        this->hidden(e, true);
+    }
+    {
+        
     }
 
     // Create debug axis arrows
