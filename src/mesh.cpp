@@ -1,4 +1,3 @@
-#define NOMINMAX
 #include <filesystem>
 #include <tuple>
 #include <unordered_map>
@@ -59,10 +58,10 @@ std::string MeshCollection::add(const std::string &filename, const std::string &
         };
 
         if (m.M(i).map_Kd) {
-            mat.diffuseTexID = this->textures.add(textureDir / fs::path(m.M(i).map_Kd.data));
+            mat.diffuseTexID = this->textures.add((textureDir / fs::path(m.M(i).map_Kd.data)).string());
         }
         if (m.M(i).map_Ks) {
-            mat.specularTexID = this->textures.add(textureDir / fs::path(m.M(i).map_Ks.data));
+            mat.specularTexID = this->textures.add((textureDir / fs::path(m.M(i).map_Ks.data)).string());
         }
 
         const uint32_t globalMatID = this->materials.size();

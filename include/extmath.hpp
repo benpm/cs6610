@@ -10,9 +10,12 @@
 #ifdef PLATFORM_WINDOWS
     #include <cstdint>
     #define uint uint32_t
+    #undef near
+    #undef far
 #endif
 #include <cyVector.h>
-#include <spdlog/fmt/bundled/format.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/fmt/ostr.h>
 
 using namespace Eigen;
 
@@ -32,75 +35,24 @@ void glCheckError_(const char *file, int line);
     #define $gl_err() glCheckError_(__FILE__, __LINE__) 
 #endif
 
-template<typename T> struct EigenFormatter {
-    std::string strFormat(const T& input) {
-        IOFormat fmt(4, 0, ", ", ", ", "", "", "[", "]", ' ');
-        auto wf = input.format(fmt);
+template <typename TVector> struct EigenVectorFormatter
+{
+    const IOFormat ioFormat = IOFormat(4, DontAlignCols, ", ", ", ", "", "", "<", ">", ' ');
+
+    std::string strFormat(const TVector& input)
+    {
         std::stringstream ss;
-        ss << wf;
+        ss << input.format(ioFormat);
         return ss.str();
     }
 };
 
-// fmt overload for Matrix4f
-template<> struct fmt::formatter<Matrix4f> : EigenFormatter<Matrix4f> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
-    }
-
-    template <typename FormatContext>
-    auto format(const Matrix4f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "{}", this->strFormat(input));
-    }
-};
-
-// fmt overload for Matrix4f
-template<> struct fmt::formatter<Matrix3f> : EigenFormatter<Matrix3f> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
-    }
-
-    template <typename FormatContext>
-    auto format(const Matrix3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "{}", this->strFormat(input));
-    }
-};
-
-// fmt overload for Vector4f
-template<> struct fmt::formatter<Vector4f> : EigenFormatter<Vector4f> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
-    }
-
-    template <typename FormatContext>
-    auto format(const Vector4f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "{}", this->strFormat(input));
-    }
-};
-
-// fmt overload for Vector3f
-template<> struct fmt::formatter<Vector3f> : EigenFormatter<Vector3f> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
-    }
-
-    template <typename FormatContext>
-    auto format(const Vector3f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "{}", this->strFormat(input));
-    }
-};
-
-// fmt overload for Vector2f
-template<> struct fmt::formatter<Vector2f> : EigenFormatter<Vector2f> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
-    }
-
-    template <typename FormatContext>
-    auto format(const Vector2f& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(), "{}", this->strFormat(input));
-    }
-};
+// Formatter for eigen vector types
+template <typename TValue, int _size>
+std::ostream& operator<<(std::ostream& os, const Vector<TValue, _size>& v)
+{
+    return os << EigenVectorFormatter<Vector<TValue, _size>>().strFormat(v);
+}
 
 // fmt overload for std::vector
 template <typename T> struct fmt::formatter<std::vector<T>> {

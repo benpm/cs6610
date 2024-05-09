@@ -5,7 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "C++ Launch",
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/app.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "integratedTerminal",
+            "logging": {
+                "moduleLoad": false,
+                "engineLogging": false
+            },
+            "preLaunchTask": "CMake: build",
+        },
+        {
+            "name": "(Linux) Launch",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/app",
@@ -19,10 +35,15 @@
                 {
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
-                    "ignoreFailures": false
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "C/C++: Build Main"
-        }
+            "preLaunchTask": "CMake: build"
+        },
     ]
 }

@@ -3,7 +3,6 @@
 #include <tuple>
 #include <ostream>
 #include <spdlog/spdlog.h>
-#include <spdlog/formatter.h>
 #include <texture.hpp>
 #include <glad/glad.h>
 #undef near

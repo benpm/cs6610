@@ -1,5 +1,8 @@
 cmake_minimum_required (VERSION 3.9)
-project (CS6610)
+project (gl_playground)
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 include_directories(include)
 include_directories(lib/include)
@@ -26,7 +29,11 @@ target_compile_features(app PRIVATE cxx_std_20)
 
 if(WIN32)
     message(STATUS "Windows detected, adding compile flags")
-    target_compile_definitions(app PRIVATE PLATFORM_WINDOWS)
+    target_compile_definitions(app PUBLIC
+        PLATFORM_WINDOWS
+        _USE_MATH_DEFINES
+        NOMINMAX
+    )
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
@@ -54,7 +61,5 @@ elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(app PRIVATE BUILD_RELEASE)
 endif()
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 target_link_libraries(app glfw ${OPENGL_LIBRARIES} spdlog imgui EnTT spng cxxopts)

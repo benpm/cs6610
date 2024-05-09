@@ -2,6 +2,9 @@
 
 #include <extmath.hpp>
 
+#undef near
+#undef far
+
 class CameraControl;
 struct Camera;
 

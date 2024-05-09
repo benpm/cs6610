@@ -90,7 +90,7 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
 
     assert(fs::exists(dirName));
 
-    const std::array<std::string, 6u> paths {
+    const std::array<fs::path, 6u> paths {
         fs::path(dirName) / "posx.png",
         fs::path(dirName) / "negx.png",
         fs::path(dirName) / "posy.png",
@@ -102,7 +102,7 @@ uint32_t TextureCollection::addCubemap(const std::string& name, const std::strin
     uint32_t width, height;
     std::array<std::vector<uint8_t>, 6> faceData;
     for (size_t i = 0; i < 6u; i++) {
-        auto [data, w, h] = getImageData(paths[i]);
+        auto [data, w, h] = getImageData(paths[i].string());
         if (i == 0) {
             width = w;
             height = h;

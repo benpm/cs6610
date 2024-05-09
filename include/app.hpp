@@ -1,8 +1,5 @@
 #pragma once
 
-#ifdef PLATFORM_WINDOWS
-    #define NOMINMAX
-#endif
 #include <cmath>
 #include <iostream>
 #include <unordered_set>
