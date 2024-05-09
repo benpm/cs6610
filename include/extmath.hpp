@@ -15,7 +15,7 @@
 #endif
 #include <cyVector.h>
 #include <spdlog/spdlog.h>
-#include <spdlog/fmt/ostr.h>
+#include <spdlog/fmt/fmt.h>
 
 using namespace Eigen;
 
@@ -47,12 +47,12 @@ template <typename TVector> struct EigenVectorFormatter
     }
 };
 
-// Formatter for eigen vector types
-template <typename TValue, int _size>
-std::ostream& operator<<(std::ostream& os, const Vector<TValue, _size>& v)
-{
-    return os << EigenVectorFormatter<Vector<TValue, _size>>().strFormat(v);
-}
+// fmt overload for Vector
+template <typename TValue, int _size> struct fmt::formatter<Vector<TValue, _size>>: formatter<string_view> {
+    auto format(const Vector<TValue, _size>& i, format_context& ctx) const {
+        return formatter<string_view>::format(EigenVectorFormatter<Vector<TValue, _size>>().strFormat(i), ctx);
+    }
+};
 
 // fmt overload for std::vector
 template <typename T> struct fmt::formatter<std::vector<T>> {
